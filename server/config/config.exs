@@ -39,6 +39,10 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Email delivery
+config :burble, Burble.Mailer,
+  adapter: Swoosh.Adapters.Local
+
 # Rate limiting
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60, cleanup_interval_ms: 60_000 * 10]}

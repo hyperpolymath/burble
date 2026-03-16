@@ -76,6 +76,10 @@ defmodule Burble.MixProject do
       # Media plane — ex_webrtc SFU (audio-only, Opus)
       {:ex_webrtc, "~> 0.16"},
 
+      # Email (magic links, notifications)
+      {:swoosh, "~> 1.17"},
+      {:gen_smtp, "~> 1.2"},
+
       # CORS for web client
       {:corsica, "~> 2.1"},
 
