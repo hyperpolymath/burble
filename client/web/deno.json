@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.unstable"],
+    "strict": true
+  },
+  "imports": {
+    "@rescript/core": "npm:@rescript/core@1.6.1",
+    "rescript": "npm:rescript@12.2.0",
+    "cadre-router": "npm:cadre-router@0.3.0",
+    "vite": "npm:vite@6.2.0"
+  },
+  "tasks": {
+    "res:build": "deno run --node-modules-dir=auto --allow-read --allow-write --allow-env --allow-run npm:rescript@12.2.0",
+    "res:dev": "deno run --node-modules-dir=auto --allow-read --allow-write --allow-env --allow-run npm:rescript@12.2.0 -w",
+    "dev": "deno task res:dev & deno task dev:vite",
+    "dev:vite": "deno run --node-modules-dir=auto --allow-read --allow-write --allow-env --allow-net --allow-sys --allow-ffi --allow-run npm:vite",
+    "build": "deno task res:build && deno run --node-modules-dir=auto --allow-read --allow-write --allow-env --allow-net --allow-sys --allow-ffi --allow-run npm:vite build",
+    "test": "deno test --no-check --node-modules-dir=auto --allow-read --allow-env tests/"
+  }
+}

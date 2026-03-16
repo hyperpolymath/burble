@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grumble</title>
+  <meta name="description" content="Voice first. Friction last. Complexity optional." />
+
+  <!-- Minimal base styles — real styling done in ReScript/CSS modules -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    #app { min-height: 100vh; display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/Main.res.mjs"></script>
+</body>
+</html>

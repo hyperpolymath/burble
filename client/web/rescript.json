@@ -1,0 +1,21 @@
+{
+  "name": "grumble-web",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    }
+  ],
+  "package-specs": [
+    {
+      "module": "esmodule",
+      "in-source": true
+    }
+  ],
+  "suffix": ".res.mjs",
+  "dependencies": [
+    "@rescript/core",
+    "cadre-router"
+  ],
+  "compiler-flags": ["-open RescriptCore"]
+}
