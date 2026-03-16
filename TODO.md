@@ -4,9 +4,9 @@
 ## Immediate (next session)
 
 ### Deepen the voice demo
-- [ ] Replace peer-to-peer mesh with Membrane SFU (server-side forwarding)
+- [x] Replace P2P with SFU (Burble.Media.Peer + ExWebRTC PeerConnection)
 - [ ] Implement actual E2EE via Insertable Streams (WebRTC Encoded Transform)
-- [ ] Set up embedded TURN server (ex_turn) for TURN-only default
+- [x] TURN server config (BURBLE_TURN_URL/USER/PASS env vars)
 - [ ] Add push-to-talk support in the web client
 
 ### ReScript web client
@@ -62,8 +62,8 @@
 ## Medium term
 
 ### Server hardening
-- [ ] Replace HMAC with Ed25519 for Avow/Vext signatures
-- [ ] Implement proper Guardian JWT auth (replace Phoenix.Token)
+- [x] Replace HMAC with Ed25519 for Avow/Vext signatures (via :crypto.sign(:eddsa))
+- [x] Implement proper Guardian JWT auth (access/refresh/guest tokens)
 - [ ] Add magic link email sending (currently stub)
 - [x] Server-side recording (operator-approved) — Recorder module + .barc format
 
