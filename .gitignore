@@ -15,7 +15,9 @@ server/deps/
 server/cover/
 server/*.ez
 server/.elixir_ls/
-server/priv/static/
+# Server generated static (NOT the MVP index.html)
+server/priv/static/assets/
+server/priv/static/cache_manifest.json
 server/priv/repo/*.lock
 
 # ReScript

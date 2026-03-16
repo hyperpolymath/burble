@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!--
+  Grumble — MVP Web Client
+
+  Minimal functional client for testing voice rooms end-to-end.
+  Connects via Phoenix WebSocket, joins rooms, shows participants,
+  handles WebRTC audio. This is the "can we see it working" version.
+
+  The full ReScript client (client/web/) will replace this.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grumble</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      background: #0a0a0f;
+      color: #c8c8d0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      background: #12121a;
+      border-bottom: 1px solid #1e1e2e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header h1 { font-size: 16px; color: #44ff88; font-weight: 600; }
+    .header .status { font-size: 11px; color: #666; }
+    .header .status.connected { color: #44ff88; }
+
+    /* Main layout */
+    .main { display: flex; flex: 1; }
+
+    /* Sidebar — server/rooms */
+    .sidebar {
+      width: 240px;
+      background: #0f0f18;
+      border-right: 1px solid #1e1e2e;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sidebar h2 { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+
+    .room-btn {
+      background: #1a1a28;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: #aaa;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .room-btn:hover { background: #222238; border-color: #44ff88; color: #ddd; }
+    .room-btn.active { background: #1a2a1f; border-color: #44ff88; color: #44ff88; }
+    .room-btn .count { font-size: 10px; color: #555; float: right; }
+
+    /* Content — room view */
+    .content { flex: 1; display: flex; flex-direction: column; }
+
+    /* Participants */
+    .participants {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .participant {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    .participant:hover { background: #1a1a28; }
+    .participant .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #2a2a3a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #888;
+    }
+    .participant .avatar.speaking { background: #1a3a1f; box-shadow: 0 0 8px #44ff8844; }
+    .participant .name { font-size: 13px; }
+    .participant .voice-state { font-size: 10px; color: #555; }
+    .participant .voice-state.muted { color: #ff4444; }
+
+    /* Text chat */
+    .chat {
+      height: 200px;
+      border-top: 1px solid #1e1e2e;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px;
+      font-size: 12px;
+    }
+    .chat-msg { margin-bottom: 4px; }
+    .chat-msg .author { color: #44ff88; }
+    .chat-msg .time { color: #444; font-size: 10px; }
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #1e1e2e;
+    }
+    .chat-input input {
+      flex: 1;
+      background: #12121a;
+      border: none;
+      padding: 10px 16px;
+      color: #c8c8d0;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+    .chat-input input::placeholder { color: #444; }
+
+    /* Voice controls bar */
+    .voice-bar {
+      background: #12121a;
+      border-top: 1px solid #1e1e2e;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .voice-bar button {
+      background: #2a2a3a;
+      border: 1px solid #3a3a4a;
+      border-radius: 6px;
+      padding: 8px 16px;
+      color: #aaa;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .voice-bar button:hover { background: #3a3a4a; color: #ddd; }
+    .voice-bar button.active { background: #1a2a1f; border-color: #44ff88; color: #44ff88; }
+    .voice-bar button.muted { background: #2a1a1a; border-color: #ff4444; color: #ff4444; }
+    .voice-bar .spacer { flex: 1; }
+    .voice-bar .audio-level {
+      width: 60px; height: 6px;
+      background: #1a1a28;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .voice-bar .audio-level-fill {
+      height: 100%;
+      background: #44ff88;
+      width: 0%;
+      transition: width 0.1s;
+    }
+
+    /* Join screen */
+    .join-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 16px;
+    }
+    .join-screen h2 { color: #44ff88; font-size: 24px; }
+    .join-screen p { color: #666; font-size: 13px; }
+    .join-screen input {
+      background: #1a1a28;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      padding: 12px 20px;
+      color: #c8c8d0;
+      font-family: inherit;
+      font-size: 14px;
+      width: 280px;
+      outline: none;
+      text-align: center;
+    }
+    .join-screen input:focus { border-color: #44ff88; }
+    .join-screen button {
+      background: #44ff88;
+      color: #0a0a0f;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 32px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .join-screen button:hover { background: #66ffaa; }
+  </style>
+</head>
+<body>
+  <!-- Join Screen -->
+  <div id="join-screen" class="join-screen">
+    <h2>Grumble</h2>
+    <p>Voice first. Friction last. Complexity optional.</p>
+    <input type="text" id="display-name" placeholder="Your name" autofocus />
+    <button onclick="guestJoin()">Join as Guest</button>
+  </div>
+
+  <!-- Main App (hidden until joined) -->
+  <div id="app" style="display:none; flex-direction:column; min-height:100vh;">
+    <div class="header">
+      <h1>GRUMBLE</h1>
+      <span id="conn-status" class="status">Disconnected</span>
+      <span class="spacer" style="flex:1"></span>
+      <span id="user-name" style="font-size:12px; color:#888;"></span>
+    </div>
+
+    <div class="main">
+      <div class="sidebar">
+        <h2>Rooms</h2>
+        <div id="room-list"></div>
+        <button class="room-btn" onclick="createRoom()" style="border-style:dashed; color:#555;">+ New Room</button>
+      </div>
+
+      <div class="content">
+        <div id="room-view" style="display:none; flex:1; flex-direction:column;">
+          <div class="participants" id="participants"></div>
+          <div class="chat">
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input">
+              <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMessage()" />
+            </div>
+          </div>
+        </div>
+        <div id="no-room" style="display:flex; align-items:center; justify-content:center; flex:1; color:#444;">
+          Select a room to join
+        </div>
+      </div>
+    </div>
+
+    <div class="voice-bar">
+      <button id="mute-btn" onclick="toggleMute()">Mute</button>
+      <button id="deafen-btn" onclick="toggleDeafen()">Deafen</button>
+      <div class="audio-level">
+        <div id="audio-level-fill" class="audio-level-fill"></div>
+      </div>
+      <span class="spacer"></span>
+      <span id="room-info" style="font-size:11px; color:#555;"></span>
+      <button onclick="leaveRoom()" style="background:#2a1a1a; border-color:#ff4444; color:#ff4444;">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- Phoenix Socket JS (loaded from CDN for MVP) -->
+  <script src="https://cdn.jsdelivr.net/npm/phoenix@1.7.20/priv/static/phoenix.min.js"></script>
+
+  <script>
+    // ── State ──
+    let state = {
+      token: null,
+      userId: null,
+      displayName: null,
+      socket: null,
+      channel: null,
+      currentRoom: null,
+      muted: false,
+      deafened: false,
+      participants: {},
+      localStream: null,
+      peerConnections: {},
+    };
+
+    // ── Guest Join ──
+    async function guestJoin() {
+      const name = document.getElementById('display-name').value.trim() || 'Guest';
+
+      const res = await fetch('/api/v1/auth/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: name })
+      });
+      const data = await res.json();
+
+      state.token = data.token;
+      state.userId = data.user_id;
+      state.displayName = data.display_name;
+
+      // Show main app
+      document.getElementById('join-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('user-name').textContent = state.displayName;
+
+      // Connect WebSocket
+      connectSocket();
+
+      // Load rooms
+      loadRooms();
+    }
+
+    // ── WebSocket ──
+    function connectSocket() {
+      // Use Phoenix JS client
+      state.socket = new Phoenix.Socket('/voice', {
+        params: { guest: 'true', display_name: state.displayName }
+      });
+
+      state.socket.connect();
+
+      state.socket.onOpen(() => {
+        setStatus('Connected', true);
+      });
+
+      state.socket.onClose(() => {
+        setStatus('Disconnected', false);
+      });
+
+      state.socket.onError(() => {
+        setStatus('Error', false);
+      });
+    }
+
+    // ── Rooms ──
+    async function loadRooms() {
+      const res = await fetch('/api/v1/servers/default/rooms');
+      const data = await res.json();
+      renderRoomList(data.rooms || []);
+    }
+
+    function renderRoomList(rooms) {
+      const list = document.getElementById('room-list');
+      list.innerHTML = '';
+      rooms.forEach(room => {
+        const btn = document.createElement('button');
+        btn.className = 'room-btn' + (state.currentRoom === room.id ? ' active' : '');
+        btn.innerHTML = `${room.name} <span class="count">${room.participant_count}</span>`;
+        btn.onclick = () => joinRoom(room.id, room.name);
+        list.appendChild(btn);
+      });
+    }
+
+    async function createRoom() {
+      const name = prompt('Room name:');
+      if (!name) return;
+
+      await fetch('/api/v1/servers/default/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      loadRooms();
+    }
+
+    // ── Join Room ──
+    async function joinRoom(roomId, roomName) {
+      // Leave current room if any
+      if (state.channel) {
+        state.channel.leave();
+        state.channel = null;
+      }
+
+      state.currentRoom = roomId;
+
+      // Join Phoenix channel
+      state.channel = state.socket.channel(`room:${roomId}`, {
+        display_name: state.displayName
+      });
+
+      // Presence events — initial state (who's already in the room)
+      state.channel.on('presence_state', (presences) => {
+        state.participants = {};
+        Object.entries(presences).forEach(([userId, data]) => {
+          const meta = data.metas?.[0] || {};
+          state.participants[userId] = {
+            userId,
+            displayName: meta.display_name || 'Unknown',
+            voiceState: meta.voice_state || 'connected',
+            isSpeaking: false,
+          };
+        });
+        renderParticipants();
+
+        // Call all existing peers (they were here before us)
+        Object.keys(presences).forEach(userId => {
+          if (userId !== state.userId && state.localStream) {
+            setTimeout(() => callPeer(userId), 800);
+          }
+        });
+      });
+
+      state.channel.on('presence_diff', (diff) => {
+        // Handle joins — initiate WebRTC call to new peers
+        if (diff.joins) {
+          Object.entries(diff.joins).forEach(([userId, data]) => {
+            const meta = data.metas?.[0] || {};
+            state.participants[userId] = {
+              userId,
+              displayName: meta.display_name || 'Unknown',
+              voiceState: meta.voice_state || 'connected',
+              isSpeaking: false,
+            };
+            // Start WebRTC call to the new peer
+            onPeerJoined(userId);
+          });
+        }
+        // Handle leaves — close WebRTC connections
+        if (diff.leaves) {
+          Object.keys(diff.leaves).forEach(userId => {
+            delete state.participants[userId];
+            // Close peer connection
+            if (state.peerConnections[userId]) {
+              state.peerConnections[userId].close();
+              delete state.peerConnections[userId];
+            }
+            // Remove audio element
+            const audioEl = document.getElementById(`audio-${userId}`);
+            if (audioEl) audioEl.remove();
+          });
+        }
+        renderParticipants();
+        loadRooms();
+      });
+
+      // Voice state changes
+      state.channel.on('voice_state_changed', ({ user_id, voice_state }) => {
+        if (state.participants[user_id]) {
+          state.participants[user_id].voiceState = voice_state;
+          renderParticipants();
+        }
+      });
+
+      // Text messages
+      state.channel.on('text', (msg) => {
+        addChatMessage(msg.display_name, msg.body, msg.sent_at);
+      });
+
+      // WebRTC signaling
+      state.channel.on('signal', (data) => {
+        handleSignal(data);
+      });
+
+      // Join the channel
+      state.channel.join()
+        .receive('ok', (response) => {
+          console.log('[Grumble] Joined room:', roomName, response);
+          document.getElementById('room-info').textContent = `${roomName}`;
+          document.getElementById('room-view').style.display = 'flex';
+          document.getElementById('no-room').style.display = 'none';
+
+          // Request microphone
+          requestMicrophone();
+          loadRooms();
+        })
+        .receive('error', (err) => {
+          console.error('[Grumble] Failed to join room:', err);
+          alert('Failed to join room: ' + (err.reason || 'unknown error'));
+        });
+    }
+
+    function leaveRoom() {
+      closeAllPeers();
+      if (state.channel) {
+        state.channel.leave();
+        state.channel = null;
+      }
+      if (state.localStream) {
+        state.localStream.getTracks().forEach(t => t.stop());
+        state.localStream = null;
+      }
+      state.currentRoom = null;
+      state.participants = {};
+      document.getElementById('room-view').style.display = 'none';
+      document.getElementById('no-room').style.display = 'flex';
+      document.getElementById('room-info').textContent = '';
+      document.getElementById('participants').innerHTML = '';
+      document.getElementById('chat-messages').innerHTML = '';
+      loadRooms();
+    }
+
+    // ── Microphone ──
+    async function requestMicrophone() {
+      try {
+        state.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+        console.log('[Grumble] Microphone acquired');
+        startAudioLevelMonitor();
+      } catch (err) {
+        console.warn('[Grumble] Microphone denied:', err.message);
+      }
+    }
+
+    function startAudioLevelMonitor() {
+      if (!state.localStream) return;
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(state.localStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      function poll() {
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        const avg = sum / data.length / 255;
+
+        document.getElementById('audio-level-fill').style.width = (avg * 100) + '%';
+        requestAnimationFrame(poll);
+      }
+      poll();
+    }
+
+    // ── WebRTC — Peer-to-peer mesh audio ──
+    //
+    // Each peer maintains a direct RTCPeerConnection to every other peer.
+    // Signaling (SDP offer/answer + ICE candidates) flows through the
+    // Phoenix channel. Audio flows directly peer-to-peer.
+    //
+    // For MVP this is mesh topology (works great for 2-8 people).
+    // SFU upgrade (ex_webrtc on server) comes later for larger rooms.
+
+    const RTC_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]
+    };
+
+    // Create a peer connection for a remote user
+    function createPeerConnection(remoteUserId) {
+      if (state.peerConnections[remoteUserId]) {
+        state.peerConnections[remoteUserId].close();
+      }
+
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      state.peerConnections[remoteUserId] = pc;
+
+      // Add local audio track to the connection
+      if (state.localStream) {
+        state.localStream.getTracks().forEach(track => {
+          pc.addTrack(track, state.localStream);
+        });
+      }
+
+      // When we get ICE candidates, send them to the remote peer
+      pc.onicecandidate = (event) => {
+        if (event.candidate && state.channel) {
+          state.channel.push('signal', {
+            to: remoteUserId,
+            type: 'ice_candidate',
+            payload: JSON.stringify(event.candidate),
+          });
+        }
+      };
+
+      // When we receive a remote audio stream, play it
+      pc.ontrack = (event) => {
+        console.log('[Grumble] Received audio from', remoteUserId);
+        playRemoteAudio(remoteUserId, event.streams[0]);
+      };
+
+      // Connection state monitoring
+      pc.onconnectionstatechange = () => {
+        console.log(`[Grumble] Peer ${remoteUserId}: ${pc.connectionState}`);
+        if (pc.connectionState === 'connected') {
+          addChatMessage('System', `Voice connected with ${state.participants[remoteUserId]?.displayName || remoteUserId}`, null);
+        }
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          addChatMessage('System', `Voice lost with ${state.participants[remoteUserId]?.displayName || remoteUserId}`, null);
+        }
+      };
+
+      return pc;
+    }
+
+    // Initiate a call to a remote peer (we create the offer)
+    async function callPeer(remoteUserId) {
+      if (remoteUserId === state.userId) return; // Don't call yourself
+      if (!state.localStream) {
+        console.warn('[Grumble] No microphone — cannot call peer');
+        return;
+      }
+
+      console.log('[Grumble] Calling peer:', remoteUserId);
+      const pc = createPeerConnection(remoteUserId);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      state.channel.push('signal', {
+        to: remoteUserId,
+        type: 'offer',
+        payload: JSON.stringify(offer),
+      });
+    }
+
+    // Handle incoming WebRTC signaling messages
+    async function handleSignal(data) {
+      // Ignore signals not addressed to us
+      if (data.to !== state.userId) return;
+
+      const fromId = data.from;
+
+      if (data.type === 'offer') {
+        console.log('[Grumble] Received offer from', fromId);
+        const pc = createPeerConnection(fromId);
+
+        await pc.setRemoteDescription(JSON.parse(data.payload));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        state.channel.push('signal', {
+          to: fromId,
+          type: 'answer',
+          payload: JSON.stringify(answer),
+        });
+
+      } else if (data.type === 'answer') {
+        console.log('[Grumble] Received answer from', fromId);
+        const pc = state.peerConnections[fromId];
+        if (pc) {
+          await pc.setRemoteDescription(JSON.parse(data.payload));
+        }
+
+      } else if (data.type === 'ice_candidate') {
+        const pc = state.peerConnections[fromId];
+        if (pc) {
+          const candidate = JSON.parse(data.payload);
+          await pc.addIceCandidate(candidate);
+        }
+      }
+    }
+
+    // Play audio from a remote peer
+    function playRemoteAudio(userId, stream) {
+      // Remove existing audio element if any
+      const existingEl = document.getElementById(`audio-${userId}`);
+      if (existingEl) existingEl.remove();
+
+      const audio = document.createElement('audio');
+      audio.id = `audio-${userId}`;
+      audio.srcObject = stream;
+      audio.autoplay = true;
+      audio.playsInline = true;
+
+      // Apply per-user volume
+      const vol = state.peerVolumes?.[userId] ?? 1.0;
+      audio.volume = vol;
+
+      document.body.appendChild(audio);
+
+      // Set up speaking detection for remote peer
+      detectRemoteSpeaking(userId, stream);
+    }
+
+    // Detect when a remote peer is speaking (for UI indicator)
+    function detectRemoteSpeaking(userId, stream) {
+      try {
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+
+        function poll() {
+          if (!state.participants[userId]) return; // User left
+          analyser.getByteFrequencyData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) sum += data[i];
+          const avg = sum / data.length / 255;
+
+          const wasSpeaking = state.participants[userId]?.isSpeaking;
+          const isSpeaking = avg > 0.02;
+          if (state.participants[userId]) {
+            state.participants[userId].isSpeaking = isSpeaking;
+          }
+          if (wasSpeaking !== isSpeaking) renderParticipants();
+
+          requestAnimationFrame(poll);
+        }
+        poll();
+      } catch (e) {
+        console.warn('[Grumble] Speaking detection failed for', userId, e);
+      }
+    }
+
+    // Close all peer connections (when leaving room)
+    function closeAllPeers() {
+      Object.values(state.peerConnections).forEach(pc => pc.close());
+      state.peerConnections = {};
+
+      // Remove all remote audio elements
+      document.querySelectorAll('audio[id^="audio-"]').forEach(el => el.remove());
+    }
+
+    // When a new peer joins, initiate a call to them
+    function onPeerJoined(userId) {
+      if (userId === state.userId) return;
+      if (!state.localStream) return;
+
+      // Small delay to let the other peer set up their channel handlers
+      setTimeout(() => callPeer(userId), 500);
+    }
+
+    // ── Voice Controls ──
+    function toggleMute() {
+      state.muted = !state.muted;
+      const btn = document.getElementById('mute-btn');
+      btn.textContent = state.muted ? 'Unmute' : 'Mute';
+      btn.className = state.muted ? 'muted' : '';
+
+      // Disable/enable local audio tracks (stops sending audio to peers)
+      if (state.localStream) {
+        state.localStream.getAudioTracks().forEach(t => t.enabled = !state.muted);
+      }
+
+      if (state.channel) {
+        state.channel.push('voice_state', { state: state.muted ? 'muted' : 'connected' });
+      }
+    }
+
+    function toggleDeafen() {
+      state.deafened = !state.deafened;
+      const btn = document.getElementById('deafen-btn');
+      btn.textContent = state.deafened ? 'Undeafen' : 'Deafen';
+      btn.className = state.deafened ? 'muted' : '';
+
+      // Mute all remote audio elements
+      document.querySelectorAll('audio[id^="audio-"]').forEach(el => {
+        el.muted = state.deafened;
+      });
+
+      // Also mute self when deafened
+      if (state.localStream) {
+        state.localStream.getAudioTracks().forEach(t => t.enabled = !state.deafened);
+      }
+
+      if (state.channel) {
+        state.channel.push('voice_state', { state: state.deafened ? 'deafened' : 'connected' });
+      }
+    }
+
+    // ── Text Chat ──
+    function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const body = input.value.trim();
+      if (!body || !state.channel) return;
+
+      state.channel.push('text', { body });
+      input.value = '';
+    }
+
+    function addChatMessage(author, body, timestamp) {
+      const msgs = document.getElementById('chat-messages');
+      const time = timestamp ? new Date(timestamp).toLocaleTimeString() : '';
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.innerHTML = `<span class="time">${time}</span> <span class="author">${escapeHtml(author)}</span>: ${escapeHtml(body)}`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    // ── Rendering ──
+    function renderParticipants() {
+      const container = document.getElementById('participants');
+      container.innerHTML = '';
+
+      Object.values(state.participants).forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'participant';
+
+        const initial = (p.displayName || '?')[0].toUpperCase();
+        const avatarClass = p.isSpeaking ? 'avatar speaking' : 'avatar';
+        const stateClass = p.voiceState === 'muted' ? 'voice-state muted' : 'voice-state';
+        const stateText = p.voiceState === 'connected' ? '' : ` (${p.voiceState})`;
+
+        div.innerHTML = `
+          <div class="${avatarClass}">${initial}</div>
+          <div>
+            <div class="name">${escapeHtml(p.displayName)}</div>
+            <div class="${stateClass}">${stateText}</div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      // Update room info
+      const count = Object.keys(state.participants).length;
+      const roomInfo = document.getElementById('room-info');
+      if (roomInfo.textContent) {
+        const name = roomInfo.textContent.split(' (')[0];
+        roomInfo.textContent = `${name} (${count})`;
+      }
+    }
+
+    function setStatus(text, connected) {
+      const el = document.getElementById('conn-status');
+      el.textContent = text;
+      el.className = 'status' + (connected ? ' connected' : '');
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── Keyboard shortcut ──
+    document.addEventListener('keydown', (e) => {
+      // Enter on join screen
+      if (e.key === 'Enter' && document.getElementById('join-screen').style.display !== 'none') {
+        guestJoin();
+      }
+    });
+  </script>
+</body>
+</html>
