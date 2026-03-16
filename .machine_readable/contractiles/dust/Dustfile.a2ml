@@ -1,17 +1,21 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Dustfile — Cleanup and hygiene contract
+# Dustfile — Cleanup and hygiene contract for Grumble
 # Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# What should be cleaned up. Housekeeping, not blockers.
+# Run with: dust status
+# Roll back with: dust rollback <name>
 
 @abstract:
-What should be cleaned up or removed from this repository.
-These are housekeeping items, not blockers.
+Cleanup and hygiene items for the Grumble voice platform.
+These are maintenance tasks — not blocking, but should be addressed.
 @end
 
 ## Stale Files
 
 ### no-stale-snapshots
 - description: No dated status/completion files in root
-- run: "! ls *-STATUS-*.md *-COMPLETION-*.md *-COMPLETE.md *-VERIFIED-*.md 2>/dev/null | head -1 | grep -q ."
+- run: test -z "$(ls *-STATUS-*.md *-COMPLETION-*.md 2>/dev/null)"
 - severity: info
 
 ### no-ai-djot
@@ -26,19 +30,49 @@ These are housekeeping items, not blockers.
 
 ## Build Artifacts
 
-### no-tracked-artifacts
-- description: No build artifacts tracked in git
-- run: "! git ls-files lib/bs/ lib/ocaml/ target/release/ _build/ 2>/dev/null | head -1 | grep -q ."
+### no-tracked-elixir-build
+- description: No Elixir build artifacts tracked in git
+- run: test -z "$(git ls-files server/_build/ server/deps/ 2>/dev/null)"
 - severity: warning
+
+### no-tracked-rescript-build
+- description: No ReScript build artifacts tracked in git
+- run: test -z "$(git ls-files 'client/web/src/**/*.res.mjs' client/web/lib/ 2>/dev/null)"
+- severity: warning
+
+## Grumble-Specific Cleanup
+
+### stale-room-processes
+- description: Room processes should auto-terminate after idle timeout
+- verification: Grumble.Rooms.Room uses @idle_timeout_ms (5 minutes)
+- severity: info
+- notes: Not a file check — design verification that idle rooms are cleaned up
+
+### expired-invite-tokens
+- description: Expired invite tokens should be purged periodically
+- verification: Scheduled task purges tokens past expires_at
+- severity: info
+- notes: Planned — not yet implemented
+
+### orphaned-turn-credentials
+- description: TURN credentials expire after 1 hour
+- verification: Grumble.Media.Privacy.generate_turn_credential sets TTL
+- severity: info
+
+### template-example-trustfile
+- description: Remove the example Trustfile (keep only the real one)
+- run: test ! -f .machine_readable/contractiles/trust/Trustfile_just_an_example.a2ml
+- severity: info
+- rollback: git checkout HEAD -- .machine_readable/contractiles/trust/Trustfile_just_an_example.a2ml
 
 ## Format Duplicates
 
 ### no-duplicate-contributing
-- description: Only one CONTRIBUTING format (keep .md)
-- run: "! (test -f CONTRIBUTING.md && test -f CONTRIBUTING.adoc)"
+- description: Only one CONTRIBUTING format
+- run: test -z "$(test -f CONTRIBUTING.md && test -f CONTRIBUTING.adoc && echo dup)"
 - severity: warning
 
 ### no-duplicate-readme
 - description: Only one README format
-- run: "! (test -f README.md && test -f README.adoc && [ $(wc -l < README.md) -gt 5 ])"
+- run: test ! -f README.md || test ! -f README.adoc
 - severity: warning
