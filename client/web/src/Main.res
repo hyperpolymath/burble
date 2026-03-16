@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// Main — Entry point for the Grumble web client.
+// Main — Entry point for the Burble web client.
 //
 // Initialises the application state, sets up routing, and
 // starts the render loop.
@@ -9,9 +9,9 @@
 let app = App.make()
 
 // Log startup
-Console.log("[Grumble] Web client initialised")
-Console.log2("[Grumble] Route:", Routes.toString(app.currentRoute))
-Console.log2("[Grumble] Auth:", AuthState.displayName(app.auth))
+Console.log("[Burble] Web client initialised")
+Console.log2("[Burble] Route:", Routes.toString(app.currentRoute))
+Console.log2("[Burble] Auth:", AuthState.displayName(app.auth))
 
 // Listen for browser back/forward navigation
 @val @scope("window")
@@ -25,4 +25,4 @@ addPopStateListener(_ => {
 // Set initial page title
 let _ = %raw(`document.title = "${Routes.title(app.currentRoute)}"`)
 
-Console.log("[Grumble] Voice first. Friction last. Complexity optional.")
+Console.log("[Burble] Voice first. Friction last. Complexity optional.")

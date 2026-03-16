@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Rooms.RoomManager — Creates and finds room processes.
+# Burble.Rooms.RoomManager — Creates and finds room processes.
 #
 # Thin layer over DynamicSupervisor + Registry for room lifecycle.
 # Room processes are started on demand and cleaned up via idle timeout.
 
-defmodule Grumble.Rooms.RoomManager do
+defmodule Burble.Rooms.RoomManager do
   @moduledoc """
   Manages room process lifecycle.
 
@@ -13,11 +13,11 @@ defmodule Grumble.Rooms.RoomManager do
   after an idle timeout with no participants.
   """
 
-  alias Grumble.Rooms.Room
+  alias Burble.Rooms.Room
 
   @doc "Find or create a room process. Returns {:ok, pid} or {:error, reason}."
   def ensure_room(room_id, opts \\ []) do
-    case Registry.lookup(Grumble.RoomRegistry, room_id) do
+    case Registry.lookup(Burble.RoomRegistry, room_id) do
       [{pid, _}] ->
         {:ok, pid}
 
@@ -34,14 +34,14 @@ defmodule Grumble.Rooms.RoomManager do
       |> Keyword.put_new(:name, "Room #{room_id}")
 
     DynamicSupervisor.start_child(
-      Grumble.RoomSupervisor,
+      Burble.RoomSupervisor,
       {Room, child_opts}
     )
   end
 
   @doc "List all active room IDs."
   def list_active_rooms do
-    Registry.select(Grumble.RoomRegistry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+    Registry.select(Burble.RoomRegistry, [{{:"$1", :_, :_}, [], [:"$1"]}])
   end
 
   @doc "Count active rooms."

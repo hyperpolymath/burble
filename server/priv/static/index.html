@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
 <!--
-  Grumble — MVP Web Client
+  Burble — MVP Web Client
 
   Minimal functional client for testing voice rooms end-to-end.
   Connects via Phoenix WebSocket, joins rooms, shows participants,
@@ -13,7 +13,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grumble</title>
+  <title>Burble</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -213,7 +213,7 @@
 <body>
   <!-- Join Screen -->
   <div id="join-screen" class="join-screen">
-    <h2>Grumble</h2>
+    <h2>Burble</h2>
     <p>Voice first. Friction last. Complexity optional.</p>
     <input type="text" id="display-name" placeholder="Your name" autofocus />
     <button onclick="guestJoin()">Join as Guest</button>
@@ -222,7 +222,7 @@
   <!-- Main App (hidden until joined) -->
   <div id="app" style="display:none; flex-direction:column; min-height:100vh;">
     <div class="header">
-      <h1>GRUMBLE</h1>
+      <h1>BURBLE</h1>
       <span id="conn-status" class="status">Disconnected</span>
       <span class="spacer" style="flex:1"></span>
       <span id="user-name" style="font-size:12px; color:#888;"></span>
@@ -454,7 +454,7 @@
       // Join the channel
       state.channel.join()
         .receive('ok', (response) => {
-          console.log('[Grumble] Joined room:', roomName, response);
+          console.log('[Burble] Joined room:', roomName, response);
           document.getElementById('room-info').textContent = `${roomName}`;
           document.getElementById('room-view').style.display = 'flex';
           document.getElementById('no-room').style.display = 'none';
@@ -464,7 +464,7 @@
           loadRooms();
         })
         .receive('error', (err) => {
-          console.error('[Grumble] Failed to join room:', err);
+          console.error('[Burble] Failed to join room:', err);
           alert('Failed to join room: ' + (err.reason || 'unknown error'));
         });
     }
@@ -500,10 +500,10 @@
           },
           video: false,
         });
-        console.log('[Grumble] Microphone acquired');
+        console.log('[Burble] Microphone acquired');
         startAudioLevelMonitor();
       } catch (err) {
-        console.warn('[Grumble] Microphone denied:', err.message);
+        console.warn('[Burble] Microphone denied:', err.message);
       }
     }
 
@@ -574,13 +574,13 @@
 
       // When we receive a remote audio stream, play it
       pc.ontrack = (event) => {
-        console.log('[Grumble] Received audio from', remoteUserId);
+        console.log('[Burble] Received audio from', remoteUserId);
         playRemoteAudio(remoteUserId, event.streams[0]);
       };
 
       // Connection state monitoring
       pc.onconnectionstatechange = () => {
-        console.log(`[Grumble] Peer ${remoteUserId}: ${pc.connectionState}`);
+        console.log(`[Burble] Peer ${remoteUserId}: ${pc.connectionState}`);
         if (pc.connectionState === 'connected') {
           addChatMessage('System', `Voice connected with ${state.participants[remoteUserId]?.displayName || remoteUserId}`, null);
         }
@@ -596,11 +596,11 @@
     async function callPeer(remoteUserId) {
       if (remoteUserId === state.userId) return; // Don't call yourself
       if (!state.localStream) {
-        console.warn('[Grumble] No microphone — cannot call peer');
+        console.warn('[Burble] No microphone — cannot call peer');
         return;
       }
 
-      console.log('[Grumble] Calling peer:', remoteUserId);
+      console.log('[Burble] Calling peer:', remoteUserId);
       const pc = createPeerConnection(remoteUserId);
 
       const offer = await pc.createOffer();
@@ -621,7 +621,7 @@
       const fromId = data.from;
 
       if (data.type === 'offer') {
-        console.log('[Grumble] Received offer from', fromId);
+        console.log('[Burble] Received offer from', fromId);
         const pc = createPeerConnection(fromId);
 
         await pc.setRemoteDescription(JSON.parse(data.payload));
@@ -635,7 +635,7 @@
         });
 
       } else if (data.type === 'answer') {
-        console.log('[Grumble] Received answer from', fromId);
+        console.log('[Burble] Received answer from', fromId);
         const pc = state.peerConnections[fromId];
         if (pc) {
           await pc.setRemoteDescription(JSON.parse(data.payload));
@@ -700,7 +700,7 @@
         }
         poll();
       } catch (e) {
-        console.warn('[Grumble] Speaking detection failed for', userId, e);
+        console.warn('[Burble] Speaking detection failed for', userId, e);
       }
     }
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 
-defmodule Grumble.Repo.Migrations.CreateUsers do
+defmodule Burble.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do

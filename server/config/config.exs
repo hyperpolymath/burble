@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble server configuration.
+# Burble server configuration.
 
 import Config
 
-config :grumble,
-  ecto_repos: [Grumble.Repo],
+config :burble,
+  ecto_repos: [Burble.Repo],
   generators: [timestamp_type: :utc_datetime]
 
-config :grumble, GrumbleWeb.Endpoint,
+config :burble, BurbleWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [json: GrumbleWeb.ErrorJSON],
+    formats: [json: BurbleWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Grumble.PubSub,
-  live_view: [signing_salt: "grumble_lv"]
+  pubsub_server: Burble.PubSub,
+  live_view: [signing_salt: "burble_lv"]
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",

@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# GrumbleWeb.UserSocket — WebSocket entry point for voice signaling.
+# BurbleWeb.UserSocket — WebSocket entry point for voice signaling.
 #
 # Clients connect here and then join room channels for voice comms.
 # Authentication happens at connect time via token verification.
 
-defmodule GrumbleWeb.UserSocket do
+defmodule BurbleWeb.UserSocket do
   use Phoenix.Socket
 
-  channel "room:*", GrumbleWeb.RoomChannel
+  channel "room:*", BurbleWeb.RoomChannel
 
   @impl true
   def connect(%{"token" => token}, socket, _connect_info) do
@@ -29,7 +29,7 @@ defmodule GrumbleWeb.UserSocket do
 
   # Guest connection (no token required if server policy allows)
   def connect(%{"guest" => "true", "display_name" => name}, socket, _connect_info) do
-    {:ok, guest} = Grumble.Auth.create_guest_session(name)
+    {:ok, guest} = Burble.Auth.create_guest_session(name)
 
     socket =
       socket
@@ -48,7 +48,7 @@ defmodule GrumbleWeb.UserSocket do
   defp verify_token(token) do
     # TODO: Guardian token verification
     # For now, accept any non-empty token during development
-    case Phoenix.Token.verify(GrumbleWeb.Endpoint, "user_auth", token, max_age: 86_400) do
+    case Phoenix.Token.verify(BurbleWeb.Endpoint, "user_auth", token, max_age: 86_400) do
       {:ok, user_id} -> {:ok, %{id: user_id, display_name: "User"}}
       {:error, reason} -> {:error, reason}
     end

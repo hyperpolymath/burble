@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
-= Grumble
+= Burble
 :toc: preamble
 :icons: font
 
@@ -7,7 +7,7 @@ Voice first. Friction last. Complexity optional.
 
 == Overview
 
-Grumble is a modern, self-hostable, voice-first communications platform.
+Burble is a modern, self-hostable, voice-first communications platform.
 It combines Mumble-like voice seriousness with contemporary browser join flows,
 strong permissions, excellent low-latency reliability, and privacy-respecting defaults.
 
@@ -42,7 +42,7 @@ browser capability model.
 
 == Integration
 
-Grumble is a standalone product that also serves as an embeddable component:
+Burble is a standalone product that also serves as an embeddable component:
 
 * **IDApTIK** — in-game voice between Jessica and Q (asymmetric co-op multiplayer)
 * **PanLL** — foundational voice layer for the panel workspace system

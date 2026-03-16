@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Mustfile — Physical state contract for Grumble
+# Mustfile — Physical state contract for Burble
 # Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 #
 # What MUST be true about this repository. Hard requirements.
@@ -7,7 +7,7 @@
 # Fix with: must fix (where deterministic fix exists)
 
 @abstract:
-Physical state invariants for the Grumble voice platform.
+Physical state invariants for the Burble voice platform.
 These are hard requirements — CI and pre-commit hooks fail if any check fails.
 @end
 

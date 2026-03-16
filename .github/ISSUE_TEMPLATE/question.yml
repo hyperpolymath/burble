@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Question issue template for hyperpolymath/grumble
+# Question issue template for hyperpolymath/burble
 name: Question
 description: Ask a question about usage or behaviour
 title: "[Question]: "
@@ -10,7 +10,7 @@ body:
     attributes:
       value: |
         Have a question? You can also ask in
-        [Discussions](https://github.com/hyperpolymath/grumble/discussions)
+        [Discussions](https://github.com/hyperpolymath/burble/discussions)
         for broader conversations.
 
   - type: textarea

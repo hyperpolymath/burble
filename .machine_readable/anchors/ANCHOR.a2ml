@@ -9,7 +9,7 @@ last-updated = "{{CURRENT_DATE}}"
 
 [anchor]
 schema = "hyperpolymath.anchor/1"
-repo = "hyperpolymath/grumble"
+repo = "hyperpolymath/burble"
 authority = "upstream-canonical"
 
 purpose = [

@@ -2,7 +2,7 @@
 //
 // PhoenixSocket — ReScript bindings for Phoenix WebSocket channels.
 //
-// Connects to Grumble's Phoenix backend for:
+// Connects to Burble's Phoenix backend for:
 //   - Room signaling (join/leave, voice state, WebRTC SDP/ICE)
 //   - Presence tracking (who's in the room)
 //   - Text messages (NNTPS-backed channels)
@@ -75,7 +75,7 @@ external makePresence: channel => presence = "Presence"
 
 // ── Helpers ──
 
-/// Connect to the Grumble server and return a socket.
+/// Connect to the Burble server and return a socket.
 let connectToServer = (~url: string, ~token: string): socket => {
   let sock = makeSocket(url, {"params": {"token": token}})
   connect(sock)

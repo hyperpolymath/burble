@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 
-defmodule GrumbleWeb.API.InviteController do
+defmodule BurbleWeb.API.InviteController do
   use Phoenix.Controller, formats: [:json]
 
-  alias Grumble.Auth
+  alias Burble.Auth
 
   def create(conn, %{"server_id" => server_id} = params) do
     opts = [

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Media.Privacy — WebRTC privacy hardening.
+# Burble.Media.Privacy — WebRTC privacy hardening.
 #
-# This module implements all the privacy protections that make Grumble
+# This module implements all the privacy protections that make Burble
 # different from Discord/TeamSpeak/Mumble. Every voice platform leaks
-# identity data through WebRTC. Grumble doesn't.
+# identity data through WebRTC. Burble doesn't.
 #
 # Hardening layers:
 #
@@ -34,9 +34,9 @@
 #      Standardise SDP codec offerings to a fixed set (Opus only for
 #      audio) to eliminate codec-based fingerprinting.
 
-defmodule Grumble.Media.Privacy do
+defmodule Burble.Media.Privacy do
   @moduledoc """
-  WebRTC privacy hardening for Grumble.
+  WebRTC privacy hardening for Burble.
 
   Eliminates identity leakage vectors that exist in every other
   voice platform. Applied automatically based on room privacy mode.
@@ -155,14 +155,14 @@ defmodule Grumble.Media.Privacy do
   The TURN credential is short-lived and tied to the session.
   """
   def ice_servers(privacy_mode, opts \\ []) do
-    turn_url = Keyword.get(opts, :turn_url, "turn:turn.grumble.local:3478")
-    turn_tls_url = Keyword.get(opts, :turn_tls_url, "turns:turn.grumble.local:5349")
+    turn_url = Keyword.get(opts, :turn_url, "turn:turn.burble.local:3478")
+    turn_tls_url = Keyword.get(opts, :turn_tls_url, "turns:turn.burble.local:5349")
 
     case privacy_mode do
       :standard ->
         [
           # STUN for direct connectivity (faster but exposes IP)
-          %{urls: ["stun:stun.grumble.local:3478"]},
+          %{urls: ["stun:stun.burble.local:3478"]},
           # TURN as fallback
           turn_server(turn_url, turn_tls_url, opts)
         ]
@@ -234,7 +234,7 @@ defmodule Grumble.Media.Privacy do
 
   defp strip_session_identifiers(sdp) do
     sdp
-    |> String.replace(~r/s=.*\r?\n/, "s=grumble\r\n")
+    |> String.replace(~r/s=.*\r?\n/, "s=burble\r\n")
     |> String.replace(~r/o=.*\r?\n/, "o=- 0 0 IN IP4 0.0.0.0\r\n")
   end
 
@@ -257,7 +257,7 @@ defmodule Grumble.Media.Privacy do
   end
 
   defp turn_server(turn_url, turn_tls_url, opts) do
-    username = Keyword.get(opts, :turn_username, "grumble")
+    username = Keyword.get(opts, :turn_username, "burble")
     credential = Keyword.get(opts, :turn_credential, generate_turn_credential())
 
     %{

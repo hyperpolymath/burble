@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Telemetry — Observability as a product feature.
+# Burble.Telemetry — Observability as a product feature.
 #
 # "Observability is a product feature, not an afterthought."
 #
@@ -17,9 +17,9 @@
 # Designed to feed into Prometheus/Grafana or any OpenTelemetry collector.
 # Also powers the Phoenix LiveDashboard for quick operator checks.
 
-defmodule Grumble.Telemetry do
+defmodule Burble.Telemetry do
   @moduledoc """
-  Telemetry supervisor for Grumble metrics.
+  Telemetry supervisor for Burble metrics.
 
   Exposes key voice platform metrics for operational monitoring.
   """
@@ -38,7 +38,7 @@ defmodule Grumble.Telemetry do
       {:telemetry_poller,
        measurements: periodic_measurements(),
        period: :timer.seconds(10),
-       name: :grumble_poller}
+       name: :burble_poller}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -56,17 +56,17 @@ defmodule Grumble.Telemetry do
       counter("phoenix.channel_joined.duration"),
       counter("phoenix.channel_handled_in.duration"),
 
-      # Grumble-specific
-      last_value("grumble.rooms.active.count"),
-      last_value("grumble.users.connected.count"),
-      counter("grumble.rooms.joined.total"),
-      counter("grumble.rooms.left.total"),
-      counter("grumble.auth.login.success.total"),
-      counter("grumble.auth.login.failure.total"),
-      counter("grumble.messages.text.total"),
-      counter("grumble.signaling.offer.total"),
-      counter("grumble.signaling.answer.total"),
-      counter("grumble.signaling.ice_candidate.total"),
+      # Burble-specific
+      last_value("burble.rooms.active.count"),
+      last_value("burble.users.connected.count"),
+      counter("burble.rooms.joined.total"),
+      counter("burble.rooms.left.total"),
+      counter("burble.auth.login.success.total"),
+      counter("burble.auth.login.failure.total"),
+      counter("burble.messages.text.total"),
+      counter("burble.signaling.offer.total"),
+      counter("burble.signaling.answer.total"),
+      counter("burble.signaling.ice_candidate.total"),
 
       # VM (BEAM health)
       summary("vm.memory.total", unit: :byte),
@@ -85,23 +85,23 @@ defmodule Grumble.Telemetry do
 
   @doc false
   def measure_active_rooms do
-    count = Grumble.Rooms.RoomManager.active_room_count()
-    :telemetry.execute([:grumble, :rooms, :active], %{count: count}, %{})
+    count = Burble.Rooms.RoomManager.active_room_count()
+    :telemetry.execute([:burble, :rooms, :active], %{count: count}, %{})
   end
 
   @doc false
   def measure_connected_users do
     # Sum participants across all active rooms
-    rooms = Grumble.Rooms.RoomManager.list_active_rooms()
+    rooms = Burble.Rooms.RoomManager.list_active_rooms()
 
     count =
       Enum.reduce(rooms, 0, fn room_id, acc ->
-        case Grumble.Rooms.Room.participant_count(room_id) do
+        case Burble.Rooms.Room.participant_count(room_id) do
           n when is_integer(n) -> acc + n
           _ -> acc
         end
       end)
 
-    :telemetry.execute([:grumble, :users, :connected], %{count: count}, %{})
+    :telemetry.execute([:burble, :users, :connected], %{count: count}, %{})
   end
 end

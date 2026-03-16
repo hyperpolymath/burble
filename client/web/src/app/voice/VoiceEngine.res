@@ -4,7 +4,7 @@
 //
 // Handles the client side of the voice pipeline:
 //   1. getUserMedia for microphone access
-//   2. WebRTC peer connection to the Grumble SFU
+//   2. WebRTC peer connection to the Burble SFU
 //   3. ICE candidate exchange (TURN-only in privacy mode)
 //   4. Opus audio encoding/decoding
 //   5. E2EE via Insertable Streams (when enabled)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// Routes — Type-safe route definitions for the Grumble web client.
+// Routes — Type-safe route definitions for the Burble web client.
 //
 // Uses cadre-router for variant-based routing. Every route is a typed
 // variant — no string matching, no runtime route errors.
@@ -12,7 +12,7 @@
 //   - Settings: audio, privacy, account
 //   - Admin: server admin, moderation, audit log
 
-/// All routes in the Grumble web client.
+/// All routes in the Burble web client.
 type route =
   // ── Public ──
   | /// Landing / home page
@@ -102,22 +102,22 @@ let toString = (route: route): string =>
 /// Page title for the browser tab.
 let title = (route: route): string =>
   switch route {
-  | Home => "Grumble"
-  | JoinInvite(_) => "Join Server — Grumble"
-  | Login => "Login — Grumble"
-  | Register => "Register — Grumble"
-  | GuestJoin(_) => "Guest Join — Grumble"
-  | Server(_) => "Server — Grumble"
-  | ServerSettings(_) => "Server Settings — Grumble"
-  | ServerMembers(_) => "Members — Grumble"
-  | ServerAudit(_) => "Audit Log — Grumble"
-  | Room(_, _) => "Voice Room — Grumble"
-  | TextChannel(_, _) => "Text Channel — Grumble"
-  | Settings => "Settings — Grumble"
-  | AudioSettings => "Audio Settings — Grumble"
-  | PrivacySettings => "Privacy Settings — Grumble"
-  | AccountSettings => "Account Settings — Grumble"
-  | NotFound => "Not Found — Grumble"
+  | Home => "Burble"
+  | JoinInvite(_) => "Join Server — Burble"
+  | Login => "Login — Burble"
+  | Register => "Register — Burble"
+  | GuestJoin(_) => "Guest Join — Burble"
+  | Server(_) => "Server — Burble"
+  | ServerSettings(_) => "Server Settings — Burble"
+  | ServerMembers(_) => "Members — Burble"
+  | ServerAudit(_) => "Audit Log — Burble"
+  | Room(_, _) => "Voice Room — Burble"
+  | TextChannel(_, _) => "Text Channel — Burble"
+  | Settings => "Settings — Burble"
+  | AudioSettings => "Audio Settings — Burble"
+  | PrivacySettings => "Privacy Settings — Burble"
+  | AccountSettings => "Account Settings — Burble"
+  | NotFound => "Not Found — Burble"
   }
 
 /// Whether a route requires authentication.

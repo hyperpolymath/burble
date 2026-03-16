@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Media.Engine — Membrane-based SFU media engine.
+# Burble.Media.Engine — Membrane-based SFU media engine.
 #
 # The media plane is isolated from the control plane. This module
 # orchestrates Membrane RTC Engine instances — one per active voice room.
@@ -20,9 +20,9 @@
 # Codec: Opus (mandatory), 48kHz, mono for voice, stereo for music mode.
 # Bitrate: 24-64 kbps adaptive (voice), 96-128 kbps (music mode).
 
-defmodule Grumble.Media.Engine do
+defmodule Burble.Media.Engine do
   @moduledoc """
-  Membrane-based Selective Forwarding Unit (SFU) for Grumble.
+  Membrane-based Selective Forwarding Unit (SFU) for Burble.
 
   Manages one RTC Engine instance per active voice room.
   All audio is forwarded (not mixed) to preserve E2EE capability.
@@ -130,7 +130,7 @@ defmodule Grumble.Media.Engine do
       default_privacy: :turn_only
     }
 
-    Logger.info("[Grumble.Media.Engine] Started — SFU mode, TURN-only default")
+    Logger.info("[Burble.Media.Engine] Started — SFU mode, TURN-only default")
     {:ok, state}
   end
 

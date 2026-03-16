@@ -1,34 +1,34 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble Server — Elixir/Phoenix control plane.
+# Burble Server — Elixir/Phoenix control plane.
 #
 # OTP supervision tree managing auth, rooms, presence, permissions,
 # moderation, signaling, telemetry, and audit logging.
 
-defmodule Grumble.MixProject do
+defmodule Burble.MixProject do
   use Mix.Project
 
   @version "0.1.0"
 
   def project do
     [
-      app: :grumble,
+      app: :burble,
       version: @version,
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      name: "Grumble",
+      name: "Burble",
       description: "Voice-first communications server. Self-hostable. WebRTC-compatible.",
-      source_url: "https://github.com/hyperpolymath/grumble",
-      docs: [main: "Grumble", extras: ["../README.adoc"]]
+      source_url: "https://github.com/hyperpolymath/burble",
+      docs: [main: "Burble", extras: ["../README.adoc"]]
     ]
   end
 
   def application do
     [
-      mod: {Grumble.Application, []},
+      mod: {Burble.Application, []},
       extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end

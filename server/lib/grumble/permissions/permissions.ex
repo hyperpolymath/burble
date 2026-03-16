@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Permissions — Role-based permission system.
+# Burble.Permissions — Role-based permission system.
 #
 # Designed to be powerful but understandable:
 #   - Role templates for common setups (Admin, Moderator, Member, Guest)
@@ -9,9 +9,9 @@
 #   - No ACL terror — if a permission question can't be answered
 #     by reading the role + channel override, the system is wrong.
 
-defmodule Grumble.Permissions do
+defmodule Burble.Permissions do
   @moduledoc """
-  Permission evaluation for Grumble servers.
+  Permission evaluation for Burble servers.
 
   ## Permission model
 

@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Verification.Vext — Cryptographic feed verification.
+# Burble.Verification.Vext — Cryptographic feed verification.
 #
 # Integrates the Vext protocol to provide mathematical proof that
-# Grumble's text channels are:
+# Burble's text channels are:
 #
 #   1. Chronological — messages appear in timestamp order, not algorithmically sorted
 #   2. Complete — no messages have been hidden, deleted, or suppressed
 #   3. Uninjected — no advertisements or synthetic content inserted
 #   4. Attributable — each message's authorship is cryptographically verified
 #
-# This is a unique differentiator: Grumble is the only voice platform where
+# This is a unique differentiator: Burble is the only voice platform where
 # users can mathematically verify their text feed hasn't been tampered with.
 #
 # Implementation:
@@ -27,9 +27,9 @@
 #   This is the first real-world deployment of Vext's verification model.
 #   Lessons learned here feed back into the core Vext protocol spec.
 
-defmodule Grumble.Verification.Vext do
+defmodule Burble.Verification.Vext do
   @moduledoc """
-  Vext-based cryptographic verification for Grumble text feeds.
+  Vext-based cryptographic verification for Burble text feeds.
 
   Provides hash-chain verification that proves feed integrity:
   no hidden messages, no reordering, no injection.
@@ -197,7 +197,7 @@ defmodule Grumble.Verification.Vext do
   defp sign_chain_hash(chain_hash) do
     # TODO: Use server's Ed25519 private key for real signatures.
     # For now, HMAC with a server secret as a placeholder.
-    secret = Application.get_env(:grumble, :vext_signing_key, "dev_signing_key")
+    secret = Application.get_env(:burble, :vext_signing_key, "dev_signing_key")
     :crypto.mac(:hmac, :sha256, secret, chain_hash) |> Base.encode16(case: :lower)
   end
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Auth — Authentication and session management.
+# Burble.Auth — Authentication and session management.
 #
 # Supports multiple auth flows:
 #   - Email magic link (primary, low-friction)
@@ -10,15 +10,15 @@
 #
 # Sessions are JWT-based via Guardian, with refresh token rotation.
 
-defmodule Grumble.Auth do
+defmodule Burble.Auth do
   @moduledoc """
-  Authentication context for Grumble.
+  Authentication context for Burble.
 
   Handles user registration, login, guest access, and session management.
   """
 
-  alias Grumble.Repo
-  alias Grumble.Auth.User
+  alias Burble.Repo
+  alias Burble.Auth.User
 
   @doc "Register a new user account."
   def register_user(attrs) do

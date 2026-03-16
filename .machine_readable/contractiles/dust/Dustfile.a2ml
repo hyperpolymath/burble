@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Dustfile — Cleanup and hygiene contract for Grumble
+# Dustfile — Cleanup and hygiene contract for Burble
 # Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 #
 # What should be cleaned up. Housekeeping, not blockers.
@@ -7,7 +7,7 @@
 # Roll back with: dust rollback <name>
 
 @abstract:
-Cleanup and hygiene items for the Grumble voice platform.
+Cleanup and hygiene items for the Burble voice platform.
 These are maintenance tasks — not blocking, but should be addressed.
 @end
 
@@ -40,11 +40,11 @@ These are maintenance tasks — not blocking, but should be addressed.
 - run: test -z "$(git ls-files 'client/web/src/**/*.res.mjs' client/web/lib/ 2>/dev/null)"
 - severity: warning
 
-## Grumble-Specific Cleanup
+## Burble-Specific Cleanup
 
 ### stale-room-processes
 - description: Room processes should auto-terminate after idle timeout
-- verification: Grumble.Rooms.Room uses @idle_timeout_ms (5 minutes)
+- verification: Burble.Rooms.Room uses @idle_timeout_ms (5 minutes)
 - severity: info
 - notes: Not a file check — design verification that idle rooms are cleaned up
 
@@ -56,7 +56,7 @@ These are maintenance tasks — not blocking, but should be addressed.
 
 ### orphaned-turn-credentials
 - description: TURN credentials expire after 1 hour
-- verification: Grumble.Media.Privacy.generate_turn_credential sets TTL
+- verification: Burble.Media.Privacy.generate_turn_credential sets TTL
 - severity: info
 
 ### template-example-trustfile

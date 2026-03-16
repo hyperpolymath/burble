@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# GrumbleWeb.Router — HTTP routing for the Grumble API.
+# BurbleWeb.Router — HTTP routing for the Burble API.
 
-defmodule GrumbleWeb.Router do
+defmodule BurbleWeb.Router do
   use Phoenix.Router, helpers: false
 
   import Plug.Conn
@@ -13,7 +13,7 @@ defmodule GrumbleWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {GrumbleWeb.Layouts, :root}
+    plug :put_root_layout, html: {BurbleWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
   end
@@ -23,7 +23,7 @@ defmodule GrumbleWeb.Router do
   end
 
   # API routes
-  scope "/api/v1", GrumbleWeb.API do
+  scope "/api/v1", BurbleWeb.API do
     pipe_through :api
 
     # Auth
@@ -50,17 +50,17 @@ defmodule GrumbleWeb.Router do
   end
 
   # LiveDashboard for operators (dev + prod with auth)
-  if Application.compile_env(:grumble, :dev_routes) do
+  if Application.compile_env(:burble, :dev_routes) do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
       pipe_through :browser
-      live_dashboard "/dashboard", metrics: Grumble.Telemetry
+      live_dashboard "/dashboard", metrics: Burble.Telemetry
     end
   end
 
   # Serve the MVP web client at root
-  scope "/", GrumbleWeb do
+  scope "/", BurbleWeb do
     pipe_through :browser
     get "/", PageController, :index
   end
@@ -69,8 +69,8 @@ defmodule GrumbleWeb.Router do
   def static_paths, do: ~w(assets fonts images favicon.ico robots.txt index.html)
 end
 
-defmodule GrumbleWeb do
+defmodule BurbleWeb do
   @moduledoc false
 
-  def static_paths, do: GrumbleWeb.Router.static_paths()
+  def static_paths, do: BurbleWeb.Router.static_paths()
 end

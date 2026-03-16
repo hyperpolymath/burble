@@ -1,33 +1,33 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Text.NNTPSBackend — NNTPS-backed text channels.
+# Burble.Text.NNTPSBackend — NNTPS-backed text channels.
 #
-# Instead of ephemeral chat, Grumble's text channels are backed by NNTP
+# Instead of ephemeral chat, Burble's text channels are backed by NNTP
 # articles. This gives us:
 #
 #   - Threaded discussions (NNTP's native threading via References header)
 #   - Persistent, archivable messages (survive server restarts)
 #   - Offline reading (clients can cache articles locally)
 #   - Standards-based (40+ years of proven protocol, RFC 3977)
-#   - Interoperable (any NNTP reader can access Grumble text channels)
+#   - Interoperable (any NNTP reader can access Burble text channels)
 #
 # Integration with no-nonsense-nntps:
 #   The NNTPS client module handles the wire protocol (TLS-mandatory,
-#   RFC 3977 compliant). Grumble wraps it with:
-#   - Channel-to-newsgroup mapping (room "general" → grumble.server.general)
+#   RFC 3977 compliant). Burble wraps it with:
+#   - Channel-to-newsgroup mapping (room "general" → burble.server.general)
 #   - Permission enforcement (only authorised users can post)
 #   - Real-time push via Phoenix PubSub (new articles broadcast to connected clients)
 #   - Vext verification headers (cryptographic proof of feed integrity)
 #
 # Architecture:
-#   Grumble server runs an embedded NNTPS server for its own text channels.
+#   Burble server runs an embedded NNTPS server for its own text channels.
 #   External NNTPS servers can also be bridged for community interop.
 
-defmodule Grumble.Text.NNTPSBackend do
+defmodule Burble.Text.NNTPSBackend do
   @moduledoc """
   NNTPS-backed text channel storage.
 
-  Maps Grumble rooms to NNTP newsgroups and provides threaded,
+  Maps Burble rooms to NNTP newsgroups and provides threaded,
   persistent, archivable text alongside voice.
   """
 
@@ -127,7 +127,7 @@ defmodule Grumble.Text.NNTPSBackend do
     article = %{
       message_id: message_id,
       subject: Keyword.get(opts, :subject, ""),
-      from: "#{display_name} <#{user_id}@grumble.local>",
+      from: "#{display_name} <#{user_id}@burble.local>",
       date: DateTime.utc_now(),
       body: body,
       references: if(reply_to, do: [reply_to], else: []),
@@ -142,7 +142,7 @@ defmodule Grumble.Text.NNTPSBackend do
 
     # Broadcast to connected clients via PubSub
     Phoenix.PubSub.broadcast(
-      Grumble.PubSub,
+      Burble.PubSub,
       "text:#{room_id}",
       {:new_article, article}
     )
@@ -185,7 +185,7 @@ defmodule Grumble.Text.NNTPSBackend do
   def handle_call({:list_channels, server_id}, _from, state) do
     channels =
       state.room_map
-      |> Enum.filter(fn {_room_id, ng} -> String.starts_with?(ng, "grumble.#{server_id}.") end)
+      |> Enum.filter(fn {_room_id, ng} -> String.starts_with?(ng, "burble.#{server_id}.") end)
       |> Enum.map(fn {room_id, newsgroup} ->
         count = state.articles |> Map.get(newsgroup, []) |> length()
         %{room_id: room_id, newsgroup: newsgroup, article_count: count}
@@ -204,13 +204,13 @@ defmodule Grumble.Text.NNTPSBackend do
 
   defp room_to_newsgroup(room_id, state) do
     Map.get_lazy(state.room_map, room_id, fn ->
-      "grumble.room.#{room_id}"
+      "burble.room.#{room_id}"
     end)
   end
 
   defp generate_message_id do
     random = Base.encode16(:crypto.strong_rand_bytes(12), case: :lower)
-    "<#{random}@grumble.local>"
+    "<#{random}@burble.local>"
   end
 
   @doc """

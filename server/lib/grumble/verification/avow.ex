@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Verification.Avow — Consent attestation via the Avow protocol.
+# Burble.Verification.Avow — Consent attestation via the Avow protocol.
 #
 # Avow (Attributed Verification of Origin Willingness) provides formal
-# proofs of consent using Idris2 dependent types. In Grumble, this means:
+# proofs of consent using Idris2 dependent types. In Burble, this means:
 #
 #   1. Room membership is consent-attested — cryptographic proof that the
 #      user actually joined (not added to a list they didn't agree to)
@@ -30,9 +30,9 @@
 #   Any party (user, admin, auditor) can verify the attestation chain
 #   to confirm that all membership and permission changes were legitimate.
 
-defmodule Grumble.Verification.Avow do
+defmodule Burble.Verification.Avow do
   @moduledoc """
-  Consent attestation for Grumble using the Avow protocol.
+  Consent attestation for Burble using the Avow protocol.
 
   Provides cryptographic proof that room membership, permissions,
   and moderation actions are legitimate and consent-based.
@@ -256,7 +256,7 @@ defmodule Grumble.Verification.Avow do
 
   defp sign_attestation(proof_hash) do
     # TODO: Replace with Ed25519 via Zig NIF calling Avow's Idris2 ABI
-    secret = Application.get_env(:grumble, :avow_signing_key, "dev_avow_key")
+    secret = Application.get_env(:burble, :avow_signing_key, "dev_avow_key")
     :crypto.mac(:hmac, :sha256, secret, proof_hash) |> Base.encode16(case: :lower)
   end
 

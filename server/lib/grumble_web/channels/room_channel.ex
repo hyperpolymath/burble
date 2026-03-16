@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# GrumbleWeb.RoomChannel — WebSocket channel for voice room signaling.
+# BurbleWeb.RoomChannel — WebSocket channel for voice room signaling.
 #
 # Handles:
 #   - Room join/leave lifecycle
@@ -12,7 +12,7 @@
 # This is the signaling plane — actual audio flows via WebRTC peer
 # connections negotiated through this channel.
 
-defmodule GrumbleWeb.RoomChannel do
+defmodule BurbleWeb.RoomChannel do
   @moduledoc """
   Phoenix Channel for voice room signaling.
 
@@ -39,8 +39,8 @@ defmodule GrumbleWeb.RoomChannel do
 
   use Phoenix.Channel
 
-  alias Grumble.Presence
-  alias Grumble.Rooms.RoomManager
+  alias Burble.Presence
+  alias Burble.Rooms.RoomManager
 
   @impl true
   def join("room:" <> room_id, params, socket) do
@@ -87,7 +87,7 @@ defmodule GrumbleWeb.RoomChannel do
     user_id = socket.assigns.user_id
     state_atom = String.to_existing_atom(state)
 
-    Grumble.Rooms.Room.set_voice_state(room_id, user_id, state_atom)
+    Burble.Rooms.Room.set_voice_state(room_id, user_id, state_atom)
 
     # Update presence metadata
     Presence.update(socket, user_id, fn meta ->
@@ -151,7 +151,7 @@ defmodule GrumbleWeb.RoomChannel do
     user_id = socket.assigns[:user_id]
 
     if room_id && user_id do
-      Grumble.Rooms.Room.leave(room_id, user_id)
+      Burble.Rooms.Room.leave(room_id, user_id)
     end
 
     :ok

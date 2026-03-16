@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Auth.User — User account schema.
+# Burble.Auth.User — User account schema.
 
-defmodule Grumble.Auth.User do
+defmodule Burble.Auth.User do
   @moduledoc """
-  User account for Grumble.
+  User account for Burble.
 
   Users can be full accounts (email + password) or guest sessions.
   Full accounts persist across sessions and can own/admin servers.

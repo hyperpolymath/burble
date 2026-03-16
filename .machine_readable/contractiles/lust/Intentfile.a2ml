@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Intentfile — Design intent and aspirations for Grumble
+# Intentfile — Design intent and aspirations for Burble
 # Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 #
-# What Grumble INTENDS to become. Target state, not current state.
+# What Burble INTENDS to become. Target state, not current state.
 # Run with: intend list
 # Track with: intend progress
 
 @abstract:
-Design intent for the Grumble voice-first communications platform.
+Design intent for the Burble voice-first communications platform.
 Voice first. Friction last. Complexity optional.
 @end
 
@@ -16,7 +16,7 @@ Voice first. Friction last. Complexity optional.
 ### voice-quality-over-features
 - description: Voice quality always beats feature count
 - status: declared
-- probe: test -f server/lib/grumble/media/engine.ex
+- probe: test -f server/lib/burble/media/engine.ex
 - notes: Every feature decision must ask "does this improve voice quality?"
 
 ### zero-drama-join
@@ -35,7 +35,7 @@ Voice first. Friction last. Complexity optional.
 ### privacy-by-default
 - description: TURN-only, no IP leakage, E2EE available
 - status: in-progress
-- probe: test -f server/lib/grumble/media/privacy.ex
+- probe: test -f server/lib/burble/media/privacy.ex
 - notes: Privacy module implemented with 5-layer architecture.
 
 ## Architecture Intent
@@ -49,14 +49,14 @@ Voice first. Friction last. Complexity optional.
 ### formal-verification
 - description: Consent and permission proofs in Idris2
 - status: in-progress
-- probe: test -f server/lib/grumble/verification/avow.ex
+- probe: test -f server/lib/burble/verification/avow.ex
 - target: Idris2 ABI for Avow consent types, Zig FFI bridge
 - notes: Elixir implementation exists. Formal proofs via Avow protocol.
 
 ### three-verification-layers
 - description: NNTPS (storage) + Vext (integrity) + Avow (attestation)
 - status: in-progress
-- probe: test -f server/lib/grumble/verification/vext.ex && test -f server/lib/grumble/verification/avow.ex && test -f server/lib/grumble/text/nntps_backend.ex
+- probe: test -f server/lib/burble/verification/vext.ex && test -f server/lib/burble/verification/avow.ex && test -f server/lib/burble/text/nntps_backend.ex
 - notes: All three layers implemented. Integration testing needed.
 
 ### coprocessor-backends
@@ -68,13 +68,13 @@ Voice first. Friction last. Complexity optional.
 ## Integration Intent
 
 ### idaptik-embeddable
-- description: Grumble client library embeddable in IDApTIK
+- description: Burble client library embeddable in IDApTIK
 - status: declared
 - target: client/lib/ with clean embedding API
-- notes: Jessica↔Q voice via Grumble. Spatial audio for guard positioning.
+- notes: Jessica↔Q voice via Burble. Spatial audio for guard positioning.
 
 ### panll-foundational
-- description: Grumble as PanLL's voice layer
+- description: Burble as PanLL's voice layer
 - status: declared
 - target: Workspace-aware audio routing
 - notes: Panel-based voice channels, per-workspace rooms.

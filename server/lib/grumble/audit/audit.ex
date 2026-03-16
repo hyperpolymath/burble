@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Audit — Audit logging for moderation and admin actions.
+# Burble.Audit — Audit logging for moderation and admin actions.
 
-defmodule Grumble.Audit do
+defmodule Burble.Audit do
   @moduledoc "Audit log for moderation and admin actions."
 
   require Logger

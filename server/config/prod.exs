@@ -2,10 +2,10 @@
 
 import Config
 
-config :grumble, GrumbleWeb.Endpoint,
+config :burble, BurbleWeb.Endpoint,
   url: [host: System.get_env("PHX_HOST") || "example.com", port: 443, scheme: "https"],
   force_ssl: [hsts: true]
 
-config :grumble, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+config :burble, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
 config :logger, level: :info

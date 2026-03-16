@@ -1,13 +1,13 @@
 # Clone the repository
-git clone https://github.com/hyperpolymath/grumble.git
-cd grumble
+git clone https://github.com/hyperpolymath/burble.git
+cd burble
 
 # Using Nix (recommended for reproducibility)
 nix develop
 
 # Or using toolbox/distrobox
-toolbox create grumble-dev
-toolbox enter grumble-dev
+toolbox create burble-dev
+toolbox enter burble-dev
 # Install dependencies manually
 
 # Verify setup
@@ -17,7 +17,7 @@ just test    # Run test suite
 
 ### Repository Structure
 ```
-grumble/
+burble/
 ├── src/                 # Source code (Perimeter 1-2)
 ├── lib/                 # Library code (Perimeter 1-2)
 ├── extensions/          # Extensions (Perimeter 2)
@@ -91,10 +91,10 @@ Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md) an
 
 Look for issues labelled:
 
-- [`good first issue`](https://github.com/hyperpolymath/grumble/labels/good%20first%20issue) — Simple Perimeter 3 tasks
-- [`help wanted`](https://github.com/hyperpolymath/grumble/labels/help%20wanted) — Community help needed
-- [`documentation`](https://github.com/hyperpolymath/grumble/labels/documentation) — Docs improvements
-- [`perimeter-3`](https://github.com/hyperpolymath/grumble/labels/perimeter-3) — Community sandbox scope
+- [`good first issue`](https://github.com/hyperpolymath/burble/labels/good%20first%20issue) — Simple Perimeter 3 tasks
+- [`help wanted`](https://github.com/hyperpolymath/burble/labels/help%20wanted) — Community help needed
+- [`documentation`](https://github.com/hyperpolymath/burble/labels/documentation) — Docs improvements
+- [`perimeter-3`](https://github.com/hyperpolymath/burble/labels/perimeter-3) — Community sandbox scope
 
 ---
 

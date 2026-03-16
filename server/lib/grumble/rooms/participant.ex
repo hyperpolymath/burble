@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Rooms.Participant — Voice room participant state.
+# Burble.Rooms.Participant — Voice room participant state.
 #
 # Tracks a single user's presence and voice state within a room.
 # Immutable struct — updates return new structs.
 
-defmodule Grumble.Rooms.Participant do
+defmodule Burble.Rooms.Participant do
   @moduledoc """
   Represents a user's state within a voice room.
 

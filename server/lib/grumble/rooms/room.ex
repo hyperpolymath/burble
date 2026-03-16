@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# Grumble.Rooms.Room — GenServer managing a single voice room.
+# Burble.Rooms.Room — GenServer managing a single voice room.
 #
 # Each active room is a separate OTP process, supervised by RoomSupervisor.
 # Room processes are created on demand (first join) and terminated after
@@ -13,7 +13,7 @@
 #   - Broadcast state changes to all participants via PubSub
 #   - Persist room config to database on change
 
-defmodule Grumble.Rooms.Room do
+defmodule Burble.Rooms.Room do
   @moduledoc """
   GenServer for a single voice room.
 
@@ -34,7 +34,7 @@ defmodule Grumble.Rooms.Room do
 
   use GenServer, restart: :transient
 
-  alias Grumble.Rooms.Participant
+  alias Burble.Rooms.Participant
 
   # Idle timeout: terminate room process after 5 minutes with no participants.
   @idle_timeout_ms 5 * 60 * 1_000
@@ -76,7 +76,7 @@ defmodule Grumble.Rooms.Room do
     room_id = Keyword.fetch!(opts, :id)
 
     GenServer.start_link(__MODULE__, opts,
-      name: {:via, Registry, {Grumble.RoomRegistry, room_id}}
+      name: {:via, Registry, {Burble.RoomRegistry, room_id}}
     )
   end
 
@@ -206,14 +206,14 @@ defmodule Grumble.Rooms.Room do
   # ── Private ──
 
   defp call_room(room_id, message) do
-    case Registry.lookup(Grumble.RoomRegistry, room_id) do
+    case Registry.lookup(Burble.RoomRegistry, room_id) do
       [{pid, _}] -> GenServer.call(pid, message)
       [] -> {:error, :room_not_found}
     end
   end
 
   defp broadcast(room, event) do
-    Phoenix.PubSub.broadcast(Grumble.PubSub, "room:#{room.id}", event)
+    Phoenix.PubSub.broadcast(Burble.PubSub, "room:#{room.id}", event)
   end
 
   defp summarise(room) do

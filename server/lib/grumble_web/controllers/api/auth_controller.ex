@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 
-defmodule GrumbleWeb.API.AuthController do
+defmodule BurbleWeb.API.AuthController do
   use Phoenix.Controller, formats: [:json]
 
-  alias Grumble.Auth
+  alias Burble.Auth
 
   def register(conn, %{"email" => email, "display_name" => name, "password" => password}) do
     case Auth.register_user(%{email: email, display_name: name, password: password}) do
       {:ok, user} ->
-        token = Phoenix.Token.sign(GrumbleWeb.Endpoint, "user_auth", user.id)
+        token = Phoenix.Token.sign(BurbleWeb.Endpoint, "user_auth", user.id)
         json(conn, %{user_id: user.id, display_name: user.display_name, token: token})
 
       {:error, changeset} ->
@@ -19,7 +19,7 @@ defmodule GrumbleWeb.API.AuthController do
   def login(conn, %{"email" => email, "password" => password}) do
     case Auth.authenticate_by_email(email, password) do
       {:ok, user} ->
-        token = Phoenix.Token.sign(GrumbleWeb.Endpoint, "user_auth", user.id)
+        token = Phoenix.Token.sign(BurbleWeb.Endpoint, "user_auth", user.id)
         json(conn, %{user_id: user.id, display_name: user.display_name, token: token})
 
       {:error, _} ->
@@ -30,7 +30,7 @@ defmodule GrumbleWeb.API.AuthController do
   def guest(conn, params) do
     name = Map.get(params, "display_name", "Guest")
     {:ok, guest} = Auth.create_guest_session(name)
-    token = Phoenix.Token.sign(GrumbleWeb.Endpoint, "user_auth", guest.id)
+    token = Phoenix.Token.sign(BurbleWeb.Endpoint, "user_auth", guest.id)
     json(conn, %{user_id: guest.id, display_name: guest.display_name, token: token, is_guest: true})
   end
 

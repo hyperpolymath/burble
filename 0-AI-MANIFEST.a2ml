@@ -4,7 +4,7 @@
 
 ## WHAT IS THIS?
 
-This is the AI manifest for **Grumble** — a modern, self-hostable, voice-first
+This is the AI manifest for **Burble** — a modern, self-hostable, voice-first
 communications platform. Elixir/Erlang control plane, WebRTC media plane,
 ReScript web client.
 
@@ -33,7 +33,7 @@ NEVER create STATE.a2ml, META.a2ml, or ECOSYSTEM.a2ml in the repository root.
 ## REPOSITORY STRUCTURE
 
 ```
-grumble/
+burble/
 ├── server/          # Elixir/Phoenix control plane (OTP)
 ├── media/           # Media plane (WebRTC SFU)
 ├── client/
@@ -47,7 +47,7 @@ grumble/
 
 ## INTEGRATION
 
-Grumble serves three roles:
+Burble serves three roles:
 1. **Standalone product** — self-hosted voice platform (Mumble successor)
 2. **IDApTIK integration** — in-game Jessica↔Q voice comms
 3. **PanLL integration** — workspace voice layer

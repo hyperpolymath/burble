@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 
-defmodule GrumbleWeb.API.RoomController do
+defmodule BurbleWeb.API.RoomController do
   use Phoenix.Controller, formats: [:json]
 
-  alias Grumble.Rooms.{Room, RoomManager}
+  alias Burble.Rooms.{Room, RoomManager}
 
   def index(conn, %{"server_id" => _server_id}) do
     rooms = RoomManager.list_active_rooms()

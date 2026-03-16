@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// App — Grumble web client application root.
+// App — Burble web client application root.
 //
 // Manages top-level state and route handling.
 // Framework-agnostic core — the rendering layer is separate.

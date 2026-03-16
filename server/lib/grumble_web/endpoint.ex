@@ -1,29 +1,29 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# GrumbleWeb.Endpoint — Phoenix HTTP/WebSocket endpoint.
+# BurbleWeb.Endpoint — Phoenix HTTP/WebSocket endpoint.
 
-defmodule GrumbleWeb.Endpoint do
-  use Phoenix.Endpoint, otp_app: :grumble
+defmodule BurbleWeb.Endpoint do
+  use Phoenix.Endpoint, otp_app: :burble
 
   @session_options [
     store: :cookie,
-    key: "_grumble_key",
-    signing_salt: "grumble_voice",
+    key: "_burble_key",
+    signing_salt: "burble_voice",
     same_site: "Lax"
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]]
 
-  socket "/voice", GrumbleWeb.UserSocket,
+  socket "/voice", BurbleWeb.UserSocket,
     websocket: [timeout: :infinity],
     longpoll: false
 
   plug Plug.Static,
     at: "/",
-    from: :grumble,
+    from: :burble,
     gzip: false,
-    only: GrumbleWeb.static_paths()
+    only: BurbleWeb.static_paths()
 
   if code_reloading? do
     plug Phoenix.CodeReloader
@@ -45,5 +45,5 @@ defmodule GrumbleWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug Corsica, origins: "*", allow_headers: :all
-  plug GrumbleWeb.Router
+  plug BurbleWeb.Router
 end
