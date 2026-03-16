@@ -75,7 +75,7 @@ defmodule Burble.Bridges.Mumble do
   # Mumble protocol constants.
   @default_port 64738
   @ping_interval_ms 15_000
-  @opus_codec_version 0x40000BB8
+  # Opus codec version: 0x40000BB8 (used in codec version negotiation).
 
   # Mumble message types (protobuf IDs).
   @msg_version 0

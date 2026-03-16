@@ -138,7 +138,8 @@ defmodule Burble.Media.Privacy do
     ipv4_pattern = ~r/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/
     ipv6_pattern = ~r/[0-9a-fA-F:]{7,}/
 
-    Regex.match?(ipv4_pattern, candidate_str) and
+    (Regex.match?(ipv4_pattern, candidate_str) or
+       Regex.match?(ipv6_pattern, candidate_str)) and
       not String.contains?(candidate_str, ".local")
   end
 
