@@ -251,7 +251,7 @@ defmodule Burble.Verification.Avow do
         "#{attestation.consent_state}|#{attestation.granted_by}|" <>
         "#{DateTime.to_iso8601(attestation.timestamp)}|#{inspect(attestation[:metadata])}"
 
-    :crypto.hash(:blake2b, data) |> Base.encode16(case: :lower) |> String.slice(0..63)
+    :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
   end
 
   defp sign_attestation(proof_hash) do

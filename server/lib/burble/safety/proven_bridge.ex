@@ -103,7 +103,9 @@ defmodule Burble.Safety.ProvenBridge do
   @spec validate_email(String.t()) :: {:ok, String.t()} | {:error, atom()}
   def validate_email(email) when is_binary(email) do
     if proven_available?() do
-      Proven.SafeEmail.validate(email)
+      if Proven.SafeEmail.valid?(email),
+        do: {:ok, String.downcase(email)},
+        else: {:error, :invalid_email}
     else
       # Fallback: basic regex.
       if Regex.match?(~r/^[^\s]+@[^\s]+\.[^\s]+$/, email),

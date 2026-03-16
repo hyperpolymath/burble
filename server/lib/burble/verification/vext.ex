@@ -180,12 +180,12 @@ defmodule Burble.Verification.Vext do
 
   defp hash_article(body, author_id, timestamp) do
     data = "vext:article:#{body}|#{author_id}|#{DateTime.to_iso8601(timestamp)}"
-    :crypto.hash(:blake2b, data) |> Base.encode16(case: :lower) |> String.slice(0..63)
+    :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
   end
 
   defp hash_chain_link(article_hash, previous_hash, position) do
     data = "vext:chain:#{article_hash}|#{previous_hash}|#{position}"
-    :crypto.hash(:blake2b, data) |> Base.encode16(case: :lower) |> String.slice(0..63)
+    :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
   end
 
   defp genesis_hash do

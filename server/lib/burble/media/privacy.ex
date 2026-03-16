@@ -84,10 +84,6 @@ defmodule Burble.Media.Privacy do
       {mode, :relay} when mode in [:turn_only, :e2ee, :maximum] ->
         :accept
 
-      # mDNS host candidates are OK in standard mode
-      {:standard, :host} ->
-        :accept
-
       # Everything else rejected in privacy modes
       {mode, type} ->
         Logger.debug("[Privacy] Rejected #{type} candidate (mode: #{mode})")

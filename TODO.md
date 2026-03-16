@@ -55,9 +55,9 @@
 - [x] Store magic link tokens (temporal modality for expiry)
 - [x] Store invite tokens in VeriSimDB (replace in-memory)
 - [x] Delete old Ecto migration and Repo stub
-- [ ] Audit log queries via VeriSimDB provenance chains
-- [ ] Room config persistence (document modality)
-- [ ] Server/guild config persistence
+- [x] Audit log queries via VeriSimDB provenance chains (Export wired to VeriSimClient.Search)
+- [x] Room config persistence (document modality via Store)
+- [x] Server/guild config persistence (document modality via Store)
 
 ## Medium term
 
@@ -111,4 +111,4 @@
 - Contractiles: 23/23 must checks passing
 - Run with: `cd server && mix phx.server` → http://localhost:4000/
 - VeriSimDB: `cd nextgen-databases/verisimdb && cargo run` → http://localhost:8080/
-- Old Repo stub kept in lib/grumble/repo.ex — delete after full verification
+- Zig NIFs: `cd ffi/zig && zig build -Doptimize=ReleaseFast` → copy to server/priv/

@@ -157,16 +157,43 @@ defmodule Burble.Audit.Export do
 
   # Fetch octads from VeriSimDB that have provenance data.
   defp fetch_audit_octads(entity_type) do
-    _search_term = if entity_type, do: entity_type, else: "burble"
+    search_term = if entity_type, do: entity_type, else: "burble"
 
+    # Query VeriSimDB for entities matching the search term.
+    # The Store wraps VeriSimClient — search returns octads with provenance.
+    client = get_verisimdb_client()
+
+    case client do
+      nil ->
+        {:ok, []}
+
+      client ->
+        case VeriSimClient.Search.text(client, search_term, limit: 1000) do
+          {:ok, results} when is_list(results) -> {:ok, results}
+          {:ok, %{"data" => data}} when is_list(data) -> {:ok, data}
+          {:ok, _} -> {:ok, []}
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  # Get the VeriSimDB client from the Store GenServer state.
+  # This is a read-only operation — we just need the client handle.
+  defp get_verisimdb_client do
     case Store.health() do
       {:ok, true} ->
-        # Search for Burble entities — they all have provenance.
-        # In production, this would use VQL for more precise querying.
-        {:ok, []}  # Placeholder — real implementation queries VeriSimDB
+        # The Store is running — create a client with the same config.
+        config = Application.get_env(:burble, Burble.Store, [])
+        url = Keyword.get(config, :url, "http://localhost:8080")
+        auth = Keyword.get(config, :auth, :none)
 
-      {:error, reason} ->
-        {:error, reason}
+        case VeriSimClient.new(url, auth: auth) do
+          {:ok, client} -> client
+          _ -> nil
+        end
+
+      _ ->
+        nil
     end
   end
 

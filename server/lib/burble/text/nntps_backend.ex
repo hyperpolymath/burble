@@ -226,6 +226,7 @@ defmodule Burble.Text.NNTPSBackend do
   """
   def compute_vext_hash(body, user_id, timestamp) do
     data = "#{body}|#{user_id}|#{DateTime.to_iso8601(timestamp)}"
-    :crypto.hash(:blake2b, data) |> Base.encode16(case: :lower) |> String.slice(0..63)
+    # Use SHA-256 (universally available) instead of BLAKE2B (OTP 26+ only).
+    :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
   end
 end

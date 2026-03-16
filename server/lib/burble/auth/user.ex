@@ -57,8 +57,6 @@ defmodule Burble.Auth.User do
     display_name = Map.get(attrs, :display_name) || Map.get(attrs, "display_name")
     password = Map.get(attrs, :password) || Map.get(attrs, "password")
 
-    alias Burble.Safety.ProvenBridge
-
     errors =
       []
       |> validate_required(:email, email)

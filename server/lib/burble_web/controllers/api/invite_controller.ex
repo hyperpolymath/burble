@@ -17,8 +17,19 @@ defmodule BurbleWeb.API.InviteController do
     end
   end
 
-  def accept(conn, %{"token" => _token}) do
-    # MVP: accept any token
-    json(conn, %{status: "accepted", server_id: "default"})
+  def accept(conn, %{"token" => token}) do
+    case Auth.redeem_invite(token) do
+      {:ok, invite} ->
+        json(conn, %{status: "accepted", server_id: invite.server_id || invite["server_id"]})
+
+      {:error, :invalid_token} ->
+        conn |> put_status(404) |> json(%{error: "invalid_token"})
+
+      {:error, :expired} ->
+        conn |> put_status(410) |> json(%{error: "invite_expired"})
+
+      {:error, :exhausted} ->
+        conn |> put_status(410) |> json(%{error: "invite_exhausted"})
+    end
   end
 end

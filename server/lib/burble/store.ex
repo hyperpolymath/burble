@@ -153,6 +153,46 @@ defmodule Burble.Store do
   end
 
   @doc """
+  Save a room configuration to VeriSimDB.
+
+  Stored as an octad with document modality (room settings) and
+  provenance modality (config change history).
+  """
+  @spec save_room_config(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def save_room_config(room_id, config) do
+    GenServer.call(__MODULE__, {:save_room_config, room_id, config})
+  end
+
+  @doc """
+  Load a room configuration from VeriSimDB.
+
+  Returns `{:ok, config_map}` or `{:error, :not_found}`.
+  """
+  @spec load_room_config(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def load_room_config(room_id) do
+    GenServer.call(__MODULE__, {:load_room_config, room_id})
+  end
+
+  @doc """
+  Save a server/guild configuration to VeriSimDB.
+
+  Stored as an octad with document modality (server settings, roles,
+  permissions) and provenance modality (admin action history).
+  """
+  @spec save_server_config(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def save_server_config(server_id, config) do
+    GenServer.call(__MODULE__, {:save_server_config, server_id, config})
+  end
+
+  @doc """
+  Load a server/guild configuration from VeriSimDB.
+  """
+  @spec load_server_config(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def load_server_config(server_id) do
+    GenServer.call(__MODULE__, {:load_server_config, server_id})
+  end
+
+  @doc """
   Check if the VeriSimDB connection is healthy.
   """
   @spec health() :: {:ok, boolean()} | {:error, term()}
@@ -420,6 +460,89 @@ defmodule Burble.Store do
   end
 
   @impl true
+  def handle_call({:save_room_config, room_id, config}, _from, %{client: client} = state) do
+    octad_input = %{
+      name: "room_config:#{room_id}",
+      description: "Room configuration for #{room_id}",
+      metadata: %{entity_type: "burble_room_config"},
+      document: %{
+        content: Jason.encode!(config),
+        content_type: "application/json"
+      },
+      provenance: %{
+        event_type: "config_updated",
+        agent: "burble_admin",
+        description: "Room config saved"
+      }
+    }
+
+    # Try update first (if exists), else create.
+    case find_by_prefix(client, "room_config:#{room_id}") do
+      {:ok, octad} ->
+        id = get_in(octad, ["id"]) || get_in(octad, [:id])
+        case VeriSimClient.Octad.update(client, id, octad_input) do
+          {:ok, updated} -> {:reply, {:ok, extract_document_fields(updated)}, state}
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+
+      :not_found ->
+        case VeriSimClient.Octad.create(client, octad_input) do
+          {:ok, created} -> {:reply, {:ok, extract_document_fields(created)}, state}
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:load_room_config, room_id}, _from, %{client: client} = state) do
+    case find_by_prefix(client, "room_config:#{room_id}") do
+      {:ok, octad} -> {:reply, {:ok, extract_document_fields(octad)}, state}
+      :not_found -> {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:save_server_config, server_id, config}, _from, %{client: client} = state) do
+    octad_input = %{
+      name: "server_config:#{server_id}",
+      description: "Server configuration for #{server_id}",
+      metadata: %{entity_type: "burble_server_config"},
+      document: %{
+        content: Jason.encode!(config),
+        content_type: "application/json"
+      },
+      provenance: %{
+        event_type: "config_updated",
+        agent: "burble_admin",
+        description: "Server config saved"
+      }
+    }
+
+    case find_by_prefix(client, "server_config:#{server_id}") do
+      {:ok, octad} ->
+        id = get_in(octad, ["id"]) || get_in(octad, [:id])
+        case VeriSimClient.Octad.update(client, id, octad_input) do
+          {:ok, updated} -> {:reply, {:ok, extract_document_fields(updated)}, state}
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+
+      :not_found ->
+        case VeriSimClient.Octad.create(client, octad_input) do
+          {:ok, created} -> {:reply, {:ok, extract_document_fields(created)}, state}
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:load_server_config, server_id}, _from, %{client: client} = state) do
+    case find_by_prefix(client, "server_config:#{server_id}") do
+      {:ok, octad} -> {:reply, {:ok, extract_document_fields(octad)}, state}
+      :not_found -> {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  @impl true
   def handle_call(:health, _from, %{client: client} = state) do
     result = VeriSimClient.health(client)
     {:reply, result, state}
@@ -497,6 +620,26 @@ defmodule Burble.Store do
       {k, v} when is_atom(k) -> {Atom.to_string(k), v}
       {k, v} -> {k, v}
     end)
+  end
+
+  # Find an octad by name prefix via VeriSimDB text search.
+  defp find_by_prefix(client, name) do
+    case VeriSimClient.Search.text(client, name, limit: 1) do
+      {:ok, results} when is_list(results) ->
+        case find_by_name(results, name) do
+          nil -> :not_found
+          octad -> {:ok, octad}
+        end
+
+      {:ok, %{"data" => data}} when is_list(data) ->
+        case find_by_name(data, name) do
+          nil -> :not_found
+          octad -> {:ok, octad}
+        end
+
+      _ ->
+        :not_found
+    end
   end
 
   # Find an octad in search results by exact name match.
