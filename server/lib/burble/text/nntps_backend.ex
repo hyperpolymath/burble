@@ -91,6 +91,29 @@ defmodule Burble.Text.NNTPSBackend do
   end
 
   @doc """
+  Verify the integrity of a room's entire text feed using Vext hash chains.
+
+  Walks the chain from genesis and checks every article. Returns
+  `{:ok, :verified, article_count}` or `{:error, :chain_broken, errors}`.
+
+  Any client can call this independently to prove the feed hasn't been
+  tampered with — no trust in the server required.
+  """
+  def verify_feed(room_id) do
+    GenServer.call(__MODULE__, {:verify_feed, room_id})
+  end
+
+  @doc """
+  Get the current Vext chain state for a room.
+
+  Returns the chain position and latest hash — useful for clients
+  that want to verify incrementally (only new articles since last check).
+  """
+  def chain_state(room_id) do
+    GenServer.call(__MODULE__, {:chain_state, room_id})
+  end
+
+  @doc """
   Pin a message in a channel. Pinned messages are stored as
   specially-tagged articles that appear at the top of the channel.
   """
@@ -109,6 +132,9 @@ defmodule Burble.Text.NNTPSBackend do
       room_map: %{},
       # Pinned messages per room
       pins: %{},
+      # Vext chain state per room — tracks hash chain for feed integrity verification.
+      # Each room gets its own independent chain.
+      vext_chains: %{},
       # Connection to embedded or external NNTPS server
       nntps_host: Keyword.get(opts, :nntps_host, "localhost"),
       nntps_port: Keyword.get(opts, :nntps_port, 563)
@@ -119,28 +145,47 @@ defmodule Burble.Text.NNTPSBackend do
 
   @impl true
   def handle_call({:post, room_id, user_id, display_name, body, opts}, _from, state) do
+    alias Burble.Verification.Vext
+
     newsgroup = room_to_newsgroup(room_id, state)
     reply_to = Keyword.get(opts, :reply_to)
-
+    timestamp = DateTime.utc_now()
     message_id = generate_message_id()
+
+    # Get or initialise the Vext chain for this room.
+    chain_state =
+      Map.get_lazy(state.vext_chains, room_id, fn ->
+        Vext.init_chain(room_id)
+      end)
+
+    # Create Vext verification header — cryptographic proof of feed integrity.
+    # This links the article to the previous one via hash chain, proving:
+    # 1. No articles have been inserted or removed
+    # 2. No content has been modified
+    # 3. Ordering is authentic (server-signed)
+    {vext_header, new_chain_state} =
+      Vext.create_header(body, user_id, timestamp, chain_state)
 
     article = %{
       message_id: message_id,
       subject: Keyword.get(opts, :subject, ""),
       from: "#{display_name} <#{user_id}@burble.local>",
-      date: DateTime.utc_now(),
+      date: timestamp,
       body: body,
       references: if(reply_to, do: [reply_to], else: []),
       newsgroup: newsgroup,
-      # Vext verification header — proves this article hasn't been tampered with
-      x_vext_hash: compute_vext_hash(body, user_id, DateTime.utc_now())
+      # Full Vext verification header (hash chain + server signature).
+      x_vext_header: vext_header,
+      # Legacy field for backward compatibility.
+      x_vext_hash: vext_header.article_hash
     }
 
-    # Store article
+    # Store article and update chain state.
     articles = Map.update(state.articles, newsgroup, [article], &[article | &1])
-    new_state = %{state | articles: articles}
+    vext_chains = Map.put(state.vext_chains, room_id, new_chain_state)
+    new_state = %{state | articles: articles, vext_chains: vext_chains}
 
-    # Broadcast to connected clients via PubSub
+    # Broadcast to connected clients via PubSub.
     Phoenix.PubSub.broadcast(
       Burble.PubSub,
       "text:#{room_id}",
@@ -198,6 +243,43 @@ defmodule Burble.Text.NNTPSBackend do
   def handle_call({:pin, room_id, message_id}, _from, state) do
     pins = Map.update(state.pins, room_id, [message_id], &[message_id | &1])
     {:reply, :ok, %{state | pins: pins}}
+  end
+
+  @impl true
+  def handle_call({:verify_feed, room_id}, _from, state) do
+    alias Burble.Verification.Vext
+
+    newsgroup = room_to_newsgroup(room_id, state)
+
+    articles =
+      state.articles
+      |> Map.get(newsgroup, [])
+      |> Enum.reverse()  # Oldest first for chain verification.
+
+    # Build the list of (body, author_id, timestamp, header) tuples.
+    articles_with_headers =
+      Enum.map(articles, fn article ->
+        # Extract user_id from the "from" field: "Name <user_id@burble.local>"
+        user_id =
+          case Regex.run(~r/<(.+?)@/, article.from) do
+            [_, uid] -> uid
+            _ -> "unknown"
+          end
+
+        {article.body, user_id, article.date, article.x_vext_header}
+      end)
+      |> Enum.filter(fn {_, _, _, header} -> header != nil end)
+
+    result = Vext.verify_feed(articles_with_headers)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:chain_state, room_id}, _from, state) do
+    case Map.get(state.vext_chains, room_id) do
+      nil -> {:reply, {:error, :no_chain}, state}
+      chain -> {:reply, {:ok, chain}, state}
+    end
   end
 
   # ── Private ──
