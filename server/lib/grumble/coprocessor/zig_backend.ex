@@ -222,15 +222,26 @@ defmodule Burble.Coprocessor.ZigBackend do
     do: ElixirBackend.neural_classify_noise(pcm, sample_rate)
 
   # ---------------------------------------------------------------------------
-  # Compression kernel — delegate to Elixir (Zig compression NIFs TODO)
+  # Compression kernel — LZ4 via Zig NIF, rest delegate to Elixir
   # ---------------------------------------------------------------------------
 
   @impl true
-  def compress_lz4(data), do: ElixirBackend.compress_lz4(data)
+  def compress_lz4(data) do
+    if available?() do
+      nif_compress_lz4(data)
+    else
+      ElixirBackend.compress_lz4(data)
+    end
+  end
 
   @impl true
-  def decompress_lz4(compressed, original_size),
-    do: ElixirBackend.decompress_lz4(compressed, original_size)
+  def decompress_lz4(compressed, original_size) do
+    if available?() do
+      nif_decompress_lz4(compressed, original_size)
+    else
+      ElixirBackend.decompress_lz4(compressed, original_size)
+    end
+  end
 
   @impl true
   def compress_zstd(data, level), do: ElixirBackend.compress_zstd(data, level)
@@ -259,4 +270,6 @@ defmodule Burble.Coprocessor.ZigBackend do
   def nif_dsp_mix(_streams, _matrix), do: :erlang.nif_error(:nif_not_loaded)
   def nif_neural_init_model(_sr), do: :erlang.nif_error(:nif_not_loaded)
   def nif_neural_denoise(_pcm, _sr, _state), do: :erlang.nif_error(:nif_not_loaded)
+  def nif_compress_lz4(_data), do: :erlang.nif_error(:nif_not_loaded)
+  def nif_decompress_lz4(_compressed, _orig_size), do: :erlang.nif_error(:nif_not_loaded)
 end

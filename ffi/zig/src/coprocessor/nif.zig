@@ -19,6 +19,7 @@ const std = @import("std");
 const audio = @import("audio.zig");
 const dsp = @import("dsp.zig");
 const neural = @import("neural.zig");
+const compression = @import("compression.zig");
 
 const c = @cImport({
     @cInclude("erl_nif.h");
@@ -376,6 +377,84 @@ fn nif_neural_denoise(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) 
 }
 
 // ---------------------------------------------------------------------------
+// NIF: nif_compress_lz4/1 — (binary)
+// ---------------------------------------------------------------------------
+
+fn nif_compress_lz4(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    var bin: ErlNifBinary = undefined;
+    if (c.enif_inspect_binary(env, argv[0], &bin) == 0)
+        return make_error(env, "bad_binary");
+
+    if (bin.size == 0) return make_error(env, "empty_input");
+
+    // Allocate output buffer (worst case: input + overhead).
+    const max_out = compression.lz4_compress_bound(bin.size);
+    var out_bin: ErlNifBinary = undefined;
+    if (c.enif_alloc_binary(max_out, &out_bin) == 0)
+        return make_error(env, "alloc_failed");
+
+    const compressed_len = compression.lz4_compress(
+        bin.data[0..bin.size],
+        out_bin.data[0..max_out],
+    );
+
+    if (compressed_len == 0) {
+        c.enif_release_binary(&out_bin);
+        return make_error(env, "compress_failed");
+    }
+
+    // Shrink to actual size.
+    if (c.enif_realloc_binary(&out_bin, compressed_len) == 0) {
+        c.enif_release_binary(&out_bin);
+        return make_error(env, "realloc_failed");
+    }
+
+    return make_ok(env, c.enif_make_binary(env, &out_bin));
+}
+
+// ---------------------------------------------------------------------------
+// NIF: nif_decompress_lz4/2 — (compressed_binary, original_size)
+// ---------------------------------------------------------------------------
+
+fn nif_decompress_lz4(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    var bin: ErlNifBinary = undefined;
+    if (c.enif_inspect_binary(env, argv[0], &bin) == 0)
+        return make_error(env, "bad_binary");
+
+    var orig_size_int: c_int = undefined;
+    if (c.enif_get_int(env, argv[1], &orig_size_int) == 0)
+        return make_error(env, "bad_size");
+
+    const original_size: usize = @intCast(orig_size_int);
+    if (original_size == 0 or original_size > 10 * 1024 * 1024) // 10MB limit
+        return make_error(env, "invalid_size");
+
+    var out_bin: ErlNifBinary = undefined;
+    if (c.enif_alloc_binary(original_size, &out_bin) == 0)
+        return make_error(env, "alloc_failed");
+
+    const decompressed_len = compression.lz4_decompress(
+        bin.data[0..bin.size],
+        out_bin.data[0..original_size],
+        original_size,
+    );
+
+    if (decompressed_len == 0) {
+        c.enif_release_binary(&out_bin);
+        return make_error(env, "decompress_failed");
+    }
+
+    if (decompressed_len != original_size) {
+        if (c.enif_realloc_binary(&out_bin, decompressed_len) == 0) {
+            c.enif_release_binary(&out_bin);
+            return make_error(env, "realloc_failed");
+        }
+    }
+
+    return make_ok(env, c.enif_make_binary(env, &out_bin));
+}
+
+// ---------------------------------------------------------------------------
 // NIF function table
 // ---------------------------------------------------------------------------
 
@@ -390,6 +469,8 @@ var nif_funcs = [_]c.ErlNifFunc{
     .{ .name = "nif_dsp_mix", .arity = 2, .fptr = nif_dsp_mix, .flags = 0 },
     .{ .name = "nif_neural_init_model", .arity = 1, .fptr = nif_neural_init_model, .flags = 0 },
     .{ .name = "nif_neural_denoise", .arity = 3, .fptr = nif_neural_denoise, .flags = 0 },
+    .{ .name = "nif_compress_lz4", .arity = 1, .fptr = nif_compress_lz4, .flags = 0 },
+    .{ .name = "nif_decompress_lz4", .arity = 2, .fptr = nif_decompress_lz4, .flags = 0 },
 };
 
 // ---------------------------------------------------------------------------

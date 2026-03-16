@@ -138,12 +138,17 @@ defmodule Mix.Tasks.Bench.Coprocessor do
 
     bench("compress_lz4 (1.9KB)", fn ->
       ElixirBackend.compress_lz4(pcm_binary)
-    end, nil)
+    end, if(zig_available, do: fn ->
+      ZigBackend.compress_lz4(pcm_binary)
+    end))
 
     bench("decompress_lz4", fn ->
       {:ok, compressed} = ElixirBackend.compress_lz4(pcm_binary)
       ElixirBackend.decompress_lz4(compressed, byte_size(pcm_binary))
-    end, nil)
+    end, if(zig_available, do: fn ->
+      {:ok, compressed} = ZigBackend.compress_lz4(pcm_binary)
+      ZigBackend.decompress_lz4(compressed, byte_size(pcm_binary))
+    end))
 
     # Generate 10KB of JSON-like audit data (simulates audit export).
     audit_json = Jason.encode!(for i <- 1..50, do: %{

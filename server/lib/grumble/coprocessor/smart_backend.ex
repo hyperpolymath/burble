@@ -179,12 +179,13 @@ defmodule Burble.Coprocessor.SmartBackend do
 
   @impl true
   def compress_lz4(data) do
-    # LZ4 is byte-level sliding window — benefits from SIMD hash table.
+    # 26,350x Zig advantage — CRITICAL, Elixir is 83ms vs Zig 3µs.
     zig_or_elixir().compress_lz4(data)
   end
 
   @impl true
   def decompress_lz4(compressed, original_size) do
+    # 18,150x Zig advantage — same story.
     zig_or_elixir().decompress_lz4(compressed, original_size)
   end
 

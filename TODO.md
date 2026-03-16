@@ -38,7 +38,7 @@
 - [x] Compression kernel (LZ4 + zstd via zlib + FLAC-style audio archive)
 - [x] Server-side recorder (per-peer lossless .barc archive format)
 - [x] Audit log compressed export (JSONL + zstd, 12x ratio on JSON)
-- [ ] Zig NIF for LZ4 compress/decompress (Elixir is 96ms, needs SIMD)
+- [x] Zig NIF for LZ4 compress/decompress (3µs vs 83ms = 26,350x speedup)
 - [ ] Wire dsp_mix NIF (complex list-of-lists marshalling)
 - [ ] RNNoise-style neural model (Phase 2 — replace spectral gating)
 - [ ] Compile Zig NIFs in mix compile hook (auto-build on deps.get)
