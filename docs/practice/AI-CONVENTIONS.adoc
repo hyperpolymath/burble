@@ -1,6 +1,6 @@
 = AI Conventions
 <!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
-<!-- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}> -->
+<!-- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} (hyperpolymath) <{{AUTHOR_EMAIL}}> -->
 
 # AI Conventions (Authoritative Source)
 
@@ -29,7 +29,7 @@ Per-tool config files (.cursorrules, .clinerules, etc.) reference this document.
 
 - Name: **{{AUTHOR}}**
 - Email: **{{AUTHOR_EMAIL}}**
-- Copyright: `Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>`
+- Copyright: `Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} (hyperpolymath) <{{AUTHOR_EMAIL}}>`
 
 ## State Files
 

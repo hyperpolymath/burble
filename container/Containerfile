@@ -71,9 +71,9 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 # OCI image labels (compatible with cerro-torre .ctp bundle metadata)
 LABEL org.opencontainers.image.title="{{PROJECT_NAME}}" \
       org.opencontainers.image.description="{{PROJECT_DESCRIPTION}}" \
-      org.opencontainers.image.url="https://{{FORGE}}/{{OWNER}}/{{REPO}}" \
-      org.opencontainers.image.source="https://{{FORGE}}/{{OWNER}}/{{REPO}}" \
-      org.opencontainers.image.vendor="{{OWNER}}" \
+      org.opencontainers.image.url="https://github.com/hyperpolymath/grumble" \
+      org.opencontainers.image.source="https://github.com/hyperpolymath/grumble" \
+      org.opencontainers.image.vendor="hyperpolymath" \
       org.opencontainers.image.licenses="{{LICENSE}}" \
       org.opencontainers.image.authors="{{AUTHOR}} <{{AUTHOR_EMAIL}}>" \
       dev.cerrotorre.manifest="container/manifest.toml" \

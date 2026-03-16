@@ -12,7 +12,7 @@ This document lists the maintainers of this project and their responsibilities.
 
 | {{AUTHOR}}
 | Lead Maintainer
-| https://github.com/{{OWNER}}[@{{OWNER}}]
+| https://github.com/hyperpolymath[@hyperpolymath]
 |===
 
 == Responsibilities
