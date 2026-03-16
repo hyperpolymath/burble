@@ -40,6 +40,12 @@ defmodule Grumble.Application do
       # Room registry — maps room IDs to PIDs
       {Registry, keys: :unique, name: Grumble.RoomRegistry},
 
+      # Text channels (NNTPS-backed persistent threaded messages)
+      Grumble.Text.NNTPSBackend,
+
+      # Media plane — Membrane SFU (WebRTC audio routing)
+      Grumble.Media.Engine,
+
       # Telemetry
       Grumble.Telemetry,
 
