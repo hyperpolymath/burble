@@ -1,0 +1,61 @@
+# STOP - CRITICAL READING REQUIRED
+
+**THIS FILE MUST BE READ FIRST BY ALL AI AGENTS**
+
+## WHAT IS THIS?
+
+This is the AI manifest for **Grumble** — a modern, self-hostable, voice-first
+communications platform. Elixir/Erlang control plane, WebRTC media plane,
+ReScript web client.
+
+## CANONICAL LOCATIONS
+
+### Machine-Readable Metadata: `.machine_readable/` ONLY
+
+These a2ml files MUST exist in `.machine_readable/` directory ONLY:
+1. **STATE.a2ml** - Project state, progress, blockers
+2. **META.a2ml** - Architecture decisions, governance
+3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
+
+NEVER create STATE.a2ml, META.a2ml, or ECOSYSTEM.a2ml in the repository root.
+
+## CRITICAL INVARIANTS
+
+1. **Elixir for control plane** — auth, rooms, presence, permissions, signaling, telemetry, audit
+2. **WebRTC for media** — browser-compatible, standards-based
+3. **ReScript for web client** — NOT TypeScript
+4. **Deno for JS runtime** — NOT Node.js, NOT npm, NOT Bun
+5. **Chainguard base images** — for containers
+6. **"Containerfile" not "Dockerfile"**
+7. **PMPL-1.0-or-later** license (MPL-2.0 fallback where required)
+8. **Voice first. Friction last. Complexity optional.** — design mantra
+
+## REPOSITORY STRUCTURE
+
+```
+grumble/
+├── server/          # Elixir/Phoenix control plane (OTP)
+├── media/           # Media plane (WebRTC SFU)
+├── client/
+│   ├── web/         # ReScript web client (first-class)
+│   ├── desktop/     # Tauri 2 desktop wrapper
+│   └── lib/         # Embeddable client library (IDApTIK, PanLL)
+├── protocol/        # Protobuf wire protocol
+├── containers/      # Containerfile + deployment configs
+└── .machine_readable/
+```
+
+## INTEGRATION
+
+Grumble serves three roles:
+1. **Standalone product** — self-hosted voice platform (Mumble successor)
+2. **IDApTIK integration** — in-game Jessica↔Q voice comms
+3. **PanLL integration** — workspace voice layer
+
+## DOGFOODING
+
+Use hyperpolymath tools where they naturally fit:
+- VeriSimDB for audit/telemetry
+- Stapeln for containers
+- Hypatia for security scanning
+- Contractile/K9 for deployment

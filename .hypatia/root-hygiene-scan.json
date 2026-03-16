@@ -1,0 +1,32 @@
+{
+  "_comment": "SPDX-License-Identifier: PMPL-1.0-or-later",
+  "scan_name": "root-hygiene",
+  "version": "1.0.0",
+  "description": "Scan repo root for non-standard files and RSR template drift",
+  "trigger": "on_visit",
+  "rules_file": "../.machine_readable/bot_directives/root-hygiene.scm",
+  "severity_levels": {
+    "banned_file_in_root": "warning",
+    "missing_required_file": "error",
+    "template_drift": "info"
+  },
+  "actions": {
+    "on_banned_file": "flag_in_report",
+    "on_missing_required": "flag_in_report",
+    "on_template_drift": "flag_in_report"
+  },
+  "fleet_dispatch": {
+    "rhodibot": "auto-fix formatting and metadata issues",
+    "finishbot": "create PR for file moves and deletions",
+    "seambot": "verify integration health after changes"
+  },
+  "template_watch": {
+    "repo": "hyperpolymath/rsr-template-repo",
+    "branch": "main",
+    "compare_on_visit": true,
+    "auto_update": false,
+    "notify_on_drift": true
+  },
+  "excludable": true,
+  "exclude_mechanism": "repos can add (exclude-rules (\"root-hygiene\" (skip-patterns ...))) to their own bot_directives/"
+}

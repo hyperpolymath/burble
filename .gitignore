@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Grumble .gitignore
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Elixir / Erlang
+server/_build/
+server/deps/
+server/cover/
+server/*.ez
+server/.elixir_ls/
+server/priv/static/
+server/priv/repo/*.lock
+
+# ReScript
+client/web/node_modules/
+client/web/lib/
+client/web/src/**/*.res.mjs
+client/web/.cache/
+
+# Deno
+client/web/deno.lock
+
+# Desktop (Tauri)
+client/desktop/target/
+client/desktop/src-tauri/target/
+
+# Build
+dist/
+*.beam
+
+# Environment (NEVER commit secrets)
+.env
+.env.local
+.env.production

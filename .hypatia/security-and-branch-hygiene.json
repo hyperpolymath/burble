@@ -1,0 +1,142 @@
+{
+  "_comment": "SPDX-License-Identifier: PMPL-1.0-or-later",
+  "scan_name": "security-and-branch-hygiene",
+  "version": "1.0.0",
+  "description": "Comprehensive security, branch, and CI/CD hygiene scan",
+  "trigger": "on_visit",
+
+  "secret_scanning": {
+    "severity": "critical",
+    "actions": {
+      "on_secret_found": "BLOCK — alert immediately, do NOT commit or push",
+      "on_secret_in_memory": "REMOVE from memory files, rotate credential",
+      "on_secret_in_config": "Move to environment variable or secret manager"
+    },
+    "patterns_to_scan": [
+      "API keys (any alphanumeric string >20 chars near 'key', 'token', 'secret')",
+      "Passwords in plaintext",
+      "Private SSH keys",
+      "OAuth tokens",
+      "Database connection strings with credentials",
+      "Codeberg/GitLab/Bitbucket tokens in .netrc or config files",
+      "JWT tokens",
+      "AWS/GCP/Azure credentials"
+    ],
+    "files_to_scan": [
+      ".netrc", ".env", "*.env.*",
+      "claude/memory/*.md",
+      "*.json (config files)",
+      "*.yml (CI/CD — look for hardcoded secrets)",
+      "*.toml (Cargo.toml, etc — check for auth tokens)"
+    ],
+    "fleet_dispatch": {
+      "panicbot": "immediate alert on any secret detection",
+      "rhodibot": "auto-redact and create PR to fix"
+    }
+  },
+
+  "branch_hygiene": {
+    "severity": "warning",
+    "rules": {
+      "max_branches": 1,
+      "allowed_branches": ["main"],
+      "tolerated_branches": ["gh-pages (only if GitHub Pages is configured)"],
+      "auto_delete": [
+        "orphan gh-pages branches (no Pages configured)",
+        "merged dependabot branches older than 7 days",
+        "stale feature branches with no commits in 30 days"
+      ],
+      "never_delete": [
+        "main",
+        "gh-pages (if Pages is active)"
+      ]
+    },
+    "branch_protection": {
+      "required_on": "main",
+      "settings": {
+        "require_pull_request": true,
+        "required_approvals": 0,
+        "require_status_checks": true,
+        "require_codeql": true,
+        "require_signed_commits": false,
+        "allow_admin_bypass": true
+      }
+    },
+    "release_flow": {
+      "tag_format": "v{major}.{minor}.{patch}",
+      "require_changelog_update": true,
+      "require_state_scm_update": true,
+      "auto_create_github_release": true
+    },
+    "dependabot_pr_hygiene": {
+      "auto_close_conflicting": true,
+      "max_open_dependabot_prs": 5,
+      "auto_close_stale_after_days": 14,
+      "comment_on_close": "Closing stale/conflicting dependabot PR. Dependabot will recreate with updated base.",
+      "notes": "Dependabot PRs that conflict with main after RSR compliance commits should be closed, not manually resolved. Dependabot recreates them automatically."
+    },
+    "fleet_dispatch": {
+      "finishbot": "create PR to delete stale branches, close conflicting dependabot PRs",
+      "seambot": "verify branch protection is configured"
+    }
+  },
+
+  "cicd_pruning": {
+    "severity": "info",
+    "description": "Remove or disable CI/CD workflows that consistently fail or are irrelevant to the repo content",
+    "rules": {
+      "disable_if_no_matching_files": {
+        "codeql.yml": "Disable if repo has no supported CodeQL languages (check for .js/.py/.go/.rs/.java/.rb)",
+        "npm-bun-blocker.yml": "Keep (policy enforcement)",
+        "ts-blocker.yml": "Keep (policy enforcement)",
+        "jekyll-gh-pages.yml": "Disable if no _config.yml or Jekyll content",
+        "jekyll.yml": "Disable if no _config.yml or Jekyll content"
+      },
+      "always_keep": [
+        "hypatia-scan.yml",
+        "scorecard.yml",
+        "scorecard-enforcer.yml",
+        "quality.yml",
+        "mirror.yml",
+        "instant-sync.yml",
+        "security-policy.yml",
+        "wellknown-enforcement.yml",
+        "workflow-linter.yml",
+        "rsr-antipattern.yml",
+        "guix-nix-policy.yml",
+        "secret-scanner.yml"
+      ],
+      "codeql_language_detection": {
+        ".js,.jsx,.ts,.tsx,.mjs": "javascript-typescript",
+        ".py": "python",
+        ".go": "go",
+        ".rs": "rust (NOT supported by CodeQL — use actions only)",
+        ".java,.kt": "java-kotlin",
+        ".rb": "ruby",
+        "none_found": "Use ['actions'] for workflow scanning only"
+      }
+    },
+    "fleet_dispatch": {
+      "rhodibot": "auto-fix CodeQL language matrix based on repo content",
+      "finishbot": "create PR to disable irrelevant workflows"
+    }
+  },
+
+  "dependabot_alerts": {
+    "severity": "high",
+    "rules": {
+      "max_open_alerts": 10,
+      "escalate_if_critical": true,
+      "auto_merge_patch_updates": true,
+      "weekly_digest": true
+    },
+    "priority_repos": [
+      "idaptik", "panll", "hypatia", "proven-servers", "boj-server",
+      "echidna", "gitbot-fleet", "rsr-template-repo"
+    ],
+    "fleet_dispatch": {
+      "sustainabot": "auto-merge safe dependency updates",
+      "panicbot": "alert on critical vulnerabilities"
+    }
+  }
+}

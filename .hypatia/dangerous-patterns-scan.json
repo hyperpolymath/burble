@@ -1,0 +1,121 @@
+{
+  "_comment": "SPDX-License-Identifier: PMPL-1.0-or-later",
+  "scan_name": "dangerous-patterns",
+  "version": "1.0.0",
+  "description": "Scan for formally dangerous escape hatches that bypass type safety, proof obligations, or termination guarantees. These are PRIORITY fixes — every instance represents a hole in formal verification.",
+  "trigger": "on_visit",
+  "severity": "critical",
+  "output": "TODO-DANGEROUS-PATTERNS.md",
+  "output_location": "repo_root",
+  "ai_instructions": "These patterns are PRIORITY fixes. Each one is a hole in the formal verification guarantee. When you encounter this file, address these before any other work. Check the proven repo for formally verified alternatives. Do NOT introduce new instances of any banned pattern.",
+
+  "patterns": {
+    "idris2": {
+      "believe_me": {
+        "pattern": "believe_me",
+        "severity": "critical",
+        "description": "Axiomatically asserts any proposition — completely bypasses the type checker. Equivalent to Haskell's unsafeCoerce.",
+        "remedy": "Replace with a real proof term. If the proposition is actually true, it should be provable. If it's not provable, the code is wrong.",
+        "file_extensions": [".idr"]
+      },
+      "assert_total": {
+        "pattern": "assert_total",
+        "severity": "critical",
+        "description": "Asserts a function is total without proof. Hides non-termination from the totality checker.",
+        "remedy": "Prove termination via a Smaller/SizeAccessible argument, or restructure to be obviously total.",
+        "file_extensions": [".idr"]
+      },
+      "assert_smaller": {
+        "pattern": "assert_smaller",
+        "severity": "high",
+        "description": "Asserts a value is structurally smaller without proof. Can hide non-termination.",
+        "remedy": "Use SizeAccessible or Well-Founded recursion instead.",
+        "file_extensions": [".idr"]
+      }
+    },
+    "coq": {
+      "admitted": {
+        "pattern": "Admitted",
+        "severity": "critical",
+        "description": "Accepts a proof obligation without proof. The theorem is unproven.",
+        "remedy": "Complete the proof. If blocked, document WHY and track as technical debt.",
+        "file_extensions": [".v"]
+      }
+    },
+    "lean": {
+      "sorry": {
+        "pattern": "sorry",
+        "severity": "critical",
+        "description": "Lean's escape hatch — accepts any goal without proof.",
+        "remedy": "Complete the proof or restructure the goal.",
+        "file_extensions": [".lean"]
+      }
+    },
+    "haskell": {
+      "unsafeCoerce": {
+        "pattern": "unsafeCoerce",
+        "severity": "critical",
+        "description": "Casts between any two types. Completely unsound.",
+        "remedy": "Use proper type class instances, GADTs, or restructure the types.",
+        "file_extensions": [".hs"]
+      },
+      "unsafePerformIO": {
+        "pattern": "unsafePerformIO",
+        "severity": "high",
+        "description": "Performs IO in a pure context. Breaks referential transparency.",
+        "remedy": "Thread IO through the type system properly.",
+        "file_extensions": [".hs"]
+      }
+    },
+    "ocaml": {
+      "obj_magic": {
+        "pattern": "Obj.magic",
+        "severity": "critical",
+        "description": "OCaml's unsafeCoerce — casts between any types.",
+        "remedy": "Use proper type conversion or restructure.",
+        "file_extensions": [".ml", ".mli"]
+      }
+    },
+    "rust": {
+      "unsafe_block": {
+        "pattern": "unsafe\\s*\\{",
+        "severity": "high",
+        "description": "Unsafe Rust block — bypasses borrow checker and memory safety.",
+        "remedy": "Document safety invariant. Prefer safe abstractions. Minimise unsafe surface.",
+        "file_extensions": [".rs"]
+      },
+      "transmute": {
+        "pattern": "transmute",
+        "severity": "critical",
+        "description": "Reinterprets bits of one type as another. Extremely dangerous.",
+        "remedy": "Use From/Into traits, or TryFrom with proper error handling.",
+        "file_extensions": [".rs"]
+      }
+    },
+    "rescript": {
+      "raw_js": {
+        "pattern": "%raw\\(",
+        "severity": "high",
+        "description": "Inline JavaScript — bypasses ReScript type system entirely.",
+        "remedy": "Use typed @val external bindings instead.",
+        "file_extensions": [".res"]
+      },
+      "obj_magic": {
+        "pattern": "Obj\\.magic",
+        "severity": "critical",
+        "description": "ReScript's unsafeCoerce via OCaml interop.",
+        "remedy": "Use proper type conversion.",
+        "file_extensions": [".res"]
+      }
+    },
+    "agda": {
+      "postulate": {
+        "pattern": "postulate",
+        "severity": "high",
+        "description": "Agda postulate — assumes a type is inhabited without proof.",
+        "remedy": "Provide a construction or use a safe axiom.",
+        "file_extensions": [".agda"]
+      }
+    }
+  }
+}

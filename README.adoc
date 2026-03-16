@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Grumble
+:toc: preamble
+:icons: font
+
+Voice first. Friction last. Complexity optional.
+
+== Overview
+
+Grumble is a modern, self-hostable, voice-first communications platform.
+It combines Mumble-like voice seriousness with contemporary browser join flows,
+strong permissions, excellent low-latency reliability, and privacy-respecting defaults.
+
+The strategic aim is to become the **best serious voice system** with modern
+onboarding, strong permissions, excellent reliability, and a future-proof
+browser capability model.
+
+== Architecture
+
+[cols="1,3"]
+|===
+| Layer | Technology
+
+| **Control plane**
+| Elixir/Erlang (OTP) — auth, sessions, rooms, presence, permissions, signaling, moderation, audit
+
+| **Media plane**
+| WebRTC-compatible — RTP/SRTP, mixing/forwarding, recording, screen-share
+
+| **Web client**
+| ReScript + WebRTC APIs — first-class browser client
+
+| **Desktop client**
+| Tauri 2 — native wrapper around web client for power users
+
+| **Protocol**
+| Protobuf-defined wire protocol shared between server and all clients
+
+| **Embedding**
+| Client library for integration into IDApTIK (in-game voice) and PanLL (workspace voice)
+|===
+
+== Integration
+
+Grumble is a standalone product that also serves as an embeddable component:
+
+* **IDApTIK** — in-game voice between Jessica and Q (asymmetric co-op multiplayer)
+* **PanLL** — foundational voice layer for the panel workspace system
+
+Client libraries expose a clean embedding API for these integrations.
+
+== Quick Start
+
+[source,bash]
+----
+# Server (Elixir)
+cd server
+mix deps.get
+mix phx.server
+
+# Web client (ReScript + Deno)
+cd client/web
+deno task dev
+----
+
+== Development
+
+[source,bash]
+----
+just dev          # Start server + web client
+just test         # Run all tests
+just build        # Production build
+----
+
+== Repository Structure
+
+[cols="1,3"]
+|===
+| Directory | Purpose
+
+| `server/`
+| Elixir/Phoenix control plane (OTP supervision tree)
+
+| `media/`
+| Media plane — WebRTC SFU, RTP handling, mixing
+
+| `client/web/`
+| ReScript web client (first-class browser experience)
+
+| `client/desktop/`
+| Tauri 2 desktop wrapper
+
+| `client/lib/`
+| Embeddable client library for IDApTIK and PanLL
+
+| `protocol/`
+| Protobuf wire protocol definitions
+
+| `containers/`
+| Containerfile and deployment configs
+
+| `.machine_readable/`
+| A2ML project state files
+|===
+
+== License
+
+SPDX-License-Identifier: PMPL-1.0-or-later
+
+Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+
+See link:LICENSE[LICENSE] for full text.
