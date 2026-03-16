@@ -69,17 +69,8 @@ defmodule Grumble.MixProject do
       # Rate limiting
       {:hammer, "~> 6.2"},
 
-      # Media plane — Membrane Framework (BEAM-native WebRTC SFU)
-      {:membrane_core, "~> 1.1"},
-      {:membrane_webrtc_plugin, "~> 0.22"},
-      {:membrane_opus_plugin, "~> 0.20"},
-      {:membrane_rtp_plugin, "~> 0.29"},
-      {:membrane_ice_plugin, "~> 0.18"},
-      {:membrane_rtc_engine, "~> 0.22"},
-      {:ex_webrtc, "~> 0.8"},
-
-      # TURN server (for privacy-first TURN-only mode)
-      {:ex_turn, "~> 0.2"},
+      # Media plane — ex_webrtc for MVP, Membrane full stack later
+      {:ex_webrtc, "~> 0.9"},
 
       # CORS for web client
       {:corsica, "~> 2.1"},
