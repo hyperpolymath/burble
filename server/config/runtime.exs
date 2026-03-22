@@ -13,7 +13,7 @@ if config_env() == :prod do
     System.get_env("VERISIMDB_URL") ||
       raise """
       environment variable VERISIMDB_URL is missing.
-      For example: http://verisimdb:8080
+      For example: https://verisimdb:8080
       """
 
   verisimdb_auth =

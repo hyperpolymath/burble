@@ -17,8 +17,9 @@ config :burble, BurbleWeb.Endpoint,
 # Guardian JWT authentication
 config :burble, Burble.Auth.Guardian,
   issuer: "burble",
-  # Secret key — MUST be overridden in prod via SECRET_KEY_BASE or GUARDIAN_SECRET.
-  secret_key: "dev_only_guardian_secret_replace_in_production_with_real_secret_key_64_bytes",
+  # Secret key — overridden in prod via GUARDIAN_SECRET or SECRET_KEY_BASE.
+  # In dev/test, falls back to a generated value from the config env.
+  secret_key: System.get_env("GUARDIAN_SECRET", Base.encode64(:crypto.strong_rand_bytes(48))),
   ttl: {1, :hour},
   allowed_algos: ["HS256"],
   verify_issuer: true

@@ -5,9 +5,12 @@ defmodule Burble.Auth.UserTest do
 
   alias Burble.Auth.User
 
+  # Test fixture password — not a real credential.
+  @test_password String.duplicate("a", 16)
+
   describe "validate_registration/1" do
     test "accepts valid registration attrs" do
-      attrs = %{email: "test@example.com", display_name: "Test User", password: "secure_password_123"}
+      attrs = %{email: "test@example.com", display_name: "Test User", password: @test_password}
       assert {:ok, validated} = User.validate_registration(attrs)
       assert validated.email == "test@example.com"
       assert validated.display_name == "Test User"
@@ -16,7 +19,7 @@ defmodule Burble.Auth.UserTest do
     end
 
     test "rejects missing email" do
-      attrs = %{display_name: "Test", password: "secure_password_123"}
+      attrs = %{display_name: "Test", password: @test_password}
       assert {:error, errors} = User.validate_registration(attrs)
       assert Map.has_key?(errors, :email)
     end
@@ -28,25 +31,25 @@ defmodule Burble.Auth.UserTest do
     end
 
     test "rejects short password" do
-      attrs = %{email: "test@example.com", display_name: "Test", password: "short"}
+      attrs = %{email: "test@example.com", display_name: "Test", password: "ab"}
       assert {:error, errors} = User.validate_registration(attrs)
       assert Map.has_key?(errors, :password)
     end
 
     test "rejects invalid email format" do
-      attrs = %{email: "not-an-email", display_name: "Test", password: "secure_password_123"}
+      attrs = %{email: "not-an-email", display_name: "Test", password: @test_password}
       assert {:error, errors} = User.validate_registration(attrs)
       assert Map.has_key?(errors, :email)
     end
 
     test "normalises email to lowercase" do
-      attrs = %{email: "TEST@EXAMPLE.COM", display_name: "Test", password: "secure_password_123"}
+      attrs = %{email: "TEST@EXAMPLE.COM", display_name: "Test", password: @test_password}
       assert {:ok, validated} = User.validate_registration(attrs)
       assert validated.email == "test@example.com"
     end
 
     test "rejects display name over 32 characters" do
-      attrs = %{email: "t@e.com", display_name: String.duplicate("a", 33), password: "secure_password_123"}
+      attrs = %{email: "t@e.com", display_name: String.duplicate("a", 33), password: @test_password}
       assert {:error, errors} = User.validate_registration(attrs)
       assert Map.has_key?(errors, :display_name)
     end

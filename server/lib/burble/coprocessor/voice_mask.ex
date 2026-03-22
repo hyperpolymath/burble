@@ -43,6 +43,8 @@ defmodule Burble.Coprocessor.VoiceMask do
       masked = VoiceMask.apply({:custom, params}, pcm_frame, 48000, state)
   """
 
+  # SECURITY: This module uses no dynamic apply/3. The scanner flags the
+  # function name `apply_mask` — it is a static dispatch, not Kernel.apply.
   alias Burble.Coprocessor.SmartBackend
 
   @frame_length 960
