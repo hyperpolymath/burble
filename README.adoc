@@ -135,11 +135,23 @@ SIMD-accelerated audio processing via Zig NIFs:
 | Neural denoise | 54us | 9us | 6x
 |===
 
+== Wondering How This Works?
+
+If you're curious about the tech behind these claims — how we hit 26,350x,
+what PTP actually does, why OTP gives us fault isolation — see
+link:EXPLAINME.adoc[EXPLAINME.adoc] for the receipts.
+
 == Documentation
 
+* link:EXPLAINME.adoc[Show Me The Receipts] — feature highlights with code paths and honest caveats
 * link:docs/architecture/ARCHITECTURE.adoc[Architecture] — control plane, media plane, topology modes, supervision tree
 * link:docs/architecture/THREAT-MODEL.adoc[Threat Model] — security analysis and mitigations
 * link:docs/developer/ABI-FFI-README.adoc[ABI/FFI Design] — Idris2 proofs + Zig implementation
+
+== Questions?
+
+Open an issue on https://github.com/hyperpolymath/burble/issues[GitHub] or reach
+out directly — happy to explain anything in more detail.
 
 == License
 

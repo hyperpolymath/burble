@@ -115,6 +115,39 @@ queries natively. Burble uses it as its sole data store via `Burble.Store`.
 - VeriSimDB: https://github.com/hyperpolymath/verisimdb
 - Burble client: `server/lib/burble/store.ex`
 
+== Dogfooded Across The Account
+
+These aren't one-off choices for Burble — they're patterns used across 500+
+hyperpolymath repos:
+
+[cols="1,2"]
+|===
+| Technology | Also Used In
+
+| **Zig NIFs**
+| https://github.com/hyperpolymath/gossamer[Gossamer] (webview shell),
+  https://github.com/hyperpolymath/proven-servers[proven-servers] (protocol FFI)
+
+| **Idris2 ABI proofs**
+| Every repo with FFI — https://github.com/hyperpolymath/rsr-template-repo[RSR template standard],
+  https://github.com/hyperpolymath/proven[proven] (104 protocol proofs)
+
+| **VeriSimDB**
+| https://github.com/hyperpolymath/idaptik[IDApTIK] (game state),
+  https://github.com/hyperpolymath/typedqliser[TypedQLiser] (query layer)
+
+| **Elixir/OTP**
+| https://github.com/hyperpolymath/hypatia[Hypatia] (neurosymbolic CI),
+  https://github.com/hyperpolymath/gitbot-fleet[gitbot-fleet] (bot orchestration)
+
+| **Chainguard containers**
+| All containerised repos via https://github.com/hyperpolymath/stapeln[Stapeln]
+
+| **ReScript frontend**
+| https://github.com/hyperpolymath/idaptik[IDApTIK] (game UI),
+  https://github.com/hyperpolymath/panll[PanLL] (workspace panels)
+|===
+
 == File Map
 
 [cols="1,2"]
