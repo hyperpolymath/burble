@@ -75,6 +75,16 @@ join:
 p2p:
     xdg-open "file://{{justfile_directory()}}/client/web/p2p-voice.html"
 
+# Start AI bridge (lets Claude Code send/receive via curl)
+ai-bridge:
+    deno run --allow-net client/web/burble-ai-bridge.js
+
+# P2P voice + AI bridge together
+p2p-ai:
+    deno run --allow-net client/web/burble-ai-bridge.js &
+    sleep 1
+    xdg-open "file://{{justfile_directory()}}/client/web/p2p-voice.html"
+
 # Start the Elixir server (dev mode)
 server:
     cd server && mix phx.server

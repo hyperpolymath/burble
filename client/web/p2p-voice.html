@@ -285,6 +285,65 @@
       input.value = '';
     }
 
+    // ── AI Bridge Connector ─────────────────────────────────────────────
+    // Auto-connect to the local Deno bridge (burble-ai-bridge.js) if running.
+    // This lets Claude Code send/receive via curl to localhost:6474.
+
+    let bridgeWs = null;
+
+    function connectBridge() {
+      try {
+        bridgeWs = new WebSocket('ws://localhost:6475');
+        bridgeWs.onopen = () => {
+          aiLog('system', 'AI bridge connected — Claude can use curl localhost:6474');
+        };
+        bridgeWs.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === 'send' && window.burble?.isOpen()) {
+              // Bridge is asking us to send to remote peer
+              window.burble.send(msg.payload);
+            }
+          } catch (e) { /* ignore */ }
+        };
+        bridgeWs.onclose = () => {
+          bridgeWs = null;
+          // Retry in 5s
+          setTimeout(connectBridge, 5000);
+        };
+        bridgeWs.onerror = () => {
+          bridgeWs?.close();
+          bridgeWs = null;
+          // Bridge not running — silent retry
+          setTimeout(connectBridge, 10000);
+        };
+      } catch (e) {
+        setTimeout(connectBridge, 10000);
+      }
+    }
+
+    // Hook into the AI channel to forward received messages to the bridge
+    const originalSetupAIChannel = setupAIChannel;
+    function setupAIChannelWithBridge(ch) {
+      const origOnMessage = ch.onmessage;
+      setupAIChannel(ch);
+      const hookedOnMessage = ch.onmessage;
+      ch.onmessage = (ev) => {
+        hookedOnMessage(ev);
+        // Forward to bridge
+        if (bridgeWs?.readyState === 1) {
+          try {
+            bridgeWs.send(JSON.stringify({ type: 'received', payload: JSON.parse(ev.data) }));
+          } catch (e) {
+            bridgeWs.send(JSON.stringify({ type: 'received', payload: ev.data }));
+          }
+        }
+      };
+    }
+
+    // Start bridge connector on page load (silent — doesn't block anything)
+    connectBridge();
+
     // ── Creator flow ────────────────────────────────────────────────────
 
     async function createOffer() {
