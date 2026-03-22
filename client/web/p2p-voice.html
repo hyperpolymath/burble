@@ -56,12 +56,16 @@
     <div class="meter" id="mic-meter-wrap" style="display:none"><div class="meter-fill" id="mic-meter"></div></div>
   </div>
 
-  <!-- Step 2: Create or Join -->
+  <!-- Step 2: Connect by room name or manual code -->
   <div class="card hidden" id="step-role">
     <h2><span class="step-num">2</span>Connect</h2>
-    <p class="instructions">One person creates the room, the other joins it. Doesn't matter who does which.</p>
-    <button class="btn-green" onclick="createOffer()">Create Room</button>
-    <button class="btn-blue" onclick="showJoin()">Join Room</button>
+    <label for="relay-url">Relay (leave blank for manual code exchange)</label>
+    <input id="relay-url" type="text" value="http://localhost:6476" placeholder="http://localhost:6476 or https://burble-relay.your-domain.workers.dev" />
+    <label for="room-name">Room Name</label>
+    <input id="room-name" type="text" value="" placeholder="e.g. dad-and-son" />
+    <button class="btn-green" onclick="autoConnect('create')">Create Room</button>
+    <button class="btn-blue" onclick="autoConnect('join')">Join Room</button>
+    <p class="instructions" style="margin-top:0.5rem">Both people type the same room name. One clicks Create, the other clicks Join. If no relay is running, falls back to manual code exchange.</p>
   </div>
 
   <!-- Step 2a: Creator flow -->
@@ -344,7 +348,98 @@
     // Start bridge connector on page load (silent — doesn't block anything)
     connectBridge();
 
-    // ── Creator flow ────────────────────────────────────────────────────
+    // ── Auto-connect via relay ────────────────────────────────────────
+
+    async function autoConnect(role) {
+      const relay = document.getElementById('relay-url').value.trim().replace(/\/$/, '');
+      const room = document.getElementById('room-name').value.trim();
+
+      // No relay or no room name → fall back to manual
+      if (!relay || !room) {
+        if (role === 'create') return createOffer();
+        else return showJoin();
+      }
+
+      // Check relay is reachable
+      try {
+        const health = await fetch(`${relay}/health`, { signal: AbortSignal.timeout(3000) });
+        if (!health.ok) throw new Error('unreachable');
+      } catch (e) {
+        setStatus('error', `Relay unreachable (${relay}) — falling back to manual`);
+        if (role === 'create') return createOffer();
+        else return showJoin();
+      }
+
+      if (role === 'create') {
+        setStatus('waiting', `Creating room "${room}"...`);
+        createPC();
+        createAIDataChannel();
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitForICE();
+
+        // Post offer to relay
+        const offerData = JSON.stringify(pc.localDescription);
+        await fetch(`${relay}/room/${room}/offer`, { method: 'PUT', body: offerData });
+        setStatus('waiting', `Room "${room}" created — waiting for someone to join...`);
+
+        document.getElementById('step-role').classList.add('hidden');
+
+        // Poll for answer
+        while (true) {
+          try {
+            const res = await fetch(`${relay}/room/${room}/answer`, { signal: AbortSignal.timeout(31000) });
+            if (res.ok) {
+              const answer = await res.json();
+              await pc.setRemoteDescription(answer);
+              setStatus('waiting', 'Connecting...');
+              return;
+            }
+          } catch (e) { /* timeout, retry */ }
+          // Check if already connected (ICE succeeded via trickle)
+          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') return;
+        }
+
+      } else {
+        setStatus('waiting', `Joining room "${room}"...`);
+        document.getElementById('step-role').classList.add('hidden');
+
+        // Fetch offer from relay (long-poll)
+        let offerData;
+        try {
+          const res = await fetch(`${relay}/room/${room}/offer`, { signal: AbortSignal.timeout(31000) });
+          if (!res.ok) { setStatus('error', `Room "${room}" not found`); return; }
+          offerData = await res.json();
+        } catch (e) {
+          setStatus('error', `Timed out waiting for room "${room}"`);
+          return;
+        }
+
+        createPC();
+        await pc.setRemoteDescription(offerData);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await waitForICE();
+
+        // Post answer to relay
+        await fetch(`${relay}/room/${room}/answer`, { method: 'PUT', body: JSON.stringify(pc.localDescription) });
+        setStatus('waiting', 'Connecting...');
+      }
+    }
+
+    async function waitForICE() {
+      await new Promise(resolve => {
+        if (pc.iceGatheringState === 'complete') return resolve();
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') resolve();
+        };
+        setTimeout(resolve, 5000);
+      });
+    }
+
+    // ── Creator flow (manual fallback) ──────────────────────────────────
 
     async function createOffer() {
       setStatus('waiting', 'Creating room...');

@@ -85,6 +85,17 @@ p2p-ai:
     sleep 1
     xdg-open "file://{{justfile_directory()}}/client/web/p2p-voice.html"
 
+# Start signaling relay (room-name discovery — run on any reachable machine)
+relay:
+    deno run --allow-net --allow-env signaling/relay.js
+
+# Full stack: relay + AI bridge + P2P voice (run this on the host machine)
+full:
+    deno run --allow-net --allow-env signaling/relay.js &
+    deno run --allow-net client/web/burble-ai-bridge.js &
+    sleep 1
+    xdg-open "file://{{justfile_directory()}}/client/web/p2p-voice.html"
+
 # Start the Elixir server (dev mode)
 server:
     cd server && mix phx.server
