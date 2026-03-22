@@ -34,6 +34,9 @@ NEVER create STATE.a2ml, META.a2ml, or ECOSYSTEM.a2ml in the repository root.
 
 ```
 burble/
+├── README.adoc          # High-level pitch — excitement and awe
+├── EXPLAINME.adoc       # Developer deep-dive — how it works
+├── Justfile             # Task runner (just build, just test, just up)
 ├── server/              # Elixir/Phoenix control plane (OTP)
 │   ├── lib/burble/      # Core modules (auth, rooms, store, coprocessor, etc.)
 │   ├── lib/burble_web/  # Phoenix web layer (controllers, channels, router)

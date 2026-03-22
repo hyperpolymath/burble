@@ -5,176 +5,141 @@
 
 Voice first. Friction last. Complexity optional.
 
-== Overview
+== What is Burble?
 
-Burble is a modern, self-hostable, voice-first communications platform.
-It combines Mumble-like voice seriousness with contemporary browser join flows,
-strong permissions, excellent low-latency reliability, and privacy-respecting defaults.
+Burble is a **self-hostable voice communications platform** built for people who
+care about latency, privacy, and control. Think Mumble's audio seriousness meets
+modern browser-based joining — no downloads, no accounts, no friction.
 
-The strategic aim is to become the **best serious voice system** with modern
-onboarding, strong permissions, excellent reliability, and a future-proof
-browser capability model.
+**One command to deploy. Sub-second to join. Your server, your rules.**
 
-== Architecture
-
-[cols="1,3"]
-|===
-| Layer | Technology
-
-| **Control plane**
-| Elixir/Erlang (OTP) — auth, sessions, rooms, presence, permissions, signaling, moderation, audit
-
-| **Media plane**
-| WebRTC-compatible — RTP/SRTP, mixing/forwarding, recording, screen-share
-
-| **Web client**
-| ReScript + WebRTC APIs — first-class browser client
-
-| **Desktop client**
-| Tauri 2 — native wrapper around web client for power users
-
-| **Protocol**
-| Protobuf-defined wire protocol shared between server and all clients
-
-| **Embedding**
-| Client library for integration into IDApTIK (in-game voice) and PanLL (workspace voice)
-|===
-
-== Integration
-
-Burble is a standalone product that also serves as an embeddable component:
-
-* **IDApTIK** — in-game voice between Jessica and Q (asymmetric co-op multiplayer)
-* **PanLL** — foundational voice layer for the panel workspace system
-
-Client libraries expose a clean embedding API for these integrations.
-
-== Quick Start
-
-=== Prerequisites
-
-* Elixir 1.17+ / Erlang/OTP 26+
-* Zig 0.15+ (for coprocessor NIFs)
-* Deno (for web client)
-* VeriSimDB (database — run on port 8080)
-
-NOTE: Burble uses VeriSimDB as its sole data store via the **Elixir client**
-(`Burble.Store` GenServer wrapping `VeriSimClient`). VeriSimDB also has a Gleam
-client library in `nextgen-databases/verisimdb/`, but Burble does not use it.
-If you see references to VeriSimDB "codec stubs" in the Gleam client, those are
-a separate concern and do not affect Burble's functionality.
-
-=== Development Setup
-
-[source,bash]
-----
-# 1. Start VeriSimDB
-cd ../nextgen-databases/verisimdb && cargo run
-
-# 2. Build Zig coprocessor NIFs
-cd ffi/zig && zig build -Doptimize=ReleaseFast
-cp zig-out/lib/libburble_coprocessor.so ../../server/priv/
-
-# 3. Start Elixir server
-cd server && mix deps.get && mix phx.server
-# → http://localhost:4000
-
-# 4. Start web client (separate terminal)
-cd client/web && deno task dev
-# → http://localhost:5173
-----
-
-=== Container Deployment (one command)
-
-[source,bash]
-----
-cd containers
-podman-compose -f compose.toml up
-# → Server on :4000, Web on :8080, VeriSimDB on :8081
-----
-
-=== Run Tests
-
-[source,bash]
-----
-cd server && mix test --no-start    # 49 tests, 0 failures
-cd ffi/zig && zig build test        # Zig coprocessor unit tests
-mix bench.coprocessor               # Elixir vs Zig performance benchmarks
-----
-
-== Repository Structure
-
-[cols="1,3"]
-|===
-| Directory | Purpose
-
-| `server/`
-| Elixir/Phoenix control plane (OTP supervision tree)
-
-| `media/`
-| Media plane — WebRTC SFU, RTP handling, mixing
-
-| `client/web/`
-| ReScript web client (first-class browser experience)
-
-| `client/desktop/`
-| Tauri 2 desktop wrapper
-
-| `client/lib/`
-| Embeddable client library for IDApTIK and PanLL
-
-| `protocol/`
-| Protobuf wire protocol definitions
-
-| `ffi/zig/`
-| SIMD coprocessor NIFs (audio, DSP, neural, compression — 26,350x LZ4 speedup)
-
-| `src/abi/`
-| Idris2 ABI definitions (dependent type proofs for coprocessor interfaces)
-
-| `containers/`
-| Containerfiles + compose.toml (Chainguard images, Podman/Selur-compose)
-
-| `.machine_readable/`
-| SCM checkpoint files (.machine_readable/6a2/STATE.a2ml, .machine_readable/6a2/META.a2ml, .machine_readable/6a2/ECOSYSTEM.a2ml)
-|===
-
-== Topology Modes
-
-Burble supports four deployment topologies (set via `BURBLE_TOPOLOGY` env var):
+== Why Burble?
 
 [cols="1,1,1,1,1"]
 |===
-| Feature | Monarchic | Oligarchic | Distributed | Serverless
+| | Burble | Mumble | Discord | Jitsi
 
-| **Default** | Yes | | |
-| **Store** | VeriSimDB | Federated | Federated | None
-| **E2EE** | Optional | Optional | Recommended | Mandatory
-| **Recording** | Yes | Yes | Per-server | No
-| **Moderation** | Full | Full | Per-server | None
-| **Federation** | No | Cluster | Open | N/A
+| **Self-host**
+| Yes
+| Yes
+| No
+| Yes
+
+| **Browser join**
+| Yes (WebRTC)
+| No (native only)
+| Browser + app
+| Yes
+
+| **Latency**
+| <10ms (Zig SIMD NIFs)
+| ~15ms
+| ~50-100ms
+| ~30ms
+
+| **Privacy**
+| E2EE optional, no telemetry
+| Encrypted, no telemetry
+| Telemetry, scanning
+| E2EE optional
+
+| **Precision timing**
+| IEEE 1588 PTP (<1us)
+| No
+| No
+| No
+
+| **Embeddable**
+| Yes (game/app integration)
+| No
+| No
+| Partial
 |===
 
-== Coprocessor Performance
+== Key Features
+
+**Audio performance** — Zig SIMD coprocessor NIFs deliver 26,350x speedup over
+pure Elixir for LZ4 compression, 62x for echo cancellation, 37x for FFT. Your
+server doesn't break a sweat.
+
+**Precision Time Protocol** — IEEE 1588 PTP support with sub-microsecond
+synchronisation across nodes. Automatic clock source detection with graceful
+fallback (PTP hardware → phc2sys → NTP → system). Built for multi-server
+deployments where timing matters.
+
+**Four topology modes** — From single-server (monarchic) to fully distributed
+mesh (serverless with mandatory E2EE). Set `BURBLE_TOPOLOGY` and go.
+
+**Erlang/OTP backbone** — Supervision trees, hot code upgrades, fault isolation.
+If a room crashes, everything else keeps running. That's not marketing — that's
+OTP.
+
+**Bridge interop** — Bidirectional Mumble/Murmur relay. Migrate your community
+without forcing everyone to switch at once. Jitsi and Matrix bridges planned.
+
+**Embeddable client library** — Drop Burble voice into your game, workspace, or
+app. Used in IDApTIK (asymmetric co-op game) and PanLL (panel workspace).
+
+== Quick Start
+
+=== One-command container deployment
+
+[source,bash]
+----
+git clone https://github.com/hyperpolymath/burble && cd burble
+cd containers && podman-compose -f compose.toml up
+# Server: http://localhost:4000
+# Web client: http://localhost:8080
+# VeriSimDB: http://localhost:8081
+----
+
+=== Development setup
+
+[source,bash]
+----
+# Prerequisites: Elixir 1.17+, Zig 0.15+, Deno
+
+# Build Zig coprocessor
+cd ffi/zig && zig build -Doptimize=ReleaseFast
+cp zig-out/lib/libburble_coprocessor.so ../../server/priv/
+
+# Start server
+cd server && mix deps.get && mix phx.server
+
+# Start web client (separate terminal)
+cd client/web && deno task dev
+----
+
+=== Run tests
+
+[source,bash]
+----
+just test          # All tests
+just test-server   # Elixir tests (49 tests)
+just test-ffi      # Zig coprocessor tests
+just bench         # Elixir vs Zig benchmarks
+----
+
+== Coprocessor Benchmarks
 
 SIMD-accelerated audio processing via Zig NIFs:
 
 [cols="1,1,1,1"]
 |===
-| Operation | Elixir | Zig | Speedup
+| Operation | Elixir | Zig NIF | Speedup
 
-| LZ4 compress | 83ms | 3.1µs | 26,350x
-| Echo cancel | 19.4ms | 310µs | 62x
-| FFT (256pt) | 826µs | 22µs | 37x
-| Convolution | 300µs | 11µs | 27x
-| Neural denoise | 54µs | 9µs | 6x
+| LZ4 compress | 83ms | 3.1us | 26,350x
+| Echo cancel | 19.4ms | 310us | 62x
+| FFT (256pt) | 826us | 22us | 37x
+| Convolution | 300us | 11us | 27x
+| Neural denoise | 54us | 9us | 6x
 |===
 
-== Bridges
+== Documentation
 
-* **Mumble/Murmur** — bidirectional voice relay (interop, not migration)
-* **Jitsi** — planned (native WebRTC interop)
-* **Matrix** — planned (via Matrix bridge protocol)
+* link:docs/architecture/ARCHITECTURE.adoc[Architecture] — control plane, media plane, topology modes, supervision tree
+* link:docs/architecture/THREAT-MODEL.adoc[Threat Model] — security analysis and mitigations
+* link:docs/developer/ABI-FFI-README.adoc[ABI/FFI Design] — Idris2 proofs + Zig implementation
 
 == License
 

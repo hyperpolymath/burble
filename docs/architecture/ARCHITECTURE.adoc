@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble Architecture
+:toc:
+:icons: font
+
+== System Layers
+
+[cols="1,3"]
+|===
+| Layer | Technology
+
+| **Control plane**
+| Elixir/Erlang (OTP) — auth, sessions, rooms, presence, permissions, signaling, moderation, audit
+
+| **Media plane**
+| WebRTC-compatible — RTP/SRTP, mixing/forwarding, recording, screen-share
+
+| **Web client**
+| ReScript + WebRTC APIs — first-class browser client
+
+| **Desktop client**
+| Tauri 2 — native wrapper around web client for power users
+
+| **Protocol**
+| Protobuf-defined wire protocol shared between server and all clients
+
+| **Coprocessor**
+| Zig SIMD NIFs — audio DSP, compression, neural denoising, echo cancellation
+
+| **Timing**
+| IEEE 1588 PTP — sub-microsecond clock synchronisation across nodes
+
+| **Embedding**
+| Client library for integration into IDApTIK (in-game voice) and PanLL (workspace voice)
+|===
+
+== Repository Structure
+
+[cols="1,3"]
+|===
+| Directory | Purpose
+
+| `server/`
+| Elixir/Phoenix control plane (OTP supervision tree)
+
+| `media/`
+| Media plane — WebRTC SFU, RTP handling, mixing
+
+| `client/web/`
+| ReScript web client (first-class browser experience)
+
+| `client/desktop/`
+| Tauri 2 desktop wrapper
+
+| `client/lib/`
+| Embeddable client library for IDApTIK and PanLL
+
+| `protocol/`
+| Protobuf wire protocol definitions
+
+| `ffi/zig/`
+| SIMD coprocessor NIFs (audio, DSP, neural, compression)
+
+| `src/abi/`
+| Idris2 ABI definitions (dependent type proofs for coprocessor interfaces)
+
+| `containers/`
+| Containerfiles + compose.toml (Chainguard images, Podman)
+
+| `.machine_readable/`
+| SCM checkpoint files (STATE, META, ECOSYSTEM)
+|===
+
+== Topology Modes
+
+Burble supports four deployment topologies (set via `BURBLE_TOPOLOGY` env var):
+
+[cols="1,1,1,1,1"]
+|===
+| Feature | Monarchic | Oligarchic | Distributed | Serverless
+
+| **Default** | Yes | | |
+| **Store** | VeriSimDB | Federated | Federated | None
+| **E2EE** | Optional | Optional | Recommended | Mandatory
+| **Recording** | Yes | Yes | Per-server | No
+| **Moderation** | Full | Full | Per-server | None
+| **Federation** | No | Cluster | Open | N/A
+|===
+
+=== Monarchic (default)
+
+Single-server deployment. All state in one VeriSimDB instance. Simplest to
+operate. Good for teams, guilds, and small communities.
+
+=== Oligarchic
+
+Federated cluster of trusted servers. Shared state via VeriSimDB replication.
+Good for organisations with multiple offices or regions.
+
+=== Distributed
+
+Open federation. Any server can join the mesh. Per-server moderation policies.
+Good for communities that want independence with interop.
+
+=== Serverless
+
+Pure peer-to-peer via WebRTC mesh. Mandatory E2EE. No recording, no moderation.
+No server infrastructure needed. Good for ad-hoc private conversations.
+
+== PTP Timing Subsystem
+
+The `Burble.Timing.PTP` GenServer provides IEEE 1588 Precision Time Protocol
+integration for multi-node synchronisation.
+
+=== Clock Source Hierarchy
+
+1. **PTP hardware clock** — sub-microsecond accuracy via `/dev/ptp*`
+2. **phc2sys** — PTP-to-system clock bridge (~1us accuracy)
+3. **NTP** — standard network time (~1ms accuracy)
+4. **System clock** — fallback, no synchronisation guarantees
+
+Source detection is automatic. The system probes each source at startup and
+selects the best available.
+
+=== Jitter Measurement
+
+Jitter is measured as the standard deviation of clock offset samples over a
+60-sample sliding window. The `quality()` API returns a categorised assessment:
+
+* `:excellent` — jitter < 1us
+* `:good` — jitter < 10us
+* `:acceptable` — jitter < 100us
+* `:degraded` — jitter >= 100us
+
+=== Telemetry Events
+
+* `[:burble, :ptp, :offset]` — clock offset measurement
+* `[:burble, :ptp, :jitter]` — jitter measurement update
+* `[:burble, :ptp, :source_change]` — clock source transition
+
+== Bridges
+
+=== Mumble/Murmur Bridge
+
+Bidirectional voice relay between Burble and Mumble servers. Users on either
+side hear each other transparently. Designed for gradual migration, not
+protocol replacement.
+
+=== SIP Bridge
+
+Standard SIP integration for PSTN and PBX interop. Connects Burble rooms to
+telephone networks or enterprise phone systems.
+
+=== Planned
+
+* **Jitsi** — native WebRTC interop
+* **Matrix** — via Matrix bridge protocol
+
+== Integration Points
+
+=== IDApTIK
+
+In-game voice for the asymmetric co-op multiplayer game. Jessica and Q need
+low-latency, proximity-aware voice that works without alt-tabbing. Burble
+provides the voice layer via the embeddable client library.
+
+=== PanLL
+
+Foundational voice layer for the panel workspace system. Always-on voice
+channels per workspace, with push-to-talk and voice activity detection.
+Integrated via the `client/lib/` embedding API.

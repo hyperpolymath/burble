@@ -85,6 +85,7 @@ defmodule Burble.Bridges.SIP do
 
   use GenServer
   require Logger
+  import Bitwise
 
   # SIP default port.
   @default_sip_port 5060
@@ -1412,6 +1413,4 @@ defmodule Burble.Bridges.SIP do
       _ -> nil
     end
   end
-
-  import Bitwise
 end
