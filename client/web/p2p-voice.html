@@ -471,11 +471,31 @@
     async function acceptAnswer() {
       try {
         const code = document.getElementById('answer-text').value.trim();
-        const answer = JSON.parse(atob(code));
-        await pc.setRemoteDescription(answer);
+        const myOffer = document.getElementById('offer-text').value.trim();
+
+        if (code === myOffer) {
+          setStatus('error', 'You pasted your OWN code back. You need the REPLY code from the other person — it should be DIFFERENT from yours.');
+          return;
+        }
+
+        let answer;
+        try {
+          answer = JSON.parse(atob(code));
+        } catch (decodeErr) {
+          setStatus('error', 'Could not decode reply. Make sure the entire code was copied.');
+          return;
+        }
+
+        if (answer.type !== 'answer') {
+          setStatus('error', `This is a "${answer.type}", not a reply. The other person needs to click "Join Room" and "Generate Reply", then send you the NEW code.`);
+          return;
+        }
+
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
         setStatus('waiting', 'Connecting...');
       } catch (e) {
         setStatus('error', 'Invalid reply code: ' + e.message);
+        console.error('[Burble] acceptAnswer error:', e);
       }
     }
 
@@ -490,11 +510,35 @@
     async function createAnswer() {
       try {
         const code = document.getElementById('remote-offer-text').value.trim();
-        const offer = JSON.parse(atob(code));
+        setStatus('waiting', 'Decoding offer...');
 
+        let offer;
+        try {
+          offer = JSON.parse(atob(code));
+        } catch (decodeErr) {
+          setStatus('error', 'Could not decode the room code. Make sure you copied the ENTIRE code with no extra spaces.');
+          console.error('[Burble] Decode error:', decodeErr);
+          return;
+        }
+
+        // Verify it's an offer, not an answer
+        if (offer.type !== 'offer') {
+          setStatus('error', `This is a "${offer.type}", not an offer. Make sure the CREATOR sends you their code.`);
+          return;
+        }
+
+        setStatus('waiting', 'Creating peer connection...');
         createPC();
-        await pc.setRemoteDescription(offer);
 
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        } catch (sdpErr) {
+          setStatus('error', 'Failed to process the room code: ' + sdpErr.message);
+          console.error('[Burble] setRemoteDescription error:', sdpErr);
+          return;
+        }
+
+        setStatus('waiting', 'Generating reply...');
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -508,6 +552,15 @@
         });
 
         const replyCode = btoa(JSON.stringify(pc.localDescription));
+
+        // Sanity check: reply must be different from input
+        if (replyCode === code) {
+          setStatus('error', 'BUG: Reply code is identical to input. This should not happen. Check browser console.');
+          console.error('[Burble] Answer === Offer! pc.localDescription:', pc.localDescription);
+          console.error('[Burble] offer was:', offer);
+          return;
+        }
+
         document.getElementById('answer-out-text').value = replyCode;
 
         document.getElementById('step-offer-input').classList.add('hidden');
