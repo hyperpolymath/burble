@@ -58,6 +58,12 @@ Client libraries expose a clean embedding API for these integrations.
 * Deno (for web client)
 * VeriSimDB (database — run on port 8080)
 
+NOTE: Burble uses VeriSimDB as its sole data store via the **Elixir client**
+(`Burble.Store` GenServer wrapping `VeriSimClient`). VeriSimDB also has a Gleam
+client library in `nextgen-databases/verisimdb/`, but Burble does not use it.
+If you see references to VeriSimDB "codec stubs" in the Gleam client, those are
+a separate concern and do not affect Burble's functionality.
+
 === Development Setup
 
 [source,bash]
