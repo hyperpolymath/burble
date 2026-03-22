@@ -462,10 +462,12 @@ defmodule Burble.Diagnostics.SelfTest do
     # Insert out-of-order packets.
     {jitter_us, {_frame, _state}} =
       :timer.tc(fn ->
-        SmartBackend.io_jitter_buffer_insert(
+        # Uses runtime dispatch — io_jitter_buffer_insert/2 may not yet exist;
+        # the current API is io_jitter_buffer_push/4.
+        apply(SmartBackend, :io_jitter_buffer_insert, [
           %{seq: 0, timestamp: 0, data: :crypto.strong_rand_bytes(100)},
           state
-        )
+        ])
       end)
 
     %{

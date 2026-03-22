@@ -23,9 +23,22 @@ defmodule BurbleWeb.Router do
     plug BurbleWeb.Plugs.RateLimiter
   end
 
+  # JSON-only pipeline without rate limiting (health checks, monitoring).
+  pipeline :accepts_json do
+    plug :accepts, ["json"]
+  end
+
   pipeline :authenticated_api do
     plug :accepts, ["json"]
     plug Burble.Auth.GuardianPipeline
+  end
+
+  # Health check endpoint — unauthenticated, no rate limiting.
+  # Used by container HEALTHCHECK, load balancers, and admin panel.
+  scope "/api/v1", BurbleWeb.API do
+    pipe_through [:accepts_json]
+
+    get "/health", HealthController, :check
   end
 
   # Public API routes (no auth required).

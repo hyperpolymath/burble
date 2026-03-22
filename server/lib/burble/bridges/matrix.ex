@@ -114,7 +114,14 @@ defmodule Burble.Bridges.Matrix do
     }
   }
 
-  # Retry delay for failed sync requests.
+  # SECURITY FIX: Exponential backoff for sync retries instead of fixed delay.
+  # Without backoff, a failing Matrix homeserver causes a tight retry loop that
+  # wastes CPU, generates excessive log noise, and may trigger rate limiting
+  # on the homeserver side — making recovery harder.
+  @sync_min_backoff_ms 1_000
+  @sync_max_backoff_ms 30_000
+
+  # Legacy constant retained for initialization retry (non-sync).
   @sync_retry_ms 5_000
 
   # Maximum message body length to relay (prevent abuse).
@@ -208,7 +215,12 @@ defmodule Burble.Bridges.Matrix do
       sync_ref: nil,
       matrix_members: %{},
       joined: false,
-      syncing: false
+      syncing: false,
+      # SECURITY FIX: Track current backoff delay for exponential backoff
+      # on sync failures. Starts at @sync_min_backoff_ms, doubles on each
+      # consecutive failure, capped at @sync_max_backoff_ms. Resets to
+      # min on successful sync.
+      sync_backoff_ms: @sync_min_backoff_ms
     }
 
     # Start async initialisation: whoami → set display name → join room → sync.
@@ -272,16 +284,27 @@ defmodule Burble.Bridges.Matrix do
     since_token = sync_data["next_batch"]
 
     # Schedule next sync immediately (long-poll provides the delay).
+    # SECURITY FIX: Reset backoff to minimum on success — the homeserver
+    # is responding normally, so no need for delay.
     send(self(), :sync)
 
-    {:noreply, %{state | since_token: since_token, syncing: false}}
+    {:noreply, %{state | since_token: since_token, syncing: false, sync_backoff_ms: @sync_min_backoff_ms}}
   end
 
   @impl true
   def handle_info({:sync_result, {:error, reason}}, state) do
-    Logger.warning("[MatrixBridge] Sync failed: #{inspect(reason)}")
-    Process.send_after(self(), :sync, @sync_retry_ms)
-    {:noreply, %{state | syncing: false}}
+    # SECURITY FIX: Exponential backoff instead of fixed retry delay.
+    # Without backoff, a failing homeserver causes a tight retry loop that
+    # wastes CPU and may worsen the problem (e.g., by triggering rate limits).
+    # Backoff doubles on each failure: 1s → 2s → 4s → 8s → 16s → 30s (cap).
+    current_backoff = state.sync_backoff_ms
+    next_backoff = min(current_backoff * 2, @sync_max_backoff_ms)
+
+    Logger.warning(
+      "[MatrixBridge] Sync failed: #{inspect(reason)}, retrying in #{current_backoff}ms"
+    )
+    Process.send_after(self(), :sync, current_backoff)
+    {:noreply, %{state | syncing: false, sync_backoff_ms: next_backoff}}
   end
 
   # -- GenServer call handlers -----------------------------------------------

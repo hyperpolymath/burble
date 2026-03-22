@@ -1,0 +1,17 @@
+= VeriSimDB Migrations
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+
+Burble uses VeriSimDB as its primary data store, not a traditional SQL database.
+VeriSimDB is schemaless (octad-based), so "migrations" here are initialization
+scripts that set up the required namespace prefixes, indices, and seed data.
+
+== How it works
+
+Burble.Store.Migrator runs at application startup. It checks VeriSimDB for a
+`_migration:burble` octad that tracks which migration version has been applied.
+Each migration script is idempotent -- safe to run multiple times.
+
+== File naming
+
+Migrations are numbered sequentially: `001_initial_setup.exs`, `002_...`, etc.

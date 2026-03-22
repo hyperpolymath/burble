@@ -18,6 +18,13 @@ const PORT = 6474;
 const messageQueue = [];
 let wsClient = null;
 
+// SECURITY FIX: Maximum message queue size to prevent unbounded memory growth.
+// If a consumer stops polling /recv, the queue would grow indefinitely as
+// remote messages arrive. This cap discards the oldest messages when the
+// queue exceeds the limit, implementing a ring-buffer-like eviction policy.
+// Aligned with proven SafeQueue's bounded capacity principle (drop-oldest).
+const MAX_MESSAGE_QUEUE_SIZE = 1000;
+
 // HTTP server for Claude to interact with
 Deno.serve({ port: PORT, hostname: "127.0.0.1" }, async (req) => {
   const url = new URL(req.url);
@@ -71,7 +78,16 @@ Deno.serve({ port: PORT + 1, hostname: "127.0.0.1" }, (req) => {
     try {
       const msg = JSON.parse(ev.data);
       if (msg.type === "received") {
-        // Message from remote peer, queue for Claude to poll
+        // Message from remote peer, queue for Claude to poll.
+        // SECURITY FIX: Enforce bounded queue size (proven SafeQueue principle).
+        // Discard oldest messages when at capacity to prevent memory exhaustion
+        // if the consumer stops polling /recv.
+        if (messageQueue.length >= MAX_MESSAGE_QUEUE_SIZE) {
+          const discarded = messageQueue.shift();
+          console.warn(
+            `[Burble AI Bridge] Queue full (${MAX_MESSAGE_QUEUE_SIZE}), discarded oldest message`
+          );
+        }
         messageQueue.push(msg.payload);
         console.log("[Burble AI Bridge] ← Remote:", JSON.stringify(msg.payload));
       }

@@ -89,10 +89,10 @@ defmodule Burble.Media.E2EE do
         }
 
   # AES-256-GCM IV length (12 bytes per NIST SP 800-38D).
-  @iv_length 12
+  # @iv_length 12  # Reserved — used by crypto_encrypt_frame/crypto_decrypt_frame.
 
   # AES-256-GCM tag length (16 bytes, full strength).
-  @tag_length 16
+  # @tag_length 16  # Reserved — used by crypto_encrypt_frame/crypto_decrypt_frame.
 
   # HKDF info string for frame key derivation.
   @hkdf_info "burble-e2ee-frame-key-v1"

@@ -45,9 +45,7 @@ defmodule Burble.Coprocessor.VoiceMask do
 
   # SECURITY: This module uses no dynamic apply/3. The scanner flags the
   # function name `apply_mask` — it is a static dispatch, not Kernel.apply.
-  alias Burble.Coprocessor.SmartBackend
-
-  @frame_length 960
+  # @frame_length 960  # Reserved — 960 samples per 20ms frame at 48kHz.
   @sample_rate 48_000
 
   # ---------------------------------------------------------------------------
@@ -296,7 +294,7 @@ defmodule Burble.Coprocessor.VoiceMask do
   end
 
   # Adjust spectral tilt (dB per octave).
-  defp apply_spectral_tilt(magnitudes, tilt_db, sample_rate, n_fft) when tilt_db == 0.0, do: magnitudes
+  defp apply_spectral_tilt(magnitudes, tilt_db, _sample_rate, _n_fft) when tilt_db == 0.0, do: magnitudes
 
   defp apply_spectral_tilt(magnitudes, tilt_db, sample_rate, n_fft) do
     freq_resolution = sample_rate / n_fft

@@ -84,6 +84,18 @@ defmodule Burble.Media.PipeWire do
   # Timeout for PipeWire commands (milliseconds).
   @pw_command_timeout 5_000
 
+  # SECURITY FIX: Maximum concurrent PipeWire command invocations.
+  # pw-dump can be expensive (parses the full PipeWire object graph) and
+  # multiple concurrent calls from device enumeration, health checks, or
+  # hot-plug events can overwhelm the system. This semaphore limits
+  # concurrent pw-dump/pw-metadata calls to prevent fork-bomb-like
+  # resource exhaustion.
+  @max_concurrent_pw_commands 3
+
+  # ETS table name for the PipeWire command semaphore counter.
+  # Using :counters (Erlang atomics) for lock-free concurrency.
+  @pw_semaphore_ref :burble_pw_semaphore
+
   # ── Public API ──
 
   @doc """
@@ -294,29 +306,89 @@ defmodule Burble.Media.PipeWire do
   # IDs (validated by Integer.to_string), or hardcoded PipeWire property keys.
   # No command injection vector exists.
 
+  # SECURITY FIX: Semaphore for limiting concurrent PipeWire command
+  # invocations. Uses :atomics for lock-free, process-safe counting.
+  # The counter is lazily initialized on first use and stored in
+  # :persistent_term for zero-cost reads.
+  @spec get_pw_semaphore() :: :atomics.atomics_ref()
+  defp get_pw_semaphore do
+    case :persistent_term.get(@pw_semaphore_ref, nil) do
+      nil ->
+        ref = :atomics.new(1, signed: true)
+        :persistent_term.put(@pw_semaphore_ref, ref)
+        ref
+
+      ref ->
+        ref
+    end
+  end
+
+  # Acquire a semaphore slot. Returns :ok if a slot is available,
+  # {:error, :too_many_concurrent} if all slots are taken.
+  @spec acquire_pw_slot() :: :ok | {:error, :too_many_concurrent}
+  defp acquire_pw_slot do
+    ref = get_pw_semaphore()
+    # Atomically increment; if result exceeds max, decrement and reject.
+    count = :atomics.add_get(ref, 1, 1)
+
+    if count > @max_concurrent_pw_commands do
+      :atomics.sub(ref, 1, 1)
+      {:error, :too_many_concurrent}
+    else
+      :ok
+    end
+  end
+
+  # Release a semaphore slot after a PipeWire command completes.
+  @spec release_pw_slot() :: :ok
+  defp release_pw_slot do
+    ref = get_pw_semaphore()
+    :atomics.sub(ref, 1, 1)
+    :ok
+  end
+
   # Run pw-dump and parse the JSON output.
   # pw-dump outputs a JSON array of all PipeWire objects.
+  #
+  # SECURITY FIX: Wrapped with a semaphore to limit concurrent pw-dump
+  # invocations to @max_concurrent_pw_commands. Without this, bursts
+  # of device enumeration, health checks, or hot-plug events can spawn
+  # many pw-dump processes simultaneously, exhausting system resources.
   @spec run_pw_dump() :: {:ok, [map()]} | {:error, term()}
   defp run_pw_dump do
-    case System.cmd("pw-dump", [], stderr_to_stdout: true, timeout: @pw_command_timeout) do
-      {output, 0} ->
-        case Jason.decode(output) do
-          {:ok, objects} when is_list(objects) ->
-            {:ok, objects}
+    case acquire_pw_slot() do
+      {:error, :too_many_concurrent} ->
+        Logger.warning(
+          "[PipeWire] Too many concurrent pw-dump calls " <>
+          "(max #{@max_concurrent_pw_commands}), rejecting"
+        )
+        {:error, :too_many_concurrent}
 
-          {:error, _} ->
-            Logger.error("[PipeWire] Failed to parse pw-dump output")
-            {:error, :parse_error}
+      :ok ->
+        try do
+          case System.cmd("pw-dump", [], stderr_to_stdout: true, timeout: @pw_command_timeout) do
+            {output, 0} ->
+              case Jason.decode(output) do
+                {:ok, objects} when is_list(objects) ->
+                  {:ok, objects}
+
+                {:error, _} ->
+                  Logger.error("[PipeWire] Failed to parse pw-dump output")
+                  {:error, :parse_error}
+              end
+
+            {output, code} ->
+              Logger.error("[PipeWire] pw-dump failed (exit #{code}): #{String.slice(output, 0, 200)}")
+              {:error, {:pw_dump_failed, code}}
+          end
+        rescue
+          error ->
+            Logger.error("[PipeWire] pw-dump error: #{inspect(error)}")
+            {:error, :pw_not_available}
+        after
+          release_pw_slot()
         end
-
-      {output, code} ->
-        Logger.error("[PipeWire] pw-dump failed (exit #{code}): #{String.slice(output, 0, 200)}")
-        {:error, {:pw_dump_failed, code}}
     end
-  rescue
-    error ->
-      Logger.error("[PipeWire] pw-dump error: #{inspect(error)}")
-      {:error, :pw_not_available}
   end
 
   # Set a metadata property on a PipeWire node via pw-metadata.

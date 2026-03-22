@@ -22,7 +22,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Burble is Elixir (not supported by CodeQL). Scan JavaScript
+          # in client/ and actions/ for workflow injection vulnerabilities.
           - language: javascript-typescript
+            build-mode: none
+          - language: actions
             build-mode: none
 
     steps:

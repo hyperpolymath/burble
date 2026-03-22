@@ -214,7 +214,19 @@ defmodule Burble.Store do
     case VeriSimClient.new(url, auth: auth, timeout: timeout) do
       {:ok, client} ->
         Logger.info("[Burble.Store] Connected to VeriSimDB at #{url}")
-        {:ok, %{client: client}}
+
+        # Run pending VeriSimDB migrations (idempotent setup scripts).
+        case Burble.Store.Migrator.run(client) do
+          :ok ->
+            {:ok, %{client: client}}
+
+          {:error, reason} ->
+            Logger.error("[Burble.Store] Migration failed: #{inspect(reason)}")
+            # Continue anyway — the migration failure is logged but non-fatal.
+            # VeriSimDB is schemaless, so the app can still function with
+            # degraded migration tracking.
+            {:ok, %{client: client}}
+        end
 
       {:error, reason} ->
         Logger.error("[Burble.Store] Failed to connect to VeriSimDB: #{inspect(reason)}")

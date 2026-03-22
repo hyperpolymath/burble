@@ -84,4 +84,29 @@ defmodule Burble.Application do
     BurbleWeb.Endpoint.config_change(changed, removed)
     :ok
   end
+
+  @doc """
+  Health check for container HEALTHCHECK and monitoring.
+
+  Verifies the supervision tree is running and VeriSimDB is reachable.
+  Called via `bin/burble rpc "Burble.Application.health_check()"` from
+  the Containerfile HEALTHCHECK directive.
+
+  Returns `:ok` if healthy, raises on failure (non-zero exit for container).
+  """
+  @spec health_check() :: :ok
+  def health_check do
+    # Check that the supervision tree is alive.
+    case Process.whereis(Burble.Supervisor) do
+      nil -> raise "Burble.Supervisor is not running"
+      _pid -> :ok
+    end
+
+    # Check VeriSimDB connectivity.
+    case Burble.Store.health() do
+      {:ok, true} -> :ok
+      {:ok, false} -> raise "VeriSimDB reports unhealthy"
+      {:error, reason} -> raise "VeriSimDB health check failed: #{inspect(reason)}"
+    end
+  end
 end

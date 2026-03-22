@@ -22,6 +22,7 @@ defmodule Burble.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      releases: releases(),
       name: "Burble",
       description: description(),
       package: package(),
@@ -115,6 +116,18 @@ defmodule Burble.MixProject do
           BurbleWeb.RoomChannel,
           BurbleWeb.UserSocket
         ]
+      ]
+    ]
+  end
+
+  defp releases do
+    [
+      burble: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent, os_mon: :permanent],
+        steps: [:assemble, :tar],
+        rel_templates_path: "rel",
+        overlay: "rel/overlays"
       ]
     ]
   end

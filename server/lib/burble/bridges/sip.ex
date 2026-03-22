@@ -113,10 +113,10 @@ defmodule Burble.Bridges.SIP do
   @register_interval_s 3600
 
   # SIP transaction timeout (milliseconds).
-  @transaction_timeout_ms 32_000
+  # @transaction_timeout_ms 32_000  # Reserved — used for SIP transaction retries.
 
   # Audio frame timing: 20ms frames.
-  @frame_duration_ms 20
+  # @frame_duration_ms 20  # Reserved — 20ms per Opus frame at 48kHz.
 
   # CRLF for SIP message line endings.
   @crlf "\r\n"
@@ -508,7 +508,7 @@ defmodule Burble.Bridges.SIP do
   defp handle_sip_request("INVITE", _uri, headers, body, src_ip, src_port, state) do
     call_id = headers["call-id"] || generate_call_id()
     from = headers["from"] || ""
-    to = headers["to"] || ""
+    _to = headers["to"] || ""
 
     Logger.info("[SIPBridge] Inbound INVITE from #{from}, Call-ID: #{call_id}")
 
@@ -1018,7 +1018,7 @@ defmodule Burble.Bridges.SIP do
   defp send_rtp_audio(_opus_frame, state), do: state
 
   # Send a DTMF digit via RFC 2833 telephone-event RTP packets.
-  defp send_rtp_dtmf(digit, %{call: call, rtp_socket: socket} = state)
+  defp send_rtp_dtmf(digit, %{call: call, rtp_socket: socket} = _state)
        when not is_nil(socket) and not is_nil(call) do
     # Convert digit character to event code.
     event_code = dtmf_char_to_code(digit)
@@ -1388,7 +1388,7 @@ defmodule Burble.Bridges.SIP do
 
   # Stub: decode Opus frame to PCM float list.
   # In production, this would use a proper Opus decoder (NIF or port).
-  defp opus_to_pcm_stub(opus_frame) do
+  defp opus_to_pcm_stub(_opus_frame) do
     # Generate silence (160 samples for 8kHz, 20ms) as placeholder.
     # Real implementation would decode Opus → 48kHz PCM → resample to 8kHz.
     List.duplicate(0.0, 160)

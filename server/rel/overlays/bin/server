@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Convenience wrapper: start Burble in foreground (for containers).
+# Usage: bin/server
+#
+# Equivalent to: bin/burble start
+# This script exists because Containerfile ENTRYPOINT expects bin/burble.
+
+set -eu
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "${SELF_DIR}/burble" start

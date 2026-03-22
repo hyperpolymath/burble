@@ -44,6 +44,16 @@ defmodule Burble.Media.Peer do
 
   @ice_servers [%{urls: "stun:stun.l.google.com:19302"}]
 
+  # SECURITY FIX: Maximum outbound tracks (peers) before rejecting new
+  # additions. Each peer P in a room of N peers creates N-1 sendonly
+  # transceivers, so total transceivers across all peers is O(N^2).
+  # At 50 peers: 2,450 total transceivers; at 100: 9,900. This cap
+  # prevents quadratic resource exhaustion in large rooms.
+  @max_outbound_peers 50
+
+  # Warning threshold: log when approaching outbound peer limit.
+  @outbound_warn_threshold 40
+
   # ---------------------------------------------------------------------------
   # Client API
   # ---------------------------------------------------------------------------
@@ -282,9 +292,36 @@ defmodule Burble.Media.Peer do
   end
 
   defp add_outbound_peer(state, new_peer_id) do
-    {track, tr_id} = add_sendonly_track(state.pc)
-    outbound = Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
-    %{state | outbound_tracks: outbound}
+    outbound_count = map_size(state.outbound_tracks)
+
+    # SECURITY FIX: Validate room size before adding outbound tracks.
+    # Each peer creates N-1 sendonly transceivers, so total transceivers
+    # across all peers in a room is O(N^2). Without a cap, a room with
+    # hundreds of peers causes quadratic resource growth in WebRTC
+    # transceiver objects, SDP size, and RTP forwarding load.
+    cond do
+      outbound_count >= @max_outbound_peers ->
+        Logger.error(
+          "[Peer] #{state.peer_id} in room #{state.room_id}: outbound peer " <>
+          "limit reached (#{outbound_count}/#{@max_outbound_peers}), " <>
+          "rejecting new peer #{new_peer_id}"
+        )
+        state
+
+      outbound_count >= @outbound_warn_threshold ->
+        Logger.warning(
+          "[Peer] #{state.peer_id} in room #{state.room_id}: approaching " <>
+          "outbound peer limit (#{outbound_count}/#{@max_outbound_peers})"
+        )
+        {track, tr_id} = add_sendonly_track(state.pc)
+        outbound = Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+        %{state | outbound_tracks: outbound}
+
+      true ->
+        {track, tr_id} = add_sendonly_track(state.pc)
+        outbound = Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+        %{state | outbound_tracks: outbound}
+    end
   end
 
   defp remove_outbound_peer(state, removed_peer_id) do

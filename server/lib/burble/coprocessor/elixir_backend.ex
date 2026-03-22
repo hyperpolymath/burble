@@ -23,6 +23,13 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
   import Bitwise
 
+  # SECURITY FIX: Maximum packets in the jitter buffer before oldest are
+  # discarded. Without this bound, a burst of out-of-order or delayed packets
+  # causes unbounded list growth in io_jitter_buffer_push/4. At 20ms frames
+  # this allows ~2 seconds of buffered audio — well above any reasonable
+  # jitter target. Aligned with proven SafeQueue bounded capacity principle.
+  @max_jitter_buffer_packets 100
+
   # ---------------------------------------------------------------------------
   # Backend metadata
   # ---------------------------------------------------------------------------
@@ -405,6 +412,18 @@ defmodule Burble.Coprocessor.ElixirBackend do
     entry = %{packet: packet, seq: sequence, ts: timestamp}
     updated_buffer = insert_sorted(buffer, entry)
 
+    # SECURITY FIX: Enforce bounded jitter buffer size (proven SafeQueue
+    # drop-oldest principle). Without this cap, a burst of out-of-order or
+    # very late packets causes unbounded list growth. When at capacity,
+    # discard the oldest packet (head of the sorted list) to make room.
+    updated_buffer =
+      if length(updated_buffer) > @max_jitter_buffer_packets do
+        # Drop oldest packet(s) exceeding the cap.
+        Enum.take(updated_buffer, -@max_jitter_buffer_packets)
+      else
+        updated_buffer
+      end
+
     # Set base timestamp on first packet.
     base_ts = base_ts || timestamp
 
@@ -415,13 +434,19 @@ defmodule Burble.Coprocessor.ElixirBackend do
       |> Map.put(:target_delay_ms, target_delay)
 
     # Emit the oldest packet if we have enough buffered.
-    [oldest | rest] = updated_buffer
-    age_ms = timestamp - oldest.ts
+    case updated_buffer do
+      [oldest | rest] ->
+        age_ms = timestamp - oldest.ts
 
-    if age_ms >= target_delay do
-      {:ok, oldest.packet, Map.put(new_state, :packets, rest)}
-    else
-      {:ok, nil, new_state}
+        if age_ms >= target_delay do
+          {:ok, oldest.packet, Map.put(new_state, :packets, rest)}
+        else
+          {:ok, nil, new_state}
+        end
+
+      [] ->
+        # Buffer is empty (should not happen, but guard against it).
+        {:ok, nil, new_state}
     end
   end
 

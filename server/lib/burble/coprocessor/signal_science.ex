@@ -85,7 +85,7 @@ defmodule Burble.Coprocessor.SignalScience do
   6. IFFT back to time domain
   """
   @spec wiener_filter([float()], pos_integer(), map()) :: {[float()], map()}
-  def wiener_filter(pcm, sample_rate, state) do
+  def wiener_filter(pcm, _sample_rate, state) do
     frame_len = length(pcm)
     # Use next power of 2 for FFT.
     fft_size = next_power_of_2(frame_len)
@@ -205,7 +205,7 @@ defmodule Burble.Coprocessor.SignalScience do
   5. IFFT to time domain
   """
   @spec dereverberate([float()], pos_integer(), map()) :: {[float()], map()}
-  def dereverberate(pcm, sample_rate, state) do
+  def dereverberate(pcm, _sample_rate, state) do
     frame_len = length(pcm)
     fft_size = next_power_of_2(frame_len)
 

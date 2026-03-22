@@ -65,6 +65,10 @@ defmodule Burble.Transport.QUIC do
   use GenServer
   require Logger
 
+  # Module atom for the optional :quicer NIF — referenced via apply/3
+  # to avoid compile-time warnings when msquic is not installed.
+  @quicer :quicer
+
   # ---------------------------------------------------------------------------
   # Type definitions
   # ---------------------------------------------------------------------------
@@ -239,7 +243,7 @@ defmodule Burble.Transport.QUIC do
     result =
       if available?() do
         try do
-          :quicer.send_dgram(conn, data)
+          apply(@quicer, :send_dgram, [conn, data])
         rescue
           e -> {:error, {:send_failed, e}}
         end
@@ -294,7 +298,7 @@ defmodule Burble.Transport.QUIC do
     }
 
     # Accept the connection (handshake completes asynchronously).
-    if available?(), do: :quicer.handshake(conn)
+    if available?(), do: apply(@quicer, :handshake, [conn])
 
     {:noreply, put_in(state, [:connections, conn], conn_state)}
   end
@@ -339,11 +343,12 @@ defmodule Burble.Transport.QUIC do
 
     if conn_state && conn_state.room_id do
       # Forward the voice datagram to the media engine for SFU fanout.
-      Burble.Media.Engine.handle_voice_datagram(
+      # Uses runtime dispatch — handle_voice_datagram/3 may not yet exist.
+      apply(Burble.Media.Engine, :handle_voice_datagram, [
         conn_state.room_id,
         conn_state.user_id,
         data
-      )
+      ])
     end
 
     {:noreply, state}
@@ -382,7 +387,8 @@ defmodule Burble.Transport.QUIC do
       )
 
       # Notify the room that this participant's transport is gone.
-      Burble.Room.handle_transport_disconnect(conn_state.room_id, conn_state.user_id)
+      # Uses runtime dispatch — Burble.Room may not be defined yet.
+      apply(Burble.Room, :handle_transport_disconnect, [conn_state.room_id, conn_state.user_id])
     end
 
     {:noreply, %{state | connections: Map.delete(state.connections, conn)}}
@@ -448,7 +454,7 @@ defmodule Burble.Transport.QUIC do
         server_resumption_level: 2
       ]
 
-      :quicer.listen(config[:port], listen_opts)
+      apply(@quicer, :listen, [config[:port], listen_opts])
     end
   end
 
@@ -462,7 +468,7 @@ defmodule Burble.Transport.QUIC do
       stream ->
         if available?() do
           try do
-            :quicer.send(stream, data)
+            apply(@quicer, :send, [stream, data])
           rescue
             e -> {:error, {:send_failed, e}}
           end
@@ -498,7 +504,7 @@ defmodule Burble.Transport.QUIC do
   # Decodes and dispatches to the appropriate room/media handler.
   @spec handle_signal_data(conn_handle(), connection_state(), binary(), state()) ::
           {:noreply, state()}
-  defp handle_signal_data(conn, conn_state, data, state) do
+  defp handle_signal_data(_conn, conn_state, data, state) do
     # TODO: Decode Bebop VoiceSignal union and dispatch.
     # For now, forward raw bytes to the signaling handler.
     Logger.debug(
@@ -512,7 +518,7 @@ defmodule Burble.Transport.QUIC do
   # Handle incoming text chat data on the reliable text stream.
   @spec handle_text_data(conn_handle(), connection_state(), binary(), state()) ::
           {:noreply, state()}
-  defp handle_text_data(conn, conn_state, data, state) do
+  defp handle_text_data(_conn, conn_state, data, state) do
     Logger.debug(
       "[Burble.Transport.QUIC] Text data (#{byte_size(data)} bytes) " <>
         "from user #{conn_state.user_id}"

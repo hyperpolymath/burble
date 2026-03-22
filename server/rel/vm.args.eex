@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Erlang VM arguments for the Burble OTP release.
+#
+# See: https://www.erlang.org/doc/system/erl_cmd.html
+
+## Name of the node (sname = short name, name = fully qualified).
+-sname <%= @release.name %>
+
+## Cookie for distributed Erlang (set via RELEASE_COOKIE env var).
+-setcookie <%= @release.cookie %>
+
+## Heartbeat management — VM restarts if the heart process detects a hang.
+## Uncomment for production:
+# -heart
+
+## Kernel inet configuration — tune for high-connection WebRTC workloads.
++K true
+
+## Async thread pool — handles file I/O, NIFs, etc.
++A 32
+
+## Process limit — Burble can have many concurrent users.
++P 1048576
+
+## Port limit — each WebRTC peer uses ports for DTLS/SRTP.
++Q 65536
+
+## Scheduler bind type — spread across CPUs.
++sbt db
+
+## Max heap size per process (words) — prevent runaway memory.
+## 512MB = 67108864 words on 64-bit.
++hmax 67108864

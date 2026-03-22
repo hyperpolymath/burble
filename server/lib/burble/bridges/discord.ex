@@ -81,6 +81,10 @@ defmodule Burble.Bridges.Discord do
   use GenServer
   require Logger
 
+  # Module atom for the optional :gun HTTP/WebSocket client — referenced
+  # via apply/3 to avoid compile-time warnings when :gun is not installed.
+  @gun :gun
+
   # Discord Gateway API version and encoding.
   @gateway_url "wss://gateway.discord.gg/?v=10&encoding=json"
   @api_base "https://discord.com/api/v10"
@@ -103,7 +107,7 @@ defmodule Burble.Bridges.Discord do
   @voice_op_session_description 4
   @voice_op_speaking 5
   @voice_op_heartbeat_ack 6
-  @voice_op_resume 7
+  # @voice_op_resume 7  # Reserved — used during voice session resumption.
   @voice_op_hello 8
   @voice_op_resumed 9
 
@@ -117,13 +121,13 @@ defmodule Burble.Bridges.Discord do
 
   # Audio timing: 48kHz, 20ms frames = 960 samples per frame.
   @samples_per_frame 960
-  @frame_duration_ms 20
+  # @frame_duration_ms 20  # Reserved — 20ms per Opus frame at 48kHz.
 
   # Reconnection delay in milliseconds.
   @reconnect_delay_ms 5_000
 
   # Silence frame: 5 bytes of Opus silence (required by Discord when not speaking).
-  @opus_silence <<0xF8, 0xFF, 0xFE>>
+  # @opus_silence <<0xF8, 0xFF, 0xFE>>  # Reserved — sent when not speaking.
 
   @type bridge_config :: %{
           room_id: String.t(),
@@ -999,11 +1003,11 @@ defmodule Burble.Bridges.Discord do
     query = if uri.query, do: "?#{uri.query}", else: ""
     full_path = "#{path}#{query}"
 
-    case :gun.open(host, port, %{protocols: [:http], transport: :tls}) do
+    case apply(@gun, :open, [host, port, %{protocols: [:http], transport: :tls}]) do
       {:ok, conn_pid} ->
-        case :gun.await_up(conn_pid, 10_000) do
+        case apply(@gun, :await_up, [conn_pid, 10_000]) do
           {:ok, _protocol} ->
-            stream_ref = :gun.ws_upgrade(conn_pid, String.to_charlist(full_path))
+            stream_ref = apply(@gun, :ws_upgrade, [conn_pid, String.to_charlist(full_path)])
 
             receive do
               {:gun_upgrade, ^conn_pid, ^stream_ref, [<<"websocket">>], _headers} ->
@@ -1018,16 +1022,16 @@ defmodule Burble.Bridges.Discord do
                 {:ok, {conn_pid, stream_ref, reader_pid}}
 
               {:gun_response, ^conn_pid, ^stream_ref, _fin, status, _headers} ->
-                :gun.close(conn_pid)
+                apply(@gun, :close, [conn_pid])
                 {:error, {:ws_upgrade_failed, status}}
             after
               10_000 ->
-                :gun.close(conn_pid)
+                apply(@gun, :close, [conn_pid])
                 {:error, :ws_upgrade_timeout}
             end
 
           {:error, reason} ->
-            :gun.close(conn_pid)
+            apply(@gun, :close, [conn_pid])
             {:error, {:connection_failed, reason}}
         end
 
@@ -1039,6 +1043,15 @@ defmodule Burble.Bridges.Discord do
   end
 
   # WebSocket reader loop — forwards messages to the bridge GenServer.
+  #
+  # SECURITY FIX: Added receive timeout for dead connection detection.
+  # Without a timeout, if the remote end dies silently (e.g., network
+  # partition, remote server crash without TCP FIN), this process blocks
+  # indefinitely in receive, leaking a process and its associated memory.
+  # The 60-second timeout detects dead connections and notifies the bridge
+  # GenServer to clean up and attempt reconnection.
+  @ws_reader_timeout_ms 60_000
+
   defp ws_reader_loop(conn_pid, stream_ref, bridge_pid, label) do
     receive do
       {:gun_ws, ^conn_pid, ^stream_ref, {:text, text}} ->
@@ -1056,8 +1069,19 @@ defmodule Burble.Bridges.Discord do
         send(bridge_pid, {:ws_closed, label, reason})
 
       {:send_ws, data} ->
-        :gun.ws_send(conn_pid, stream_ref, {:text, data})
+        apply(@gun, :ws_send, [conn_pid, stream_ref, {:text, data}])
         ws_reader_loop(conn_pid, stream_ref, bridge_pid, label)
+    after
+      # SECURITY FIX: Timeout fires when no message arrives for 60 seconds.
+      # Discord sends heartbeat ACKs every ~41.25s, so 60s without any
+      # message strongly indicates a dead connection. Notify the bridge
+      # GenServer so it can clean up and reconnect.
+      @ws_reader_timeout_ms ->
+        Logger.warning(
+          "[DiscordBridge] WebSocket reader timeout for #{label} — " <>
+          "no message in #{div(@ws_reader_timeout_ms, 1000)}s, assuming dead connection"
+        )
+        send(bridge_pid, {:ws_closed, label, :receive_timeout})
     end
   end
 

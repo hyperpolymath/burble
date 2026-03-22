@@ -261,6 +261,26 @@ defmodule Burble.Coprocessor.ZigBackend do
     do: ElixirBackend.decompress_audio_frame(archive, frame_index)
 
   # ---------------------------------------------------------------------------
+  # Audio kernel — behaviour callbacks delegated to Elixir
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def audio_agc(pcm, target_rms_db, attack_ms, release_ms, state),
+    do: ElixirBackend.audio_agc(pcm, target_rms_db, attack_ms, release_ms, state)
+
+  @impl true
+  def audio_comfort_noise(frame_length, level_db, noise_profile),
+    do: ElixirBackend.audio_comfort_noise(frame_length, level_db, noise_profile)
+
+  @impl true
+  def audio_spectral_vad(pcm, sample_rate, state),
+    do: ElixirBackend.audio_spectral_vad(pcm, sample_rate, state)
+
+  @impl true
+  def audio_perceptual_weight(magnitudes, sample_rate),
+    do: ElixirBackend.audio_perceptual_weight(magnitudes, sample_rate)
+
+  # ---------------------------------------------------------------------------
   # NIF function stubs — replaced when .so is loaded
   # ---------------------------------------------------------------------------
 

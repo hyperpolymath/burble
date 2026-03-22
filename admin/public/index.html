@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) -->
+<!--
+  Burble Admin — Gossamer-native admin panel.
+
+  This is the first app built natively for the Gossamer webview shell.
+  The Gossamer runtime injects __gossamer_invoke into this page,
+  enabling IPC with the Zig backend.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Burble Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/App.res.mjs"></script>
+</body>
+</html>

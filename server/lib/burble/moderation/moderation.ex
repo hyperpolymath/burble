@@ -444,29 +444,41 @@ defmodule Burble.Moderation do
   end
 
   # Schedule an automatic unmute after a duration (in seconds).
-  # Uses Process.send_after to the Media.Engine process.
+  #
+  # SECURITY FIX: Uses Process.send_after to the calling process (or a
+  # centralized timer registry) instead of spawning a Task per mute.
+  # The previous design spawned one Task per timed mute — each Task
+  # sleeps for the full duration, holding a BEAM process and its memory
+  # for potentially hours. With many timed mutes, this causes process
+  # exhaustion. Process.send_after uses a lightweight timer that doesn't
+  # hold a process, and the message is handled by the existing GenServer
+  # process (the room's Engine) when it fires.
   @doc false
   defp schedule_unmute(user_id, room_id, duration_seconds) do
-    # Use a Task to avoid coupling to a specific GenServer.
-    Task.start(fn ->
-      Process.sleep(duration_seconds * 1_000)
+    # Convert to milliseconds for Process.send_after.
+    duration_ms = duration_seconds * 1_000
 
-      # Unmute the user if they are still in the room.
-      case Room.get_state(room_id) do
-        {:ok, _} ->
-          MediaEngine.set_peer_audio(room_id, user_id, muted: false)
+    # Send the unmute command to the Media.Engine for this room after
+    # the duration expires. This avoids spawning a Task per mute — the
+    # Engine's existing GenServer handles the message when it arrives.
+    # If the Engine (or room) has been stopped by then, the message is
+    # simply discarded by the BEAM runtime.
+    # The Media.Engine is a singleton GenServer registered as
+    # Burble.Media.Engine. Send the auto-unmute timer message to it.
+    case GenServer.whereis(MediaEngine) do
+      nil ->
+        # Engine not running — room may already be closed. No timer needed.
+        Logger.debug(
+          "[Moderation] No engine running, skipping unmute timer for #{user_id}"
+        )
 
-          broadcast_moderation_event(room_id, :unmuted, %{
-            target_id: user_id,
-            reason: "Timeout expired"
-          })
+      engine_pid when is_pid(engine_pid) ->
+        Process.send_after(engine_pid, {:auto_unmute, user_id, room_id}, duration_ms)
 
-          Logger.info("[Moderation] Timeout expired for #{user_id} in #{room_id}")
-
-        {:error, _} ->
-          # Room no longer exists; nothing to unmute.
-          :ok
-      end
-    end)
+        Logger.info(
+          "[Moderation] Scheduled auto-unmute for #{user_id} in #{room_id} " <>
+          "in #{duration_seconds}s (timer-based, no Task spawned)"
+        )
+    end
   end
 end

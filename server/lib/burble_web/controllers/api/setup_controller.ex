@@ -35,7 +35,7 @@ defmodule BurbleWeb.API.SetupController do
   | POST | /api/v1/setup/complete | Mark setup as done |
   """
 
-  use Phoenix.Controller, namespace: BurbleWeb
+  use Phoenix.Controller, formats: [:json]
 
   import Plug.Conn
 
@@ -654,7 +654,8 @@ defmodule BurbleWeb.API.SetupController do
   @spec store_get(String.t()) :: {:ok, term()} | {:error, term()}
   defp store_get(key) do
     try do
-      Burble.Store.get(key)
+      # Uses runtime dispatch — Burble.Store may not be fully defined yet.
+      apply(Burble.Store, :get, [key])
     rescue
       _ -> {:error, :store_unavailable}
     catch
@@ -666,7 +667,8 @@ defmodule BurbleWeb.API.SetupController do
   @spec store_put(String.t(), term()) :: :ok | {:error, term()}
   defp store_put(key, value) do
     try do
-      Burble.Store.put(key, value)
+      # Uses runtime dispatch — Burble.Store may not be fully defined yet.
+      apply(Burble.Store, :put, [key, value])
     rescue
       _ -> {:error, :store_unavailable}
     catch

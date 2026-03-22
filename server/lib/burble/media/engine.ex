@@ -396,14 +396,85 @@ defmodule Burble.Media.Engine do
     offer
   end
 
+  # SECURITY FIX: Maximum mailbox size before RTP distribution backs off.
+  # Without this check, a sustained high RTP packet rate (e.g., many rooms
+  # with many peers) can cause the Engine's mailbox to grow unboundedly,
+  # leading to OOM. When the mailbox exceeds this threshold, log a warning
+  # and skip distribution for this packet to allow the mailbox to drain.
+  @max_mailbox_size 5_000
+
+  # SECURITY FIX: Warn threshold for mailbox growth (80% of max).
+  @mailbox_warn_threshold trunc(@max_mailbox_size * 0.8)
+
   @impl true
   def handle_cast({:distribute_rtp, room_id, from_peer_id, packet}, state) do
+    # SECURITY FIX: Monitor mailbox size before doing fanout work. If the
+    # mailbox has grown too large, skip this distribution round to let
+    # the GenServer drain its queue. This is a backpressure mechanism
+    # that prevents OOM from sustained high RTP traffic.
+    {:message_queue_len, mailbox_len} = Process.info(self(), :message_queue_len)
+
+    cond do
+      mailbox_len > @max_mailbox_size ->
+        # Critical: mailbox is too large. Drop this packet to relieve pressure.
+        Logger.error(
+          "[Engine] Mailbox overflow (#{mailbox_len} > #{@max_mailbox_size}), " <>
+          "dropping RTP distribution for room #{room_id}"
+        )
+
+      mailbox_len > @mailbox_warn_threshold ->
+        # Warning: approaching limit. Still forward, but log.
+        Logger.warning(
+          "[Engine] Mailbox high (#{mailbox_len}/#{@max_mailbox_size}), " <>
+          "room #{room_id} — consider load shedding"
+        )
+        distribute_to_peers(state, room_id, from_peer_id, packet)
+
+      true ->
+        distribute_to_peers(state, room_id, from_peer_id, packet)
+    end
+
+    {:noreply, state}
+  end
+
+  # SECURITY FIX: Handle auto-unmute timer messages from the moderation
+  # system. This replaces the old Task.start-per-mute pattern, which
+  # spawned and held one BEAM process per timed mute for the full duration.
+  # Process.send_after is lightweight (no process held) and the unmute
+  # logic runs in the existing Engine GenServer process.
+  @impl true
+  def handle_info({:auto_unmute, user_id, room_id}, state) do
+    case Map.get(state.sessions, room_id) do
+      nil ->
+        # Room no longer exists; nothing to unmute.
+        Logger.debug("[Engine] Auto-unmute: room #{room_id} no longer exists")
+
+      _session ->
+        # Unmute the peer and broadcast the event.
+        __MODULE__.set_peer_audio(room_id, user_id, muted: false)
+
+        Phoenix.PubSub.broadcast(
+          Burble.PubSub,
+          "room:#{room_id}",
+          {:moderation, :unmuted, %{target_id: user_id, reason: "Timeout expired"}}
+        )
+
+        Logger.info("[Engine] Auto-unmute fired for #{user_id} in #{room_id}")
+    end
+
+    {:noreply, state}
+  end
+
+  # Forward an RTP packet to all peers in a room except the sender.
+  # Extracted as a helper for the distribute_rtp handler to keep the
+  # mailbox-monitoring logic readable.
+  @spec distribute_to_peers(map(), String.t(), String.t(), binary()) :: :ok
+  defp distribute_to_peers(state, room_id, from_peer_id, packet) do
     case Map.get(state.sessions, room_id) do
       nil ->
         :ok
 
       session ->
-        # Forward to all peers EXCEPT the sender.
         session.peers
         |> Map.keys()
         |> Enum.reject(fn id -> id == from_peer_id end)
@@ -411,8 +482,6 @@ defmodule Burble.Media.Engine do
           Burble.Media.Peer.forward_rtp(peer_id, from_peer_id, packet)
         end)
     end
-
-    {:noreply, state}
   end
 
   defp ice_policy(:standard), do: :all

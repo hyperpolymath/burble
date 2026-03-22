@@ -1,0 +1,70 @@
+{
+  "$schema": "panll-panel/v2",
+  "id": "burble-admin-panel",
+  "name": "Burble Admin",
+  "version": "0.1.0",
+  "description": "Admin panel for managing Burble voice servers, rooms, users, and WebRTC metrics.",
+  "author": "Jonathan D.A. Jewell",
+  "license": "PMPL-1.0-or-later",
+  "clade": "infrastructure/voice",
+  "entry": "../../src/App.res",
+  "compiled_entry": "../../public/index.html",
+  "icon": "../../public/icons/128x128.png",
+  "capabilities": [
+    "network",
+    "notification"
+  ],
+  "data_bindings": [
+    {
+      "source": "burble://admin/health",
+      "refresh_ms": 30000,
+      "on_error": "stale"
+    },
+    {
+      "source": "burble://admin/rooms",
+      "refresh_ms": 5000,
+      "on_error": "stale"
+    },
+    {
+      "source": "burble://admin/stats",
+      "refresh_ms": 10000,
+      "on_error": "stale"
+    }
+  ],
+  "layout": {
+    "default_width": 1200,
+    "default_height": 800,
+    "min_width": 900,
+    "min_height": 600,
+    "resizable": true,
+    "position": "center"
+  },
+  "actions": [
+    {
+      "id": "create_room",
+      "label": "Create Room",
+      "target": "burble://admin/rooms/create",
+      "method": "POST",
+      "requires_confirmation": false
+    },
+    {
+      "id": "kick_user",
+      "label": "Kick User",
+      "target": "burble://admin/rooms/{room_id}/kick",
+      "method": "POST",
+      "requires_confirmation": true
+    },
+    {
+      "id": "toggle_recording",
+      "label": "Toggle Recording",
+      "target": "burble://admin/rooms/{room_id}/recording",
+      "method": "POST",
+      "requires_confirmation": true
+    }
+  ],
+  "health_check": {
+    "endpoint": "burble://admin/health",
+    "interval_ms": 30000,
+    "timeout_ms": 10000
+  }
+}

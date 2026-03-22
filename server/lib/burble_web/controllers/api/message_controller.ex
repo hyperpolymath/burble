@@ -25,7 +25,6 @@ defmodule BurbleWeb.API.MessageController do
   use Phoenix.Controller, formats: [:json]
 
   alias Burble.Text.NNTPSBackend
-  alias Burble.Permissions
 
   @doc """
   Fetch recent messages for a room.

@@ -53,6 +53,16 @@ defmodule Burble.Media.Recorder do
 
   alias Burble.Coprocessor.SmartBackend, as: Backend
 
+  # SECURITY FIX: Maximum frames per peer to prevent unbounded memory growth.
+  # At 48kHz with 20ms frames (960 samples/frame), this allows ~33 minutes
+  # of audio per peer. Aligned with proven SafeQueue's bounded capacity
+  # principle — oldest frames are dropped when the limit is reached,
+  # implementing a ring buffer eviction policy.
+  @max_frames_per_peer 100_000
+
+  # Warning threshold: log when 80% of frame capacity is used.
+  @frame_warning_threshold trunc(@max_frames_per_peer * 0.8)
+
   # ---------------------------------------------------------------------------
   # Client API
   # ---------------------------------------------------------------------------
@@ -123,6 +133,32 @@ defmodule Burble.Media.Recorder do
     raw_bytes = length(pcm_samples) * 4  # f32 = 4 bytes
 
     frames = Map.get(state.peer_frames, peer_id, [])
+    frame_count = length(frames)
+
+    # SECURITY FIX: Enforce bounded frame accumulation per peer (proven SafeQueue
+    # drop-oldest principle). Without this cap, a long recording or a peer sending
+    # at high rate would cause unbounded memory growth in the peer_frames list.
+    # When at capacity, drop the oldest frame (last element, since list is reversed).
+    frames =
+      if frame_count >= @max_frames_per_peer do
+        # Drop oldest frame (tail of reversed list) to make room.
+        # This is O(n) but only triggers at the cap boundary — in practice,
+        # recordings should be finalized well before reaching this limit.
+        Logger.warning(
+          "[Recorder] Peer #{peer_id} in room #{state.room_id} reached " <>
+          "frame cap (#{@max_frames_per_peer}), dropping oldest frame"
+        )
+        List.delete_at(frames, -1)
+      else
+        if frame_count == @frame_warning_threshold do
+          Logger.warning(
+            "[Recorder] Peer #{peer_id} in room #{state.room_id} at " <>
+            "#{frame_count}/#{@max_frames_per_peer} frames (80% capacity)"
+          )
+        end
+        frames
+      end
+
     updated_frames = Map.put(state.peer_frames, peer_id, [pcm_samples | frames])
 
     new_state = %{state |

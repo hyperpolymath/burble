@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+
+/// voice_permission.eph — Linear type guards for voice capability tokens.
+///
+/// This Ephapax module enforces at the type level that voice-related
+/// operations can only occur while a valid network capability token is
+/// held. The token is a linear resource: it must be consumed exactly once,
+/// preventing both "use after revoke" and "forgot to release" bugs.
+///
+/// Integration with Gossamer:
+///   The Gossamer runtime issues capability tokens as opaque values.
+///   This module wraps those tokens in linear types so the Ephapax
+///   region checker can verify correct usage at compile time.
+
+/// A linear capability token for network access.
+/// Must be consumed exactly once — cannot be duplicated or dropped.
+linear type NetworkToken = NetworkToken(f64)
+
+/// A linear capability token for notification access.
+linear type NotifyToken = NotifyToken(f64)
+
+/// Acquire a network token from the Gossamer runtime.
+/// The returned token is linear — the caller MUST use it.
+///
+/// @ffi(__gossamer_cap_grant, kind=1)
+acquire fn request_network() -> NetworkToken
+
+/// Acquire a notification token from the Gossamer runtime.
+///
+/// @ffi(__gossamer_cap_grant, kind=4)
+acquire fn request_notify() -> NotifyToken
+
+/// Perform an API call consuming the network token.
+/// The token is consumed (moved) by this operation — it cannot be
+/// reused for another call. To make another call, acquire a new token.
+///
+/// In practice, tokens are reusable within their TTL. This strict
+/// linear model is the Ephapax proof-of-concept; a production version
+/// would use region-bounded borrowing instead.
+consume fn api_call(token: NetworkToken, endpoint: str, payload: str) -> str
+
+/// Send a notification consuming the notify token.
+consume fn send_alert(token: NotifyToken, title: str, body: str) -> ()
+
+/// Release a network token back to the runtime without using it.
+/// This is the "I changed my mind" escape hatch — the token is still
+/// consumed linearly, but the capability is released without an API call.
+consume fn release_network(token: NetworkToken) -> ()
+
+/// Release a notification token without sending a notification.
+consume fn release_notify(token: NotifyToken) -> ()

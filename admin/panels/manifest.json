@@ -1,0 +1,83 @@
+{
+  "$schema": "panll-harness/v2",
+  "service_id": "burble-admin",
+  "default_endpoint": "burble://admin",
+  "runtime_endpoints": {
+    "gossamer": "gossamer://burble-admin/bridge"
+  },
+  "health_check": {
+    "path": "/health",
+    "interval_ms": 30000,
+    "timeout_ms": 10000,
+    "unhealthy_threshold": 3
+  },
+  "data_sources": {
+    "burble://admin/health": {
+      "path": "/invoke/burble_check_health",
+      "method": "GET",
+      "returns": "HealthStatus",
+      "description": "Burble Elixir server health check"
+    },
+    "burble://admin/rooms": {
+      "path": "/invoke/burble_list_rooms",
+      "method": "GET",
+      "returns": "RoomList",
+      "description": "All active voice rooms with user counts"
+    },
+    "burble://admin/rooms/create": {
+      "path": "/invoke/burble_create_room",
+      "method": "POST",
+      "body": { "name": "{room_name}" },
+      "returns": "Room",
+      "description": "Create a new voice room"
+    },
+    "burble://admin/rooms/{room_id}/kick": {
+      "path": "/invoke/burble_kick_user",
+      "method": "POST",
+      "body": { "room_id": "{room_id}", "user_id": "{user_id}" },
+      "returns": "KickResult",
+      "description": "Kick a user from a voice room"
+    },
+    "burble://admin/config": {
+      "path": "/invoke/burble_get_config",
+      "method": "GET",
+      "returns": "ServerConfig",
+      "description": "Current Burble server configuration"
+    },
+    "burble://admin/config/update": {
+      "path": "/invoke/burble_update_config",
+      "method": "POST",
+      "body": { "config": "{config_json}" },
+      "returns": "ServerConfig",
+      "description": "Update Burble server configuration"
+    },
+    "burble://admin/stats": {
+      "path": "/invoke/burble_get_voice_stats",
+      "method": "GET",
+      "returns": "VoiceStats",
+      "description": "WebRTC voice statistics (bandwidth, jitter, packet loss)"
+    },
+    "burble://admin/rooms/{room_id}/recording": {
+      "path": "/invoke/burble_toggle_recording",
+      "method": "POST",
+      "body": { "room_id": "{room_id}" },
+      "returns": "RecordingStatus",
+      "description": "Toggle recording for a voice room"
+    }
+  },
+  "panels": [
+    "panels/burble-admin/panel.json"
+  ],
+  "capabilities": [
+    "network",
+    "notification"
+  ],
+  "clade": "infrastructure/voice",
+  "integrations": {
+    "burble-server": {
+      "role": "admin-interface",
+      "protocol": "gossamer-ipc",
+      "description": "Native Gossamer admin panel for the Burble Elixir voice server"
+    }
+  }
+}

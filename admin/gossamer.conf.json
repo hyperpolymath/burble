@@ -1,0 +1,146 @@
+{
+  "$schema": "https://gossamer.dev/schemas/config/v1",
+  "productName": "Burble Admin",
+  "version": "0.1.0",
+  "identifier": "com.hyperpolymath.burble-admin",
+  "build": {
+    "frontendDist": "../public",
+    "devUrl": "http://localhost:8100/",
+    "beforeDevCommand": "deno task dev",
+    "beforeBuildCommand": "deno task build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Burble Admin",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "maxWidth": null,
+        "maxHeight": null,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true,
+        "alwaysOnTop": false,
+        "visible": true,
+        "url": "/"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        "network",
+        "notification",
+        "tray"
+      ],
+      "capabilityTokens": {
+        "enabled": true,
+        "issuer": "gossamer-runtime",
+        "ttl": 3600
+      },
+      "sandbox": {
+        "enabled": true,
+        "allowExec": false,
+        "allowNetwork": true,
+        "allowFilesystem": false
+      }
+    },
+    "ipc": {
+      "protocol": "json",
+      "bridgeInjection": true,
+      "maxMessageSize": 16777216,
+      "timeout": 30000
+    },
+    "tray": {
+      "enabled": true,
+      "icon": "icons/tray-icon.png",
+      "tooltip": "Burble Admin — Voice Server Management",
+      "menuOnLeftClick": true
+    }
+  },
+  "plugins": {},
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "copyright": "Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)",
+    "license": "PMPL-1.0-or-later",
+    "shortDescription": "Admin panel for the Burble voice platform",
+    "longDescription": "Gossamer-native admin panel for managing Burble voice servers, rooms, users, and WebRTC metrics. First app built natively for the Gossamer webview shell.",
+    "linux": {
+      "desktopEntry": true,
+      "category": "Network",
+      "section": "net",
+      "depends": [],
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macos": {
+      "bundleIdentifier": "com.hyperpolymath.burble-admin",
+      "minimumSystemVersion": "11.0",
+      "frameworks": [],
+      "entitlements": null,
+      "signingIdentity": null,
+      "notarization": {
+        "enabled": false,
+        "teamId": null
+      }
+    },
+    "windows": {
+      "webview2": "embed",
+      "certificateThumbprint": null,
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": null
+      }
+    },
+    "mobile": {
+      "ios": {
+        "minimumVersion": "14.0",
+        "deviceFamily": [
+          "iphone",
+          "ipad"
+        ],
+        "capabilities": [],
+        "frameworks": [],
+        "entitlements": {}
+      },
+      "android": {
+        "minimumSdk": 24,
+        "targetSdk": 34,
+        "permissions": [],
+        "features": []
+      }
+    }
+  },
+  "ephapax": {
+    "modules": [
+      "ephapax/voice_permission.eph",
+      "ephapax/recording_guard.eph"
+    ],
+    "region": "admin",
+    "linearVerification": true,
+    "regionBoundary": "strict",
+    "preload": [
+      "ephapax/voice_permission.eph"
+    ]
+  }
+}

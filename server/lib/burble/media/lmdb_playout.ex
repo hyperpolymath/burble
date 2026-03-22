@@ -61,6 +61,11 @@ defmodule Burble.Media.LMDBPlayout do
 
   require Logger
 
+  # Module atoms for optional LMDB dependencies — referenced via apply/3
+  # to avoid compile-time warnings when these NIFs are not installed.
+  @exlmdb :"Elixir.Exlmdb"
+  @lmdb :lmdb
+
   # ── Types ──
 
   @typedoc "Audio frame as stored in the ring buffer."
@@ -373,7 +378,7 @@ defmodule Burble.Media.LMDBPlayout do
 
   defp detect_backend(nil, data_dir, room_id, _map_size) do
     # Check if the LMDB NIF module is available.
-    if Code.ensure_loaded?(:lmdb) or Code.ensure_loaded?(Exlmdb) do
+    if Code.ensure_loaded?(@lmdb) or Code.ensure_loaded?(@exlmdb) do
       # Verify we can actually create the data directory.
       room_dir = Path.join(data_dir, room_id)
 
@@ -407,22 +412,22 @@ defmodule Burble.Media.LMDBPlayout do
     # We try both to support different packaging.
     env =
       cond do
-        Code.ensure_loaded?(Exlmdb) ->
+        Code.ensure_loaded?(@exlmdb) ->
           {:ok, env} =
-            Exlmdb.open(String.to_charlist(room_dir),
-              mapsize: map_size,
+            apply(@exlmdb, :open, [String.to_charlist(room_dir),
+              [mapsize: map_size,
               maxdbs: 1,
-              flags: [:nosubdir]
-            )
+              flags: [:nosubdir]]
+            ])
 
           env
 
-        Code.ensure_loaded?(:lmdb) ->
+        Code.ensure_loaded?(@lmdb) ->
           {:ok, env} =
-            :lmdb.env_open(String.to_charlist(room_dir), [
+            apply(@lmdb, :env_open, [String.to_charlist(room_dir), [
               {:mapsize, map_size},
               {:maxdbs, 1}
-            ])
+            ]])
 
           env
 
@@ -453,17 +458,17 @@ defmodule Burble.Media.LMDBPlayout do
 
     # Use a read-write transaction for the write.
     cond do
-      Code.ensure_loaded?(Exlmdb) ->
-        {:ok, txn} = Exlmdb.txn_begin(env)
-        {:ok, dbi} = Exlmdb.dbi_open(txn, nil)
-        :ok = Exlmdb.put(txn, dbi, key, value)
-        :ok = Exlmdb.txn_commit(txn)
+      Code.ensure_loaded?(@exlmdb) ->
+        {:ok, txn} = apply(@exlmdb, :txn_begin, [env])
+        {:ok, dbi} = apply(@exlmdb, :dbi_open, [txn, nil])
+        :ok = apply(@exlmdb, :put, [txn, dbi, key, value])
+        :ok = apply(@exlmdb, :txn_commit, [txn])
 
-      Code.ensure_loaded?(:lmdb) ->
-        {:ok, txn} = :lmdb.txn_begin(env)
-        {:ok, dbi} = :lmdb.dbi_open(txn, :undefined)
-        :ok = :lmdb.put(txn, dbi, key, value)
-        :ok = :lmdb.txn_commit(txn)
+      Code.ensure_loaded?(@lmdb) ->
+        {:ok, txn} = apply(@lmdb, :txn_begin, [env])
+        {:ok, dbi} = apply(@lmdb, :dbi_open, [txn, :undefined])
+        :ok = apply(@lmdb, :put, [txn, dbi, key, value])
+        :ok = apply(@lmdb, :txn_commit, [txn])
     end
 
     :ok
@@ -482,18 +487,18 @@ defmodule Burble.Media.LMDBPlayout do
 
     result =
       cond do
-        Code.ensure_loaded?(Exlmdb) ->
-          {:ok, txn} = Exlmdb.txn_begin(env, [:rdonly])
-          {:ok, dbi} = Exlmdb.dbi_open(txn, nil)
-          res = Exlmdb.get(txn, dbi, key)
-          Exlmdb.txn_abort(txn)
+        Code.ensure_loaded?(@exlmdb) ->
+          {:ok, txn} = apply(@exlmdb, :txn_begin, [env, [:rdonly]])
+          {:ok, dbi} = apply(@exlmdb, :dbi_open, [txn, nil])
+          res = apply(@exlmdb, :get, [txn, dbi, key])
+          apply(@exlmdb, :txn_abort, [txn])
           res
 
-        Code.ensure_loaded?(:lmdb) ->
-          {:ok, txn} = :lmdb.txn_begin(env, [:rdonly])
-          {:ok, dbi} = :lmdb.dbi_open(txn, :undefined)
-          res = :lmdb.get(txn, dbi, key)
-          :lmdb.txn_abort(txn)
+        Code.ensure_loaded?(@lmdb) ->
+          {:ok, txn} = apply(@lmdb, :txn_begin, [env, [:rdonly]])
+          {:ok, dbi} = apply(@lmdb, :dbi_open, [txn, :undefined])
+          res = apply(@lmdb, :get, [txn, dbi, key])
+          apply(@lmdb, :txn_abort, [txn])
           res
       end
 
@@ -533,17 +538,17 @@ defmodule Burble.Media.LMDBPlayout do
     %{env: env} = backend_state
 
     cond do
-      Code.ensure_loaded?(Exlmdb) ->
-        {:ok, txn} = Exlmdb.txn_begin(env)
-        {:ok, dbi} = Exlmdb.dbi_open(txn, nil)
-        Exlmdb.drop(txn, dbi)
-        Exlmdb.txn_commit(txn)
+      Code.ensure_loaded?(@exlmdb) ->
+        {:ok, txn} = apply(@exlmdb, :txn_begin, [env])
+        {:ok, dbi} = apply(@exlmdb, :dbi_open, [txn, nil])
+        apply(@exlmdb, :drop, [txn, dbi])
+        apply(@exlmdb, :txn_commit, [txn])
 
-      Code.ensure_loaded?(:lmdb) ->
-        {:ok, txn} = :lmdb.txn_begin(env)
-        {:ok, dbi} = :lmdb.dbi_open(txn, :undefined)
-        :lmdb.drop(txn, dbi)
-        :lmdb.txn_commit(txn)
+      Code.ensure_loaded?(@lmdb) ->
+        {:ok, txn} = apply(@lmdb, :txn_begin, [env])
+        {:ok, dbi} = apply(@lmdb, :dbi_open, [txn, :undefined])
+        apply(@lmdb, :drop, [txn, dbi])
+        apply(@lmdb, :txn_commit, [txn])
     end
 
     :ok
@@ -560,8 +565,8 @@ defmodule Burble.Media.LMDBPlayout do
     %{env: env} = backend_state
 
     cond do
-      Code.ensure_loaded?(Exlmdb) -> Exlmdb.close(env)
-      Code.ensure_loaded?(:lmdb) -> :lmdb.env_close(env)
+      Code.ensure_loaded?(@exlmdb) -> apply(@exlmdb, :close, [env])
+      Code.ensure_loaded?(@lmdb) -> apply(@lmdb, :env_close, [env])
     end
 
     :ok

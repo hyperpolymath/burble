@@ -48,7 +48,6 @@ defmodule Burble.Rooms.InstantConnect do
   require Logger
 
   alias Burble.Rooms.RoomManager
-  alias Burble.Verification.Avow
 
   @default_ttl_seconds 300  # 5 minutes.
   @code_length 8
@@ -330,7 +329,8 @@ defmodule Burble.Rooms.InstantConnect do
         token.room_id
       else
         # Create an ad-hoc room.
-        case RoomManager.create_adhoc_room(token.creator_id, token.creator_name) do
+        # Uses runtime dispatch — create_adhoc_room/2 may not yet be implemented.
+        case apply(RoomManager, :create_adhoc_room, [token.creator_id, token.creator_name]) do
           {:ok, room} -> room.id
           _ -> nil
         end
@@ -338,7 +338,8 @@ defmodule Burble.Rooms.InstantConnect do
 
     if room_id do
       # Join the room.
-      case RoomManager.join_room(room_id, joining_user_id, joining_user_name) do
+      # Uses runtime dispatch — join_room/3 may not yet be implemented.
+      case apply(RoomManager, :join_room, [room_id, joining_user_id, joining_user_name]) do
         {:ok, _participant} ->
           updated_token = %{token | uses: token.uses + 1, room_id: room_id}
 

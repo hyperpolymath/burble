@@ -126,6 +126,16 @@ defmodule Burble.Transport.RTSP do
   # UDP port range for RTP media streams.
   @default_rtp_port_range {20_000, 30_000}
 
+  # SECURITY FIX: Maximum concurrent RTSP handler connections. Without this
+  # cap, an attacker can open thousands of TCP connections and spawn unbounded
+  # handler processes, exhausting BEAM process/memory limits. This limit
+  # bounds the connection pool to a safe level.
+  @max_concurrent_connections 100
+
+  # SECURITY FIX: Maximum connections per IP address. Prevents a single
+  # source from monopolizing the connection pool.
+  @max_connections_per_ip 10
+
   # ---------------------------------------------------------------------------
   # Public API
   # ---------------------------------------------------------------------------
@@ -238,7 +248,15 @@ defmodule Burble.Transport.RTSP do
       listener: nil,
       mountpoints: %{},
       rtp_sockets: %{},
-      config: config
+      config: config,
+      # SECURITY FIX: Track active RTSP handler processes to enforce a
+      # connection pool limit. Without this, each incoming TCP connection
+      # spawns a new process unboundedly, allowing resource exhaustion via
+      # connection flood attacks.
+      active_handlers: MapSet.new(),
+      # Per-IP connection tracking for rate limiting. Maps IP string to
+      # count of active connections from that IP.
+      per_ip_connections: %{}
     }
 
     # Start the RTSP TCP listener for control connections.
@@ -406,14 +424,83 @@ defmodule Burble.Transport.RTSP do
 
   @impl true
   def handle_info({:rtsp_connection, client_socket}, state) do
-    # A new RTSP client has connected. Spawn a handler process for the
-    # RTSP control session (DESCRIBE → SETUP → PLAY lifecycle).
-    spawn(fn -> handle_rtsp_session(client_socket, state) end)
+    # SECURITY FIX: Enforce connection pool limit and per-IP rate limiting
+    # before spawning handler processes. Without this, unbounded spawn of
+    # RTSP handlers enables resource exhaustion attacks. Uses spawn_link
+    # instead of spawn so handler crashes are detected and tracked.
+    active_count = MapSet.size(state.active_handlers)
 
-    # Continue accepting connections.
-    if state.listener, do: spawn_acceptor(state.listener)
+    # Extract client IP for per-IP rate limiting.
+    client_ip =
+      case :inet.peername(client_socket) do
+        {:ok, {ip, _port}} -> :inet.ntoa(ip) |> to_string()
+        _ -> "unknown"
+      end
 
-    {:noreply, state}
+    ip_count = Map.get(state.per_ip_connections, client_ip, 0)
+
+    cond do
+      active_count >= @max_concurrent_connections ->
+        # Connection pool exhausted — reject immediately.
+        Logger.warning(
+          "[Burble.Transport.RTSP] Connection pool full " <>
+          "(#{active_count}/#{@max_concurrent_connections}), rejecting #{client_ip}"
+        )
+        :gen_tcp.close(client_socket)
+        if state.listener, do: spawn_acceptor(state.listener)
+        {:noreply, state}
+
+      ip_count >= @max_connections_per_ip ->
+        # Per-IP limit exceeded — reject to prevent single-source flood.
+        Logger.warning(
+          "[Burble.Transport.RTSP] Per-IP limit exceeded for #{client_ip} " <>
+          "(#{ip_count}/#{@max_connections_per_ip}), rejecting"
+        )
+        :gen_tcp.close(client_socket)
+        if state.listener, do: spawn_acceptor(state.listener)
+        {:noreply, state}
+
+      true ->
+        # Within limits — spawn a linked handler process for the RTSP
+        # control session (DESCRIBE → SETUP → PLAY lifecycle).
+        server_pid = self()
+        handler_pid =
+          spawn_link(fn ->
+            try do
+              handle_rtsp_session(client_socket, state)
+            after
+              # Notify the GenServer when the handler exits so we can
+              # decrement the active connection count.
+              send(server_pid, {:rtsp_handler_exit, self(), client_ip})
+            end
+          end)
+
+        updated_state = %{state |
+          active_handlers: MapSet.put(state.active_handlers, handler_pid),
+          per_ip_connections: Map.update(state.per_ip_connections, client_ip, 1, &(&1 + 1))
+        }
+
+        # Continue accepting connections.
+        if state.listener, do: spawn_acceptor(state.listener)
+        {:noreply, updated_state}
+    end
+  end
+
+  @impl true
+  def handle_info({:rtsp_handler_exit, handler_pid, client_ip}, state) do
+    # SECURITY FIX: Clean up connection tracking when a handler exits.
+    # This keeps the active_handlers set and per_ip_connections map accurate,
+    # preventing connection tracking leaks that would permanently reduce
+    # the effective pool size.
+    updated_state = %{state |
+      active_handlers: MapSet.delete(state.active_handlers, handler_pid),
+      per_ip_connections:
+        case Map.get(state.per_ip_connections, client_ip, 0) do
+          n when n <= 1 -> Map.delete(state.per_ip_connections, client_ip)
+          n -> Map.put(state.per_ip_connections, client_ip, n - 1)
+        end
+    }
+    {:noreply, updated_state}
   end
 
   @impl true
@@ -514,7 +601,7 @@ defmodule Burble.Transport.RTSP do
   # Handle a single RTSP control session (one TCP connection from a viewer).
   # Implements the minimal RTSP method set: OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN.
   @spec handle_rtsp_session(:gen_tcp.socket(), state()) :: :ok
-  defp handle_rtsp_session(client, _state) do
+  defp handle_rtsp_session(client, state) do
     case :gen_tcp.recv(client, 0, 30_000) do
       {:ok, line} ->
         # Parse the RTSP request line (e.g., "DESCRIBE rtsp://host/path RTSP/1.0").
@@ -522,7 +609,7 @@ defmodule Burble.Transport.RTSP do
           {:ok, method, path, _version} ->
             handle_rtsp_method(client, method, path)
             # Continue reading requests on this session.
-            handle_rtsp_session(client, _state)
+            handle_rtsp_session(client, state)
 
           {:error, _} ->
             Logger.debug("[Burble.Transport.RTSP] Malformed RTSP request, closing")
@@ -597,7 +684,7 @@ defmodule Burble.Transport.RTSP do
     :gen_tcp.send(client, response)
   end
 
-  defp handle_rtsp_method(client, "PLAY", path) do
+  defp handle_rtsp_method(client, "PLAY", _path) do
     # Subscribe the caller to the mountpoint's RTP stream.
     # In production, this would wire the subscriber PID to
     # receive {:rtsp_rtp, ...} messages and relay them via RTP/UDP.

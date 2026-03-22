@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+
+/// recording_guard.eph — Linear resource guard for room recording.
+///
+/// Recording is a sensitive operation that creates persistent audio data.
+/// This module ensures at the type level that:
+///   1. Recording can only start with a valid network token
+///   2. A started recording MUST be stopped (linear obligation)
+///   3. Recording state cannot be duplicated (no phantom recordings)
+///
+/// This prevents the classic bug where a recording is started but the
+/// admin panel crashes or disconnects without stopping it — the Ephapax
+/// type checker flags any code path where a RecordingHandle is not
+/// consumed.
+
+/// A linear handle to an active recording session.
+/// Created by start_recording, MUST be consumed by stop_recording.
+linear type RecordingHandle = RecordingHandle(str, f64)
+//                                           ^room_id ^token
+
+/// Start recording in a room. Consumes a network token and returns
+/// a linear RecordingHandle that MUST eventually be stopped.
+///
+/// @ffi(burble_toggle_recording)
+consume fn start_recording(
+    room_id: str,
+    token: voice_permission::NetworkToken
+) -> RecordingHandle
+
+/// Stop a recording. Consumes the RecordingHandle, fulfilling the
+/// linear obligation created by start_recording.
+///
+/// @ffi(burble_toggle_recording)
+consume fn stop_recording(handle: RecordingHandle) -> str
+
+/// Emergency stop — for use during error recovery.
+/// Still consumes the handle linearly, but logs the forced stop.
+consume fn emergency_stop(handle: RecordingHandle, reason: str) -> ()
