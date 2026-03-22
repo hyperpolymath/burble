@@ -6,7 +6,7 @@
   "imports": {
     "@rescript/core": "npm:@rescript/core@1.6.1",
     "rescript": "npm:rescript@12.2.0",
-    "cadre-router": "npm:cadre-router@0.3.0",
+    "cadre-router": "../../../developer-ecosystem/rescript-ecosystem/cadre-router/src/client/CadreRouter.js",
     "vite": "npm:vite@6.2.0"
   },
   "tasks": {

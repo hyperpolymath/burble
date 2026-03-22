@@ -55,6 +55,22 @@ build-client:
 # RUN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Quick start — install, start server, open browser client
+start:
+    ./burble-launcher.sh --start
+
+# Install desktop + menu shortcuts
+install:
+    ./burble-launcher.sh --install
+
+# Uninstall shortcuts
+uninstall:
+    ./burble-launcher.sh --uninstall
+
+# Open the quick-join voice client in browser (server must be running)
+join:
+    xdg-open "file://{{justfile_directory()}}/client/web/quick-join.html"
+
 # Start the Elixir server (dev mode)
 server:
     cd server && mix phx.server

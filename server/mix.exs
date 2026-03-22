@@ -151,8 +151,9 @@ defmodule Burble.MixProject do
 
       # Formally verified safety functions (optional — falls back to stdlib).
       # For Hex: {:proven, "~> 0.10", optional: true}
-      {:proven, git: "https://github.com/hyperpolymath/proven.git",
-       sparse: "bindings/elixir", runtime: false},
+      # Proven NIF requires pre-built libproven.so — disabled for dev.
+      # {:proven, git: "https://github.com/hyperpolymath/proven.git",
+      #  sparse: "bindings/elixir", runtime: false},
 
       # Telemetry and observability
       {:telemetry_metrics, "~> 1.0"},

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- Burble Quick Join — minimal voice client for testing -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Burble — Quick Join</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #8b949e; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    label { display: block; color: #8b949e; font-size: 0.85rem; margin-bottom: 0.3rem; }
+    input { width: 100%; padding: 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 1rem; margin-bottom: 1rem; }
+    input:focus { outline: none; border-color: #58a6ff; }
+    button { width: 100%; padding: 0.7rem; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; margin-bottom: 0.5rem; }
+    .btn-primary { background: #238636; color: #fff; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-primary:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    .btn-danger { background: #da3633; color: #fff; }
+    .btn-danger:hover { background: #f85149; }
+    .status { text-align: center; padding: 0.5rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .status.connected { background: #0d2818; color: #3fb950; }
+    .status.disconnected { background: #1a0000; color: #f85149; }
+    .status.connecting { background: #1a1500; color: #d29922; }
+    .meter { height: 6px; background: #21262d; border-radius: 3px; margin: 0.5rem 0 1rem; overflow: hidden; }
+    .meter-fill { height: 100%; background: #3fb950; transition: width 100ms; width: 0%; }
+    .controls { display: flex; gap: 0.5rem; }
+    .controls button { flex: 1; }
+    .muted { background: #da3633 !important; }
+    #participants { list-style: none; margin-bottom: 1rem; }
+    #participants li { padding: 0.3rem 0; color: #8b949e; font-size: 0.9rem; }
+    #participants li::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; }
+    #participants li.speaking::before { background: #3fb950; }
+    #participants li.silent::before { background: #30363d; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Burble</h1>
+    <p class="subtitle">Voice first. Friction last.</p>
+
+    <!-- Join form -->
+    <div id="join-form">
+      <label for="server">Server</label>
+      <input id="server" type="text" value="http://localhost:6473" />
+      <label for="name">Display Name</label>
+      <input id="name" type="text" placeholder="Your name" autofocus />
+      <label for="room">Room</label>
+      <input id="room" type="text" value="General" />
+      <button class="btn-primary" id="btn-join" onclick="joinRoom()">Join Voice</button>
+    </div>
+
+    <!-- Connected view -->
+    <div id="voice-view" class="hidden">
+      <div id="status" class="status disconnected">Disconnected</div>
+      <label>Microphone Level</label>
+      <div class="meter"><div class="meter-fill" id="mic-meter"></div></div>
+      <ul id="participants"></ul>
+      <div class="controls">
+        <button id="btn-mute" class="btn-primary" onclick="toggleMute()">Mute</button>
+        <button id="btn-deafen" class="btn-primary" onclick="toggleDeafen()">Deafen</button>
+      </div>
+      <br/>
+      <button class="btn-danger" onclick="leaveRoom()">Leave</button>
+    </div>
+  </div>
+
+  <script>
+    // SPDX-License-Identifier: PMPL-1.0-or-later
+    // Burble Quick Join — minimal WebRTC voice client.
+
+    let token = null;
+    let ws = null;
+    let localStream = null;
+    let peers = {};
+    let muted = false;
+    let deafened = false;
+    let micAnalyser = null;
+    let micDataArray = null;
+    let meterInterval = null;
+
+    async function joinRoom() {
+      const server = document.getElementById('server').value.replace(/\/$/, '');
+      const name = document.getElementById('name').value || 'Guest';
+      const room = document.getElementById('room').value || 'General';
+
+      setStatus('connecting', 'Connecting...');
+
+      try {
+        // 1. Get guest auth token
+        const authRes = await fetch(`${server}/api/v1/auth/guest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_name: name })
+        });
+        const auth = await authRes.json();
+        token = auth.access_token;
+
+        // 2. Get microphone access
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+
+        // 3. Set up mic level meter
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(localStream);
+        micAnalyser = audioCtx.createAnalyser();
+        micAnalyser.fftSize = 256;
+        source.connect(micAnalyser);
+        micDataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+        meterInterval = setInterval(updateMicMeter, 100);
+
+        // 4. Connect WebSocket to Phoenix
+        const wsUrl = server.replace('http', 'ws') + `/socket/websocket?token=${token}&vsn=2.0.0`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          // Join the room channel
+          ws.send(JSON.stringify([null, null, `voice:${room}`, 'phx_join', { display_name: name }]));
+          setStatus('connected', `Connected to ${room}`);
+          document.getElementById('join-form').classList.add('hidden');
+          document.getElementById('voice-view').classList.remove('hidden');
+          addParticipant(name + ' (you)');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            handleMessage(msg);
+          } catch (e) { /* ignore non-JSON */ }
+        };
+
+        ws.onclose = () => {
+          setStatus('disconnected', 'Disconnected');
+        };
+
+        ws.onerror = (err) => {
+          setStatus('disconnected', 'Connection failed');
+          console.error('[Burble] WebSocket error:', err);
+        };
+
+      } catch (err) {
+        setStatus('disconnected', `Error: ${err.message}`);
+        console.error('[Burble]', err);
+      }
+    }
+
+    function handleMessage(msg) {
+      if (!Array.isArray(msg)) return;
+      const [joinRef, ref, topic, event, payload] = msg;
+
+      if (event === 'presence_state' && payload) {
+        Object.keys(payload).forEach(user => addParticipant(user));
+      }
+      if (event === 'presence_diff' && payload) {
+        if (payload.joins) Object.keys(payload.joins).forEach(user => addParticipant(user));
+        if (payload.leaves) Object.keys(payload.leaves).forEach(user => removeParticipant(user));
+      }
+      if (event === 'phx_reply' && payload?.status === 'ok') {
+        console.log('[Burble] Channel joined successfully');
+      }
+    }
+
+    function toggleMute() {
+      muted = !muted;
+      localStream?.getAudioTracks().forEach(t => t.enabled = !muted);
+      const btn = document.getElementById('btn-mute');
+      btn.textContent = muted ? 'Unmute' : 'Mute';
+      btn.classList.toggle('muted', muted);
+    }
+
+    function toggleDeafen() {
+      deafened = !deafened;
+      // Deafen would mute all incoming audio
+      Object.values(peers).forEach(pc => {
+        pc.getReceivers().forEach(r => { if (r.track) r.track.enabled = !deafened; });
+      });
+      const btn = document.getElementById('btn-deafen');
+      btn.textContent = deafened ? 'Undeafen' : 'Deafen';
+      btn.classList.toggle('muted', deafened);
+      // Also mute when deafened
+      if (deafened && !muted) toggleMute();
+    }
+
+    function leaveRoom() {
+      if (ws) { ws.close(); ws = null; }
+      if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+      if (meterInterval) { clearInterval(meterInterval); meterInterval = null; }
+      document.getElementById('join-form').classList.remove('hidden');
+      document.getElementById('voice-view').classList.add('hidden');
+      document.getElementById('participants').innerHTML = '';
+      muted = false; deafened = false;
+    }
+
+    function updateMicMeter() {
+      if (!micAnalyser) return;
+      micAnalyser.getByteFrequencyData(micDataArray);
+      const avg = micDataArray.reduce((a, b) => a + b, 0) / micDataArray.length;
+      const pct = Math.min(100, (avg / 128) * 100);
+      document.getElementById('mic-meter').style.width = pct + '%';
+    }
+
+    function setStatus(cls, text) {
+      const el = document.getElementById('status');
+      el.className = 'status ' + cls;
+      el.textContent = text;
+    }
+
+    function addParticipant(name) {
+      const ul = document.getElementById('participants');
+      if ([...ul.children].some(li => li.textContent === name)) return;
+      const li = document.createElement('li');
+      li.textContent = name;
+      li.className = 'silent';
+      ul.appendChild(li);
+    }
+
+    function removeParticipant(name) {
+      const ul = document.getElementById('participants');
+      [...ul.children].filter(li => li.textContent === name).forEach(li => li.remove());
+    }
+  </script>
+</body>
+</html>
