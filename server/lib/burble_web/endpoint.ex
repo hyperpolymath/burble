@@ -45,5 +45,12 @@ defmodule BurbleWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug Corsica, origins: "*", allow_headers: :all
+
+  # Groove discovery — must be before the router so /.well-known/groove
+  # is handled regardless of other pipeline configuration.
+  # Enables Gossamer, PanLL, and other groove-aware systems to discover
+  # Burble's voice/text capabilities via the Idris2-verified groove protocol.
+  plug BurbleWeb.Plugs.GroovePlug
+
   plug BurbleWeb.Router
 end

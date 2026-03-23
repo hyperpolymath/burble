@@ -67,6 +67,11 @@ defmodule Burble.Application do
       # PTP precision timing (clock synchronisation for multi-node playout)
       Burble.Timing.PTP,
 
+      # Groove discovery endpoint (message queue for Gossamer/PanLL/etc.)
+      # Serves GET /.well-known/groove with Burble capability manifest.
+      # Groove connectors verified via Idris2 dependent types (Groove.idr).
+      Burble.Groove,
+
       # LMDB playout buffer registry (individual buffers started per-room via DynamicSupervisor)
       # Note: LMDBPlayout instances are started dynamically per room, not here.
       # The RoomSupervisor above handles their lifecycle.

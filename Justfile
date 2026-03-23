@@ -174,3 +174,7 @@ clean:
     cd server && mix clean
     cd ffi/zig && rm -rf zig-out .zig-cache
     rm -f server/priv/libburble_coprocessor.so
+
+# Run panic-attacker pre-commit scan
+assail:
+    @command -v panic-attack >/dev/null 2>&1 && panic-attack assail . || echo "panic-attack not found — install from https://github.com/hyperpolymath/panic-attacker"
