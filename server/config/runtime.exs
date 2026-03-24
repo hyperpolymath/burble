@@ -60,8 +60,17 @@ if config_env() == :prod do
   # Base URL for magic link emails and invite links.
   base_url = System.get_env("BURBLE_BASE_URL") || "https://#{host}"
 
+  # CORS: restrict to the configured origin in production.
+  # Accepts comma-separated list of origins, e.g. "https://app.burble.org,https://admin.burble.org"
+  cors_origins =
+    case System.get_env("BURBLE_CORS_ORIGINS") do
+      nil -> "https://#{host}"
+      origins -> String.split(origins, ",") |> Enum.map(&String.trim/1)
+    end
+
   config :burble,
-    base_url: base_url
+    base_url: base_url,
+    cors_origins: cors_origins
 
   # SMTP configuration for magic link email delivery.
   # All four SMTP_* variables must be set for production email sending.

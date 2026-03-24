@@ -46,6 +46,9 @@ defmodule BurbleWeb.Plugs.GroovePlug do
   # Note: Plug.Parsers has already consumed the body by this point in the
   # endpoint pipeline, so we read from conn.body_params (parsed JSON) or
   # fall back to read_body for raw HTTP/1.0 requests from Zig groove probes.
+  #
+  # Body size is implicitly limited by Plug.Parsers (:length default = 8MB).
+  # Groove messages are typically < 1KB, so this is generous.
   def call(
         %Plug.Conn{method: "POST", path_info: [".well-known", "groove", "message"]} = conn,
         _opts
