@@ -166,6 +166,14 @@ defmodule Burble.Text.NNTPSBackend do
     {vext_header, new_chain_state} =
       Vext.create_header(body, user_id, timestamp, chain_state)
 
+    # Groove: forward verification header to external Vext service for
+    # independent attestation. Fire-and-forget (async) — message delivery
+    # is never blocked by groove availability. When Vext is grooved in,
+    # users get TWO independent integrity proofs (Burble's + Vext's).
+    Task.start(fn ->
+      Burble.Verification.VextGroove.attest_header(vext_header, room_id)
+    end)
+
     article = %{
       message_id: message_id,
       subject: Keyword.get(opts, :subject, ""),

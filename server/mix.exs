@@ -176,6 +176,15 @@ defmodule Burble.MixProject do
       # Rate limiting
       {:hammer, "~> 6.2"},
 
+      # QUIC transport (optional — falls back to WebSocket when unavailable).
+      # Requires msquic C library on the build host.
+      {:quicer, "~> 0.2", optional: true},
+
+      # LMDB playout buffer (optional — falls back to ETS when unavailable).
+      # elmdb = Erlang NIF, ex_lmdb = Elixir wrapper.
+      {:elmdb, "~> 0.4", optional: true},
+      {:ex_lmdb, "~> 0.1", optional: true},
+
       # Media plane — ex_webrtc SFU (audio-only, Opus)
       {:ex_webrtc, "~> 0.16"},
 
