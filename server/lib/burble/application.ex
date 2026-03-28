@@ -72,6 +72,14 @@ defmodule Burble.Application do
       # Groove connectors verified via Idris2 dependent types (Groove.idr).
       Burble.Groove,
 
+      # Groove health mesh — probes peers every 30s, builds mesh status view.
+      # Serves GET /.well-known/groove/mesh for inter-service health monitoring.
+      Burble.Groove.HealthMesh,
+
+      # Groove feedback store — receives feedback routed via the groove mesh.
+      # Serves POST /.well-known/groove/feedback for feedback-o-tron integration.
+      Burble.Groove.Feedback,
+
       # LMDB playout buffer registry (individual buffers started per-room via DynamicSupervisor)
       # Note: LMDBPlayout instances are started dynamically per room, not here.
       # The RoomSupervisor above handles their lifecycle.

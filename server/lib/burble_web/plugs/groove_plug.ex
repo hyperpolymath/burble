@@ -247,10 +247,131 @@ defmodule BurbleWeb.Plugs.GroovePlug do
     |> halt()
   end
 
+  # GET /.well-known/groove/mesh — Inter-service health mesh status.
+  #
+  # Returns the cached health view of all groove peers that this node
+  # monitors. Each peer entry includes service_id, port, status, and
+  # last_seen timestamp. Per spec section 6 (mesh composition).
+  def call(
+        %Plug.Conn{method: "GET", path_info: [".well-known", "groove", "mesh"]} = conn,
+        _opts
+      ) do
+    mesh =
+      try do
+        Burble.Groove.HealthMesh.mesh_status()
+      catch
+        :exit, _ -> %{service_id: "burble", peers: [], error: "health mesh not started"}
+      end
+
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(200, Jason.encode!(mesh))
+    |> halt()
+  end
+
+  # POST /.well-known/groove/feedback — Receive feedback routed via Groove.
+  #
+  # Schema: { "type": "feedback", "target_service": string,
+  #           "category": string, "message": string, "metadata": object }
+  #
+  # If target_service is "burble" (or omitted), stores locally.
+  # Otherwise, attempts to route to the target via the health mesh.
+  def call(
+        %Plug.Conn{method: "POST", path_info: [".well-known", "groove", "feedback"]} = conn,
+        _opts
+      ) do
+    case parse_json_body(conn) do
+      {:ok, event} ->
+        target = Map.get(event, "target_service", "burble")
+
+        if target == "burble" do
+          case Burble.Groove.Feedback.accept(event) do
+            {:ok, id} ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(
+                200,
+                Jason.encode!(%{ok: true, routed_to: "burble", id: id})
+              )
+              |> halt()
+
+            {:error, reason} ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(400, Jason.encode!(%{ok: false, error: reason}))
+              |> halt()
+          end
+        else
+          # Route to peer via mesh — find peer port and forward.
+          case route_feedback_to_peer(target, event) do
+            :ok ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(200, Jason.encode!(%{ok: true, routed_to: target}))
+              |> halt()
+
+            {:error, reason} ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(
+                502,
+                Jason.encode!(%{ok: false, error: "routing failed: #{reason}", target_service: target})
+              )
+              |> halt()
+          end
+        end
+
+      {:error, _reason} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(400, ~s({"ok":false,"error":"invalid JSON body"}))
+        |> halt()
+    end
+  end
+
   # Pass through everything else.
   def call(conn, _opts), do: conn
 
   # --- Helpers ---
+
+  # Route a feedback event to a peer service via the health mesh.
+  #
+  # Looks up the peer in the mesh status and POSTs the feedback to their
+  # /.well-known/groove/feedback endpoint.
+  defp route_feedback_to_peer(target, event) do
+    mesh =
+      try do
+        Burble.Groove.HealthMesh.mesh_status()
+      catch
+        :exit, _ -> %{peers: []}
+      end
+
+    case Enum.find(mesh.peers, fn p -> p.service_id == target and p.status == :up end) do
+      nil ->
+        {:error, "peer '#{target}' not found or not up in mesh"}
+
+      peer ->
+        body = Jason.encode!(event)
+
+        case :gen_tcp.connect(~c"127.0.0.1", peer.port, [:binary, active: false], 2_000) do
+          {:ok, socket} ->
+            request =
+              "POST /.well-known/groove/feedback HTTP/1.0\r\n" <>
+                "Host: 127.0.0.1:#{peer.port}\r\n" <>
+                "Content-Type: application/json\r\n" <>
+                "Content-Length: #{byte_size(body)}\r\n" <>
+                "Connection: close\r\n\r\n" <>
+                body
+
+            :gen_tcp.send(socket, request)
+            :gen_tcp.close(socket)
+            :ok
+
+          {:error, reason} ->
+            {:error, "tcp connect failed: #{inspect(reason)}"}
+        end
+    end
+  end
 
   # Parse JSON from the request body, handling both pre-parsed and raw bodies.
   defp parse_json_body(conn) do
