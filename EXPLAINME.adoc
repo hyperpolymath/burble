@@ -5,7 +5,7 @@
 
 The README makes claims. This file backs them up.
 
-== "26,350x LZ4 Speedup"
+== 26,350x LZ4 Speedup
 
 [quote, README]
 ____
@@ -24,7 +24,7 @@ compiled SIMD. Run the benchmark yourself: `cd server && mix bench.coprocessor`
 - NIF interface: `server/lib/burble/coprocessor.ex`
 - More on Zig: https://ziglang.org
 
-== "Sub-Microsecond PTP"
+== Sub-Microsecond PTP
 
 [quote, README]
 ____
@@ -42,7 +42,7 @@ The code handles this honestly — it reports what it actually has.
 
 - Implementation: `server/lib/burble/timing/ptp.ex` (594 lines)
 
-== "Fault Isolation Per Room"
+== Fault Isolation Per Room
 
 [quote, README]
 ____
@@ -61,7 +61,7 @@ VeriSimDB goes down, all rooms lose their backing store.
 - Supervision tree: `server/lib/burble/application.ex`
 - More on OTP: https://elixir-lang.org/getting-started/mix-otp/supervisor-and-application.html
 
-== "Self-Hostable — One Command"
+== Self-Hostable — One Command
 
 [quote, README]
 ____
@@ -74,7 +74,7 @@ configure.
 
 - Deployment: `containers/compose.toml`
 
-== "Mumble Bridge"
+== Mumble Bridge
 
 Persistent TCP connection to Murmur speaking Mumble's protobuf protocol
 (port 64738). Voice (Opus), presence, and text relay bidirectionally. Channel
@@ -86,7 +86,7 @@ positional audio (yet).
 - Implementation: `server/lib/burble/bridges/mumble.ex`
 - Mumble protocol: https://mumble-protocol.readthedocs.io
 
-== "SIP Bridge"
+== SIP Bridge
 
 Subset of https://www.rfc-editor.org/rfc/rfc3261[RFC 3261]. Listens on UDP/TCP
 for INVITE/BYE/REGISTER, maps SIP sessions to rooms, transcodes G.711/G.722 ↔
@@ -97,7 +97,7 @@ basic setup/teardown, DTMF. Complex call transfer scenarios may not work.
 
 - Implementation: `server/lib/burble/bridges/sip.ex` (1,400+ lines)
 
-== "Idris2 ABI Proofs"
+== Idris2 ABI Proofs
 
 The coprocessor FFI boundary is formally specified in
 https://www.idris-lang.org[Idris2] with dependent types proving memory layout
@@ -107,7 +107,7 @@ the interface, Zig implements it, C headers bridge them.
 - ABI definitions: `src/abi/Types.idr`, `src/abi/Foreign.idr`
 - More on this pattern: https://github.com/hyperpolymath/rsr-template-repo/blob/main/ABI-FFI-README.md
 
-== "VeriSimDB"
+== VeriSimDB
 
 Our own formally verified database. Not PostgreSQL. Handles document and graph
 queries natively. Burble uses it as its sole data store via `Burble.Store`.
