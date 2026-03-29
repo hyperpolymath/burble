@@ -185,46 +185,84 @@ buildInfo = do
 -- Callback Support
 --------------------------------------------------------------------------------
 
-||| Callback function type (C ABI)
+||| Audio processing event types from the Zig NIF ring buffer.
+|||
+||| The Zig NIF layer produces these events asynchronously during audio
+||| processing. They are written to a lock-free ring buffer and consumed
+||| by the Elixir GenServer via `pollEvents`.
+public export
+data NifEvent : Type where
+  ||| Voice Activity Detection state change.
+  ||| The payload is 1 (speaking) or 0 (silent).
+  VadStateChange : (speaking : Bits32) -> NifEvent
+  ||| Automatic Gain Control level adjustment.
+  ||| The payload is the new gain level (0–65535).
+  AgcLevelChange : (level : Bits32) -> NifEvent
+  ||| Denoiser confidence update.
+  ||| The payload is confidence (0–1000, representing 0.0–1.0 scaled).
+  DenoiserConfidence : (confidence : Bits32) -> NifEvent
+  ||| Unknown event code (forward compatibility).
+  UnknownEvent : (code : Bits32) -> (payload : Bits32) -> NifEvent
+
+||| Decode a raw (code, payload) pair from the Zig ring buffer into a
+||| typed NifEvent. Event codes are defined in ffi/zig/src/coprocessor/.
+|||
+|||   Code 1 = VAD state change
+|||   Code 2 = AGC level adjustment
+|||   Code 3 = Denoiser confidence update
+public export
+decodeNifEvent : (code : Bits32) -> (payload : Bits32) -> NifEvent
+decodeNifEvent 1 p = VadStateChange p
+decodeNifEvent 2 p = AgcLevelChange p
+decodeNifEvent 3 p = DenoiserConfidence p
+decodeNifEvent c p = UnknownEvent c p
+
+||| Callback function type (C ABI).
+|||
+||| Defined for documentation and forward compatibility. Do NOT use
+||| directly — Idris2 cannot safely marshal C→Idris callbacks yet.
 public export
 Callback : Type
 Callback = Bits64 -> Bits32 -> Bits32
 
-||| Register a callback
-export
+||| Raw callback registration — UNSAFE, intentionally unexposed.
+|||
+||| The Zig NIF layer supports event callbacks, but Idris2's FFI only
+||| handles calls FROM Idris2 TO C, not the reverse direction (tracked
+||| in idris2#3182). Using this with AnyPtr would require believe_me
+||| casts to marshal the function pointer, which is banned.
+|||
+||| Callers MUST use `pollEvents` instead, which achieves the same
+||| result safely via a lock-free ring buffer polling model.
+|||
+||| When Idris2 adds proper typed callback registration, this primitive
+||| can be wrapped safely without believe_me. Until then, it remains
+||| private to this module.
 %foreign "C:burble_register_callback, libburble"
 prim__registerCallback : Bits64 -> AnyPtr -> PrimIO Bits32
 
-||| Safe callback registration wrapper.
-|||
-||| The Zig NIF layer supports event callbacks for audio processing
-||| notifications (VAD state changes, AGC level adjustments, denoiser
-||| confidence updates). However, Idris2's current FFI does not have
-||| typed callback support — the %foreign mechanism only handles
-||| calls FROM Idris2 TO C, not the reverse direction.
-|||
-||| Instead of using unsafe casts (believe_me is banned), we use a
-||| polling model: the Zig NIF writes events to a lock-free ring buffer,
-||| and the Elixir GenServer polls it via `burble_poll_events/1`.
-|||
-||| When Idris2 adds proper typed callback registration (tracked in
-||| idris2#3182), this can be upgraded to a push model.
-|||
-||| For now, registerCallback is intentionally not exposed — callers
-||| should use pollEvents instead.
-
 ||| Poll for pending NIF events (replaces callback registration).
-||| Returns a list of (event_code, payload) pairs from the Zig ring buffer.
+|||
+||| Returns a packed (event_code, payload) pair from the Zig ring buffer,
+||| encoded as a single Bits64: upper 32 bits = event code, lower 32 = payload.
+||| Returns 0 when the ring buffer is empty.
 export
 %foreign "C:burble_poll_events, libburble"
 prim__pollEvents : Bits64 -> PrimIO Bits64
 
 ||| Safe event poller — returns pending audio events from the Zig NIF.
+|||
+||| Decodes the packed Bits64 into a typed NifEvent. Returns Nothing
+||| when no events are pending (ring buffer empty).
 export
-pollEvents : Handle -> IO (Maybe Bits64)
+pollEvents : Handle -> IO (Maybe NifEvent)
 pollEvents h = do
   result <- primIO (prim__pollEvents (handlePtr h))
-  pure (if result == 0 then Nothing else Just result)
+  pure $ if result == 0
+    then Nothing
+    else let code    = cast {to = Bits32} (prim__shr_Bits64 result 32)
+             payload = cast {to = Bits32} (prim__and_Bits64 result 0xFFFFFFFF)
+         in Just (decodeNifEvent code payload)
 
 --------------------------------------------------------------------------------
 -- Utility Functions

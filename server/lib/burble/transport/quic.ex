@@ -626,14 +626,75 @@ defmodule Burble.Transport.QUIC do
         apply(Burble.Media.Peer, :add_ice_candidate, [user_id, rest2])
         {:noreply, state}
 
-      # Tags 6-8 (SpeakingStart, SpeakingStop, PositionUpdate) are server→client
-      # only and should not be received from clients. Log and ignore.
-      <<tag, _payload::binary>> when tag in [6, 7, 8] ->
+      # Discriminator tag 6 = SpeakingStart (server → client only).
+      #
+      # The server's VAD generates these — clients must NOT send them.
+      # Decode the payload for diagnostic context, then drop.
+      <<6, payload::binary>> ->
+        {room_id, rest} = decode_bebop_string(payload)
+        {user_id, _rest2} = decode_bebop_string(rest)
+
         Logger.warning(
-          "[Burble.Transport.QUIC] Received server-only signal tag #{tag} from client #{conn_state.user_id}, ignoring"
+          "[Burble.Transport.QUIC] Client #{conn_state.user_id} sent server-only " <>
+            "SpeakingStart for room=#{room_id} user=#{user_id}, ignoring"
         )
 
         {:noreply, state}
+
+      # Discriminator tag 7 = SpeakingStop (server → client only).
+      #
+      # Same as SpeakingStart — only the server's VAD should emit these.
+      <<7, payload::binary>> ->
+        {room_id, rest} = decode_bebop_string(payload)
+        {user_id, _rest2} = decode_bebop_string(rest)
+
+        Logger.warning(
+          "[Burble.Transport.QUIC] Client #{conn_state.user_id} sent server-only " <>
+            "SpeakingStop for room=#{room_id} user=#{user_id}, ignoring"
+        )
+
+        {:noreply, state}
+
+      # Discriminator tag 8 = PositionUpdate (bidirectional).
+      #
+      # Clients send these as their avatar moves in IDApTIK's game world
+      # or as the user drags their position in the BurbleSpatial 2D/3D view.
+      # Decode Vec3 position (3× float32-le) + orientation (float32-le),
+      # then relay to all other participants in the room via PubSub.
+      <<8, payload::binary>> ->
+        {room_id, rest} = decode_bebop_string(payload)
+        {user_id, rest2} = decode_bebop_string(rest)
+
+        case rest2 do
+          <<x::float-32-little, y::float-32-little, z::float-32-little,
+            orientation::float-32-little, _rest3::binary>> ->
+            Logger.debug(
+              "[Burble.Transport.QUIC] PositionUpdate from #{user_id} in #{room_id}: " <>
+                "pos=(#{Float.round(x, 2)}, #{Float.round(y, 2)}, #{Float.round(z, 2)}) " <>
+                "orient=#{Float.round(orientation, 2)}"
+            )
+
+            Phoenix.PubSub.broadcast(
+              Burble.PubSub,
+              "room:#{room_id}",
+              {:position_update, %{
+                user_id: user_id,
+                position: %{x: x, y: y, z: z},
+                orientation: orientation,
+                transport: :quic
+              }}
+            )
+
+            {:noreply, state}
+
+          _ ->
+            Logger.warning(
+              "[Burble.Transport.QUIC] Truncated PositionUpdate from #{user_id} " <>
+                "(#{byte_size(rest2)} bytes, need 16)"
+            )
+
+            {:noreply, state}
+        end
 
       # Unknown or malformed signal — log and drop.
       _ ->
