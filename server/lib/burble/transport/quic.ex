@@ -520,189 +520,107 @@ defmodule Burble.Transport.QUIC do
   @spec handle_signal_data(conn_handle(), connection_state(), binary(), state()) ::
           {:noreply, state()}
   defp handle_signal_data(conn, conn_state, data, state) do
-    case data do
-      # Discriminator tag 1 = Join
-      <<1, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-        {display_name, _rest3} = decode_bebop_string(rest2)
+    alias Burble.Bebop.VoiceSignal
 
+    case VoiceSignal.decode(data) do
+      {:join, msg, _rest} ->
         Logger.info(
-          "[Burble.Transport.QUIC] Join signal from #{display_name} (#{user_id}) for room #{room_id}"
+          "[Burble.Transport.QUIC] Join signal from #{msg.display_name} (#{msg.user_id}) for room #{msg.room_id}"
         )
 
-        # Update connection state with room and user identity.
         updated =
           update_in(state, [:connections, conn], fn cs ->
-            %{cs | room_id: room_id, user_id: user_id}
+            %{cs | room_id: msg.room_id, user_id: msg.user_id}
           end)
 
-        # Notify the room of the new participant via runtime dispatch.
-        apply(Burble.Room, :join, [room_id, user_id, %{display_name: display_name, transport: :quic}])
-
+        apply(Burble.Room, :join, [msg.room_id, msg.user_id, %{display_name: msg.display_name, transport: :quic}])
         {:noreply, updated}
 
-      # Discriminator tag 2 = Leave
-      <<2, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-        {reason, _rest3} = decode_bebop_string(rest2)
-
-        Logger.info("[Burble.Transport.QUIC] Leave signal from #{user_id}: #{reason}")
-        apply(Burble.Room, :leave, [room_id, user_id, reason])
+      {:leave, msg, _rest} ->
+        Logger.info("[Burble.Transport.QUIC] Leave signal from #{msg.user_id}: #{msg.reason}")
+        apply(Burble.Room, :leave, [msg.room_id, msg.user_id, msg.reason])
         {:noreply, state}
 
-      # Discriminator tag 3 = Mute
-      <<3, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-        <<mute_state::8, _rest3::binary>> = rest2
-
-        Logger.debug("[Burble.Transport.QUIC] Mute signal: user=#{user_id} state=#{mute_state}")
-
+      {:mute, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] Mute signal: user=#{msg.user_id} state=#{msg.state}")
         Phoenix.PubSub.broadcast(
           Burble.PubSub,
-          "room:#{room_id}",
-          {:voice_state_changed, %{user_id: user_id, voice_state: "muted"}}
+          "room:#{msg.room_id}",
+          {:voice_state_changed, %{user_id: msg.user_id, voice_state: "muted"}}
         )
-
         {:noreply, state}
 
-      # Discriminator tag 4 = Unmute
-      <<4, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, _rest2} = decode_bebop_string(rest)
-
-        Logger.debug("[Burble.Transport.QUIC] Unmute signal: user=#{user_id}")
-
+      {:unmute, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] Unmute signal: user=#{msg.user_id}")
         Phoenix.PubSub.broadcast(
           Burble.PubSub,
-          "room:#{room_id}",
-          {:voice_state_changed, %{user_id: user_id, voice_state: "connected"}}
+          "room:#{msg.room_id}",
+          {:voice_state_changed, %{user_id: msg.user_id, voice_state: "connected"}}
         )
-
         {:noreply, state}
 
-      # Discriminator tag 5 = Deafen
-      <<5, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-        <<deafen_state::8, _rest3::binary>> = rest2
-
-        Logger.debug("[Burble.Transport.QUIC] Deafen signal: user=#{user_id} state=#{deafen_state}")
-
+      {:deafen, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] Deafen signal: user=#{msg.user_id} state=#{msg.state}")
         Phoenix.PubSub.broadcast(
           Burble.PubSub,
-          "room:#{room_id}",
-          {:voice_state_changed, %{user_id: user_id, voice_state: "deafened"}}
+          "room:#{msg.room_id}",
+          {:voice_state_changed, %{user_id: msg.user_id, voice_state: "deafened"}}
         )
-
         {:noreply, state}
 
-      # Discriminator tag 9 = Offer (WebRTC SDP)
-      <<9, payload::binary>> ->
-        {_room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-
-        Logger.debug("[Burble.Transport.QUIC] SDP Offer from #{user_id}")
-        apply(Burble.Media.Engine, :handle_sdp_offer, [user_id, rest2])
-        {:noreply, state}
-
-      # Discriminator tag 10 = Answer (WebRTC SDP)
-      <<10, payload::binary>> ->
-        {_room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-
-        Logger.debug("[Burble.Transport.QUIC] SDP Answer from #{user_id}")
-        apply(Burble.Media.Peer, :apply_sdp_answer, [user_id, rest2])
-        {:noreply, state}
-
-      # Discriminator tag 11 = IceCandidate
-      <<11, payload::binary>> ->
-        {_room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-
-        Logger.debug("[Burble.Transport.QUIC] ICE candidate from #{user_id}")
-        apply(Burble.Media.Peer, :add_ice_candidate, [user_id, rest2])
-        {:noreply, state}
-
-      # Discriminator tag 6 = SpeakingStart (server → client only).
-      #
-      # The server's VAD generates these — clients must NOT send them.
-      # Decode the payload for diagnostic context, then drop.
-      <<6, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, _rest2} = decode_bebop_string(rest)
-
+      {:speaking_start, msg, _rest} ->
+        # Server-only message — clients must not send these.
         Logger.warning(
           "[Burble.Transport.QUIC] Client #{conn_state.user_id} sent server-only " <>
-            "SpeakingStart for room=#{room_id} user=#{user_id}, ignoring"
+            "SpeakingStart for room=#{msg.room_id} user=#{msg.user_id}, ignoring"
         )
-
         {:noreply, state}
 
-      # Discriminator tag 7 = SpeakingStop (server → client only).
-      #
-      # Same as SpeakingStart — only the server's VAD should emit these.
-      <<7, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, _rest2} = decode_bebop_string(rest)
-
+      {:speaking_stop, msg, _rest} ->
+        # Server-only message — clients must not send these.
         Logger.warning(
           "[Burble.Transport.QUIC] Client #{conn_state.user_id} sent server-only " <>
-            "SpeakingStop for room=#{room_id} user=#{user_id}, ignoring"
+            "SpeakingStop for room=#{msg.room_id} user=#{msg.user_id}, ignoring"
         )
-
         {:noreply, state}
 
-      # Discriminator tag 8 = PositionUpdate (bidirectional).
-      #
-      # Clients send these as their avatar moves in IDApTIK's game world
-      # or as the user drags their position in the BurbleSpatial 2D/3D view.
-      # Decode Vec3 position (3× float32-le) + orientation (float32-le),
-      # then relay to all other participants in the room via PubSub.
-      <<8, payload::binary>> ->
-        {room_id, rest} = decode_bebop_string(payload)
-        {user_id, rest2} = decode_bebop_string(rest)
-
-        case rest2 do
-          <<x::float-32-little, y::float-32-little, z::float-32-little,
-            orientation::float-32-little, _rest3::binary>> ->
-            Logger.debug(
-              "[Burble.Transport.QUIC] PositionUpdate from #{user_id} in #{room_id}: " <>
-                "pos=(#{Float.round(x, 2)}, #{Float.round(y, 2)}, #{Float.round(z, 2)}) " <>
-                "orient=#{Float.round(orientation, 2)}"
-            )
-
-            Phoenix.PubSub.broadcast(
-              Burble.PubSub,
-              "room:#{room_id}",
-              {:position_update, %{
-                user_id: user_id,
-                position: %{x: x, y: y, z: z},
-                orientation: orientation,
-                transport: :quic
-              }}
-            )
-
-            {:noreply, state}
-
-          _ ->
-            Logger.warning(
-              "[Burble.Transport.QUIC] Truncated PositionUpdate from #{user_id} " <>
-                "(#{byte_size(rest2)} bytes, need 16)"
-            )
-
-            {:noreply, state}
-        end
-
-      # Unknown or malformed signal — log and drop.
-      _ ->
-        Logger.warning(
-          "[Burble.Transport.QUIC] Malformed signal data (#{byte_size(data)} bytes) " <>
-            "from user #{conn_state.user_id}"
+      {:position_update, msg, _rest} ->
+        Logger.debug(
+          "[Burble.Transport.QUIC] PositionUpdate from #{msg.user_id} in #{msg.room_id}: " <>
+            "pos=(#{Float.round(msg.position.x, 2)}, #{Float.round(msg.position.y, 2)}, #{Float.round(msg.position.z, 2)}) " <>
+            "orient=#{Float.round(msg.orientation, 2)}"
         )
+        Phoenix.PubSub.broadcast(
+          Burble.PubSub,
+          "room:#{msg.room_id}",
+          {:position_update, %{
+            user_id: msg.user_id,
+            position: msg.position,
+            orientation: msg.orientation,
+            transport: :quic
+          }}
+        )
+        {:noreply, state}
 
+      {:offer, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] SDP Offer from #{msg.user_id}")
+        apply(Burble.Media.Engine, :handle_sdp_offer, [msg.user_id, msg.sdp.sdp])
+        {:noreply, state}
+
+      {:answer, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] SDP Answer from #{msg.user_id}")
+        apply(Burble.Media.Peer, :apply_sdp_answer, [msg.user_id, msg.sdp.sdp])
+        {:noreply, state}
+
+      {:ice_candidate, msg, _rest} ->
+        Logger.debug("[Burble.Transport.QUIC] ICE candidate from #{msg.user_id}")
+        apply(Burble.Media.Peer, :add_ice_candidate, [msg.user_id, msg.candidate])
+        {:noreply, state}
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Burble.Transport.QUIC] Bebop decode error from #{conn_state.user_id}: #{reason}"
+        )
         {:noreply, state}
     end
   rescue
