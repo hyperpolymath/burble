@@ -80,6 +80,13 @@ defmodule Burble.Application do
       # Serves POST /.well-known/groove/feedback for feedback-o-tron integration.
       Burble.Groove.Feedback,
 
+      # Blockchain anchoring bridge for Vext chains.
+      Burble.Verification.Anchor,
+
+      # LLM service — QUIC+TLS on 8503, TCP+TLS fallback on 8085
+      # Provides real-time LLM query processing with streaming responses
+      {Burble.LLM.Supervisor, [port: 8503, fallback_port: 8085]},
+
       # LMDB playout buffer registry (individual buffers started per-room via DynamicSupervisor)
       # Note: LMDBPlayout instances are started dynamically per room, not here.
       # The RoomSupervisor above handles their lifecycle.

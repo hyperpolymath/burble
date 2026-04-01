@@ -132,4 +132,17 @@ defmodule Burble.Auth do
   def redeem_invite(token) do
     Store.consume_invite(token)
   end
+
+  @doc """
+  Verify an LLM service authentication token.
+  """
+  def verify_llm_token(token) do
+    # In reality, this would verify a JWT or special service token.
+    # For now, we simulate a valid token for any non-empty string.
+    if is_binary(token) and byte_size(token) > 0 do
+      {:ok, "user_simulated_from_token"}
+    else
+      {:error, :invalid_token}
+    end
+  end
 end

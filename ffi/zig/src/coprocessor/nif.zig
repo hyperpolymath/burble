@@ -20,6 +20,7 @@ const audio = @import("audio.zig");
 const dsp = @import("dsp.zig");
 const neural = @import("neural.zig");
 const compression = @import("compression.zig");
+const firewall = @import("firewall.zig");
 
 const c = @cImport({
     @cInclude("erl_nif.h");
@@ -160,6 +161,31 @@ fn nif_audio_decode(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) ca
     const num_samples = audio.pcm_decode(data[5 .. 5 + data_len], &pcm_buf);
 
     return make_ok(env, make_float_list(env, pcm_buf[0..num_samples]));
+}
+
+// ---------------------------------------------------------------------------
+// NIF: nif_audio_noise_gate/2 — (pcm_list, threshold_db)
+// ---------------------------------------------------------------------------
+
+fn nif_audio_noise_gate(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    var list_len: c_uint = undefined;
+    if (c.enif_get_list_length(env, argv[0], &list_len) == 0) return make_error(env, "bad_pcm");
+
+    const n: usize = @intCast(list_len);
+    if (n > 4800) return make_error(env, "frame_too_large");
+
+    var pcm: [4800]f32 = undefined;
+    _ = get_float_list(env, argv[0], pcm[0..n]) orelse return make_error(env, "bad_pcm_values");
+
+    var threshold_db: f64 = undefined;
+    if (c.enif_get_double(env, argv[1], &threshold_db) == 0) return make_error(env, "bad_threshold");
+
+    // Convert dB to linear amplitude.
+    const threshold = @as(f32, @floatCast(std.math.pow(f64, 10.0, threshold_db / 20.0)));
+
+    audio.noise_gate(pcm[0..n], threshold);
+
+    return make_ok(env, make_float_list(env, pcm[0..n]));
 }
 
 // ---------------------------------------------------------------------------
@@ -543,6 +569,39 @@ fn nif_decompress_lz4(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) 
 }
 
 // ---------------------------------------------------------------------------
+// NIF: nif_sdp_firewall_init/0
+// ---------------------------------------------------------------------------
+
+fn nif_sdp_firewall_init(env: ?*ErlNifEnv, _: c_int, _: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    firewall.init_sdp_table() catch return make_error(env, "init_failed");
+    return make_atom(env, "ok");
+}
+
+// ---------------------------------------------------------------------------
+// NIF: nif_sdp_firewall_authorize/2 — (ip_tuple, port)
+// ---------------------------------------------------------------------------
+
+fn nif_sdp_firewall_authorize(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    var arity: c_int = undefined;
+    var ip_elems: [*c]const ERL_NIF_TERM = undefined;
+    if (c.enif_get_tuple(env, argv[0], &arity, &ip_elems) == 0 or arity != 4)
+        return make_error(env, "bad_ip_tuple");
+
+    var ip: [4]u8 = undefined;
+    for (0..4) |i| {
+        var val: c_int = undefined;
+        if (c.enif_get_int(env, ip_elems[i], &val) == 0) return make_error(env, "bad_ip_value");
+        ip[i] = @intCast(val);
+    }
+
+    var port: c_int = undefined;
+    if (c.enif_get_int(env, argv[1], &port) == 0) return make_error(env, "bad_port");
+
+    firewall.authorize_peer(ip, @intCast(port)) catch return make_error(env, "auth_failed");
+    return make_atom(env, "ok");
+}
+
+// ---------------------------------------------------------------------------
 // NIF function table
 // ---------------------------------------------------------------------------
 
@@ -550,6 +609,7 @@ var nif_funcs = [_]c.ErlNifFunc{
     .{ .name = "nif_available", .arity = 0, .fptr = nif_available, .flags = 0 },
     .{ .name = "nif_audio_encode", .arity = 4, .fptr = nif_audio_encode, .flags = 0 },
     .{ .name = "nif_audio_decode", .arity = 3, .fptr = nif_audio_decode, .flags = 0 },
+    .{ .name = "nif_audio_noise_gate", .arity = 2, .fptr = nif_audio_noise_gate, .flags = 0 },
     .{ .name = "nif_audio_echo_cancel", .arity = 3, .fptr = nif_audio_echo_cancel, .flags = 0 },
     .{ .name = "nif_dsp_fft", .arity = 2, .fptr = nif_dsp_fft, .flags = 0 },
     .{ .name = "nif_dsp_ifft", .arity = 2, .fptr = nif_dsp_ifft, .flags = 0 },
@@ -559,6 +619,8 @@ var nif_funcs = [_]c.ErlNifFunc{
     .{ .name = "nif_neural_denoise", .arity = 3, .fptr = nif_neural_denoise, .flags = 0 },
     .{ .name = "nif_compress_lz4", .arity = 1, .fptr = nif_compress_lz4, .flags = 0 },
     .{ .name = "nif_decompress_lz4", .arity = 2, .fptr = nif_decompress_lz4, .flags = 0 },
+    .{ .name = "nif_sdp_firewall_init", .arity = 0, .fptr = nif_sdp_firewall_init, .flags = 0 },
+    .{ .name = "nif_sdp_firewall_authorize", .arity = 2, .fptr = nif_sdp_firewall_authorize, .flags = 0 },
 };
 
 // ---------------------------------------------------------------------------

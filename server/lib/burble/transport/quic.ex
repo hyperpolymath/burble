@@ -325,7 +325,13 @@ defmodule Burble.Transport.QUIC do
 
       # Reject the connection by not calling handshake.
       # The client will see a connection timeout.
-      if available?(), do: try do apply(@quicer, :close_connection, [conn]) rescue _ -> :ok end
+      if available?() do
+        try do
+          apply(@quicer, :close_connection, [conn])
+        rescue
+          _ -> :ok
+        end
+      end
       {:noreply, state}
     else
       # Record this connection attempt for rate limiting.

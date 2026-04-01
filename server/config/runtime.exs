@@ -45,6 +45,18 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
+  # LLM service configuration
+  config :burble, :llm,
+    enabled: true,
+    primary_port: String.to_integer(System.get_env("LLM_PORT") || "8503"),
+    fallback_port: String.to_integer(System.get_env("LLM_FALLBACK_PORT") || "8085"),
+    ipv6_preference: true,
+    tls: [
+      certfile: "priv/ssl/cert.pem",
+      keyfile: "priv/ssl/key.pem",
+      cacertfile: "priv/ssl/cacert.pem"
+    ]
+
   # Guardian JWT secret — use SECRET_KEY_BASE if GUARDIAN_SECRET not set.
   guardian_secret = System.get_env("GUARDIAN_SECRET") || secret_key_base
 

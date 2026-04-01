@@ -35,6 +35,8 @@ defmodule Burble.Verification.Vext do
   no hidden messages, no reordering, no injection.
   """
 
+  require Logger
+
   # ── Types ──
 
   @type verification_header :: %{
@@ -42,7 +44,8 @@ defmodule Burble.Verification.Vext do
           previous_hash: String.t(),
           chain_position: non_neg_integer(),
           server_signature: String.t(),
-          algorithm: String.t()
+          algorithm: String.t(),
+          attestation_id: String.t() | nil
         }
 
   @type chain_state :: %{
@@ -65,8 +68,10 @@ defmodule Burble.Verification.Vext do
 
   Computes the article hash, links to the previous hash in the chain,
   and signs the result with the server's Ed25519 key.
+  
+  Can optionally include an AVOW attestation ID to prove consent.
   """
-  def create_header(body, author_id, timestamp, chain_state) do
+  def create_header(body, author_id, timestamp, chain_state, attestation_id \\ nil) do
     article_hash = hash_article(body, author_id, timestamp)
     previous_hash = chain_state.latest_hash
     position = chain_state.position + 1
@@ -84,7 +89,8 @@ defmodule Burble.Verification.Vext do
       chain_hash: chain_hash,
       server_signature: signature,
       algorithm: "blake3+ed25519",
-      timestamp: DateTime.to_iso8601(timestamp)
+      timestamp: DateTime.to_iso8601(timestamp),
+      attestation_id: attestation_id
     }
 
     new_chain_state = %{
@@ -92,6 +98,12 @@ defmodule Burble.Verification.Vext do
       | position: position,
         latest_hash: chain_hash
     }
+
+    # Check for Majestic Anchoring Checkpoint (every 50 messages)
+    if rem(position, 50) == 0 do
+      Logger.info("[Vext] Checkpoint reached at position #{position}. Requesting anchor...")
+      :telemetry.execute([:burble, :vext, :checkpoint], %{position: position}, %{header: header})
+    end
 
     {header, new_chain_state}
   end

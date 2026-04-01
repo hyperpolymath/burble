@@ -52,6 +52,7 @@ defmodule Burble.Rooms.Room do
           name: String.t(),
           server_id: String.t(),
           mode: room_mode(),
+          topology_mode: Burble.Topology.topology_mode(),
           max_participants: non_neg_integer(),
           participants: %{String.t() => Participant.t()},
           created_at: DateTime.t(),
@@ -63,6 +64,7 @@ defmodule Burble.Rooms.Room do
     :name,
     :server_id,
     :mode,
+    :topology_mode,
     :max_participants,
     :participants,
     :created_at,
@@ -114,6 +116,7 @@ defmodule Burble.Rooms.Room do
       name: Keyword.get(opts, :name, "Unnamed Room"),
       server_id: Keyword.fetch!(opts, :server_id),
       mode: Keyword.get(opts, :mode, :open),
+      topology_mode: Keyword.get(opts, :topology_mode, Burble.Topology.mode()),
       max_participants: Keyword.get(opts, :max_participants, @default_max_participants),
       participants: %{},
       created_at: DateTime.utc_now(),
@@ -138,6 +141,13 @@ defmodule Burble.Rooms.Room do
         new_room = %{room | participants: new_participants, idle_timer: cancel_idle(room)}
 
         broadcast(new_room, {:participant_joined, user_id, participant})
+        
+        # Voice-first accessibility announcement
+        Burble.Accessibility.ScreenReader.announce_join(
+          participant.display_name, 
+          new_room.name
+        )
+
         {:reply, {:ok, summarise(new_room)}, new_room}
     end
   end
@@ -148,9 +158,15 @@ defmodule Burble.Rooms.Room do
       {nil, _} ->
         {:reply, {:error, :not_in_room}, room}
 
-      {_participant, remaining} ->
+      {participant, remaining} ->
         new_room = %{room | participants: remaining}
         broadcast(new_room, {:participant_left, user_id})
+
+        # Voice-first accessibility announcement
+        Burble.Accessibility.ScreenReader.announce_leave(
+          participant.display_name,
+          new_room.name
+        )
 
         new_room =
           if map_size(remaining) == 0 do
@@ -187,6 +203,12 @@ defmodule Burble.Rooms.Room do
   @impl true
   def handle_call(:participant_count, _from, room) do
     {:reply, map_size(room.participants), room}
+  end
+
+  @impl true
+  def handle_cast({:update_topology, new_mode}, room) do
+    Logger.info("[Room #{room.id}] Updating topology mode to #{new_mode}")
+    {:noreply, %{room | topology_mode: new_mode}}
   end
 
   @impl true
