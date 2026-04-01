@@ -61,6 +61,8 @@ defmodule BurbleWeb.Plugs.RateLimiter do
   # refill_rate = max_tokens / 60.0 (tokens per second).
 
   @tiers %{
+    # 5 requests/minute: room creation to prevent spam.
+    room_creation: {5, 5 / 60.0},
     # 10 requests/minute: login, register, magic-link endpoints.
     login: {10, 10 / 60.0},
     # 30 requests/minute: token refresh endpoint.
@@ -74,12 +76,14 @@ defmodule BurbleWeb.Plugs.RateLimiter do
 
   # Paths mapped to their rate-limit tiers. Matches are prefix-based
   # against the request path. Order matters: more specific paths first.
+  # Format: {prefix, method_filter, tier}
   @path_tiers [
-    {"/api/v1/auth/refresh", :refresh},
-    {"/api/v1/auth/guest", :guest},
-    {"/api/v1/auth/login", :login},
-    {"/api/v1/auth/register", :login},
-    {"/api/v1/auth/magic-link", :login}
+    {"/api/v1/rooms", "POST", :room_creation},
+    {"/api/v1/auth/refresh", "POST", :refresh},
+    {"/api/v1/auth/guest", "POST", :guest},
+    {"/api/v1/auth/login", "POST", :login},
+    {"/api/v1/auth/register", "POST", :login},
+    {"/api/v1/auth/magic-link", "POST", :login}
   ]
 
   # ── Plug callbacks ──
@@ -130,7 +134,7 @@ defmodule BurbleWeb.Plugs.RateLimiter do
   def call(conn, %{enabled: false}), do: conn
 
   def call(conn, config) do
-    case determine_tier(conn.request_path) do
+    case determine_tier(conn.request_path, conn.method) do
       nil ->
         # Path does not match any rate-limited tier — pass through.
         conn
@@ -195,10 +199,12 @@ defmodule BurbleWeb.Plugs.RateLimiter do
 
   # Match the request path against configured rate-limit tiers.
   # Returns the tier atom or nil if the path is not rate-limited.
-  @spec determine_tier(String.t()) :: atom() | nil
-  defp determine_tier(path) do
-    Enum.find_value(@path_tiers, fn {prefix, tier} ->
-      if String.starts_with?(path, prefix), do: tier
+  @spec determine_tier(String.t(), String.t()) :: atom() | nil
+  defp determine_tier(path, method) do
+    Enum.find_value(@path_tiers, fn {prefix, required_method, tier} ->
+      if String.starts_with?(path, prefix) and method == required_method do
+        tier
+      end
     end)
   end
 

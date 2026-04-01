@@ -289,10 +289,19 @@ defmodule Burble.Groove do
         connected_at: now,
         last_heartbeat: now,
         matched_capabilities: matched_capabilities,
-        manifest: peer_manifest
+        manifest: peer_manifest,
+        messages_sent: 0,
+        messages_received: 0,
+        errors: 0
       }
 
       new_connections = Map.put(state.connections, session_id, conn_info)
+
+      :telemetry.execute(
+        [:burble, :groove, :connect],
+        %{count: 1},
+        %{peer_id: peer_id, session_id: session_id}
+      )
 
       Logger.info(
         "[Groove] Connected: #{peer_id} (session=#{session_id}, capabilities=#{inspect(matched_capabilities)})"
@@ -309,6 +318,12 @@ defmodule Burble.Groove do
         {:reply, {:error, :not_found}, state}
 
       {conn_info, remaining} ->
+        :telemetry.execute(
+          [:burble, :groove, :disconnect],
+          %{duration_ms: System.system_time(:millisecond) - conn_info.connected_at},
+          %{peer_id: conn_info.peer_id, session_id: session_id}
+        )
+
         Logger.info(
           "[Groove] Disconnected: #{conn_info.peer_id} (session=#{session_id})"
         )

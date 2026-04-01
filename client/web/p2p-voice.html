@@ -272,7 +272,13 @@
       const time = new Date().toLocaleTimeString();
       const prefix = direction === 'sent' ? '→' : direction === 'recv' ? '←' : '●';
       const color = direction === 'sent' ? '#58a6ff' : direction === 'recv' ? '#3fb950' : '#8b949e';
-      el.innerHTML += `<span style="color:${color}">${prefix} ${time}</span> ${text}\n`;
+      
+      const span = document.createElement('span');
+      span.style.color = color;
+      span.textContent = `${prefix} ${time}`;
+      
+      el.appendChild(span);
+      el.appendChild(document.createTextNode(` ${text}\n`));
       el.scrollTop = el.scrollHeight;
       if (window.burble) window.burble.history.push({ direction, text, time });
     }

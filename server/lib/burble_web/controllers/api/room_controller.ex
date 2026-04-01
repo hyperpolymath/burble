@@ -18,9 +18,21 @@ defmodule BurbleWeb.API.RoomController do
     json(conn, %{rooms: rooms})
   end
 
+  alias Burble.RoomNamer
+
   def create(conn, %{"server_id" => server_id} = params) do
-    room_id = Map.get(params, "room_id", generate_uuid())
-    name = Map.get(params, "name", "New Room")
+    # Use word-based room name if not provided
+    room_id = Map.get(params, "room_id")
+    
+    # Generate secure word-based room name if needed
+    room_id = 
+      cond do
+        room_id && RoomNamer.valid_room_name?(room_id) -> room_id
+        room_id -> conn |> put_status(400) |> json(%{error: "Invalid room name format"}) |> halt()
+        true -> RoomNamer.generate_room_name()
+      end
+    
+    name = Map.get(params, "name", "Room #{room_id}")
 
     case RoomManager.start_room(room_id, server_id: server_id, name: name) do
       {:ok, _pid} -> json(conn, %{room_id: room_id, name: name})

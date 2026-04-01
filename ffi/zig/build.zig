@@ -4,16 +4,6 @@
 //
 // Compiles SIMD-accelerated audio processing kernels as Erlang NIFs.
 // The output shared library is loaded by Burble.Coprocessor.ZigBackend.
-//
-// Build:
-//   zig build -Doptimize=ReleaseFast
-//
-// Output:
-//   zig-out/lib/libburble_coprocessor.so  (Linux)
-//   zig-out/lib/libburble_coprocessor.dylib (macOS)
-//
-// Install to priv/:
-//   cp zig-out/lib/libburble_coprocessor.so ../../server/priv/burble_coprocessor.so
 
 const std = @import("std");
 
@@ -26,7 +16,7 @@ pub fn build(b: *std.Build) void {
         []const u8,
         "erl-include",
         "Path to Erlang NIF headers (directory containing erl_nif.h)",
-    ) orelse "/var$ECLIPSE_DIR/hyper-data/toolchains/asdf/installs/erlang/28.3.1/erts-16.2/include";
+    ) orelse "/usr/lib/erlang/usr/include";
 
     // Root module for the NIF shared library.
     const nif_mod = b.createModule(.{

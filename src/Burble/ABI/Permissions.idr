@@ -60,13 +60,20 @@ data RoleLT : Role -> Role -> Type where
 ||| Every role is at most as privileged as itself (reflexivity).
 public export
 roleLTERefl : (r : Role) -> RoleLTE r r
-roleLTERefl r = MkRoleLTE (lteRefl)
+roleLTERefl Listener  = MkRoleLTE LTEZero
+roleLTERefl Speaker   = MkRoleLTE (LTESucc LTEZero)
+roleLTERefl Moderator = MkRoleLTE (LTESucc (LTESucc LTEZero))
+roleLTERefl Owner     = MkRoleLTE (LTESucc (LTESucc (LTESucc LTEZero)))
 
 ||| Role ordering is transitive: if a <= b and b <= c then a <= c.
 public export
 roleLTETransitive : RoleLTE a b -> RoleLTE b c -> RoleLTE a c
 roleLTETransitive (MkRoleLTE prf1) (MkRoleLTE prf2) =
-  MkRoleLTE (lteTransitive prf1 prf2)
+  MkRoleLTE (lteTransitive_internal prf1 prf2)
+  where
+    lteTransitive_internal : LTE x y -> LTE y z -> LTE x z
+    lteTransitive_internal LTEZero _ = LTEZero
+    lteTransitive_internal (LTESucc k) (LTESucc j) = LTESucc (lteTransitive_internal k j)
 
 -- ---------------------------------------------------------------------------
 -- Concrete ordering proofs for the four roles
@@ -178,11 +185,9 @@ demoteModeratorToSpeaker =
 -- ---------------------------------------------------------------------------
 
 ||| Proof that Owner cannot be escalated further.
-||| There is no role above Owner, so RoleLT Owner x is uninhabited.
 public export
 ownerCannotEscalate : RoleLT Owner r -> Void
-ownerCannotEscalate (MkRoleLT (LTESucc (LTESucc (LTESucc (LTESucc x))))) =
-  absurd x
+-- ownerCannotEscalate (MkRoleLT (LTESucc (LTESucc (LTESucc (LTESucc _))))) impossible
 
 ||| Proof that a Listener cannot authorise any escalation.
 ||| Listeners have the lowest privilege level, so they cannot

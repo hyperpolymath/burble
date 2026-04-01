@@ -1,6 +1,6 @@
 # RSR-compliant .gitignore
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Grumble .gitignore
+# Burble .gitignore - Comprehensive ignore patterns
 
 # OS & Editor
 .DS_Store
@@ -59,18 +59,14 @@ dist/
 .env.production
 erl_crash.dump
 
-
 # Dependencies
 /node_modules/
 /vendor/
 /deps/
-/.elixir_ls/
-
+/elixir_ls/
 
 # Rust
-
 # Cargo.lock  # Keep for binaries
-
 
 # Elixir
 /cover/
@@ -78,33 +74,27 @@ erl_crash.dump
 *.ez
 erl_crash.dump
 
-
 # Julia
 *.jl.cov
 *.jl.mem
 /Manifest.toml
-
 
 # Python (SaltStack only)
 __pycache__/
 *.py[cod]
 .venv/
 
-
 # Ada/SPARK
 *.ali
 /obj/
 /bin/
 
-
 # Haskell
 /.stack-work/
 /dist-newstyle/
 
-
 # Chapel
 *.chpl.tmp.*
-
 
 # Secrets
 .env
@@ -113,24 +103,64 @@ __pycache__/
 *.key
 secrets/
 
-
 # Test/Coverage
 /coverage/
 htmlcov/
-
 
 # Logs
 *.log
 /logs/
 
-
 # Machine-readable locks
 .machine_readable/.locks/
-
 
 # Temp
 /tmp/
 *.tmp
 *.bak
+
 # asdf version manager
 .tool-versions
+
+# Additional patterns for Burble
+# Server-specific
+server/priv/plts/
+server/priv/gettext/
+server/priv/repo/*.sqlite
+
+# Client-specific
+client/web/.parcel-cache/
+client/web/.cache/
+
+# Test artifacts
+server/test/coverage/
+
+# IDE/Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.direnv/
+
+# Maintenance local artifacts
+.maintenance-perms-state.tsv
+docs/reports/maintenance/*.json
+
+# Crash recovery artifacts
+ai-cli-crash-capture/
+
+# KDE metadata
+.directory
+
+# Sync artifacts
+sync_report*.txt
+
+# Hypatia scan cache (local-only)
+.hypatia/
+
+# Dependency management
+mix.lock  # Typically not committed in Elixir projects
+
+# Runtime/data files
+server/priv/repo/

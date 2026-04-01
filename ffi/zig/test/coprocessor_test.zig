@@ -75,7 +75,7 @@ test "fft preserves energy" {
 }
 
 test "neural denoiser initialises" {
-    var state = neural.DenoiserState.init();
+    const state = neural.DenoiserState.init();
     try std.testing.expectEqual(@as(u64, 0), state.frame_count);
     try std.testing.expectEqual(false, state.initialised);
 }

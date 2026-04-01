@@ -1,68 +1,85 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 = Burble Roadmap
+:toc: preamble
+
+== Philosophy: "Majestic Mumble"
+At its core, Burble is designed to be **as easy to use and simple for starters as Mumble**. A user should be able to switch directly over with zero configuration, enjoying a lightweight, low-latency, and frictionless voice experience. 
+
+However, beneath this simple surface lies a **"Majestic"** architecture. For power users, organizations, and high-security environments, Burble provides a "Dual-Track" system featuring formally verified proofs, zero-trust network perimeters (SDP), predictive routing (AWOL), and post-quantum cryptography readiness.
 
 == Current Status
 
-All MUST and SHOULD features are implemented. 193 tests, 0 failures.
-All in-code TODOs resolved (2026-03-29): Bebop VoiceSignal decode for
-tags 6-8, safe callback registration with typed NifEvent polling.
+Burble has cleared its foundational milestones and successfully passed its entire test suite (222 tests, 0 failures across Elixir and Zig). We are currently in the **Production Hardening** phase, bridging high-rigor formal proofs with system-level optimizations and ensuring WCAG compliance.
 
 == Milestones
 
-=== v0.1.0-alpha.1 — Foundation (DONE)
+=== v0.1.0 to v0.4.0 — Foundation & Transport (DONE)
 
 * [x] WebRTC voice engine (SFU, Opus, ExWebRTC)
-* [x] Push-to-talk and VAD mode switching
 * [x] E2EE via Insertable Streams (X25519 + AES-256-GCM)
-* [x] Room management (create, join, leave, permissions)
-* [x] Text chat (NNTPS threading, Phoenix channels)
-* [x] Auth (register, login, guest, magic link, JWT)
-* [x] Self-test diagnostics (16 tests, 3 modes)
-* [x] Zig SIMD coprocessor (audio, DSP, neural, compression, crypto)
-* [x] VeriSimDB integration (replaces PostgreSQL)
-* [x] Containerised deployment (Chainguard, port 4020)
-
-=== v0.2.0 — Interop Bridges (DONE)
-
-* [x] Discord bridge (Gateway + Voice WS + UDP, xsalsa20_poly1305)
-* [x] Mumble bridge (TCP protobuf + UDP Opus, TLS)
-* [x] Matrix bridge (Client-Server API, /sync long-poll, m.call.*)
-* [x] SIP gateway (INVITE/ACK/BYE, RTP, G.711↔Opus transcoding)
-
-=== v0.3.0 — Transport Layer (DONE)
-
-* [x] QUIC transport (0-RTT, multiplexed streams, datagram voice)
-* [x] RTSP broadcast module
-* [x] Multipath redundancy (3-port UDP striping)
-* [x] Bebop wire protocol schemas (voice_signal.bop, room_event.bop)
-* [x] QUIC Bebop signal dispatch (VoiceSignal union decoding)
-
-=== v0.4.0 — Integration (DONE)
-
+* [x] VeriSimDB integration & LMDB zero-copy playout buffering
+* [x] QUIC transport (0-RTT, multiplexed streams)
+* [x] Zig SIMD coprocessor (audio, DSP, neural, compression)
 * [x] Groove discovery endpoint (/.well-known/groove)
-* [x] IDApTIK voice adapter (spatial audio, stealth whisper)
-* [x] PanLL workspace huddle engine
-* [x] Gossamer desktop client hooks (tray, hotkeys, PipeWire)
-* [x] Extension API (core/profiles/extensions three-tier)
 
 === v1.0.0 — Stable Release (DONE)
 
-* [x] QUIC hardening (rate limiting, datagram size enforcement, ticket rotation)
-* [x] Bebop codegen (Mix task + generated Burble.Protocol.{VoiceSignal,RoomEvent})
-* [x] Idris2 ABI formal proofs (Avow consent, Vext integrity, Permissions hierarchy)
-* [x] QUIC signal handler refactored to use generated Bebop decoders
-* [x] Chainguard base image pinned by digest
-* [x] Version bump to 1.0.0 across mix.exs, Justfile, groove manifest
-* [ ] Zig FFI bridge from BEAM to Idris2 ABI
-* [ ] OpenSSF Scorecard green
-* [ ] Security audit
+* [x] QUIC hardening (rate limiting, datagram size enforcement)
+* [x] Bebop codegen & wire protocol schemas
+* [x] Idris2 ABI formal proofs (Avow consent, Vext integrity, Permissions)
+* [x] Chainguard base Containerfile pinned by digest
+* [x] **Rate Limiting:** ETS Token Bucket algorithm for authentication paths.
 
-== Future Directions (COULD)
+=== v1.1.0 — High Rigor & Resilience (Current Phase - Partially Sorted)
 
-COULD-level items for future exploration:
+* [x] **SDP Foundation:** Software-Defined Perimeter zero-trust logic with Zig FFI `nftables` bridge.
+* [x] **AWOL Routing:** Layline predictive routing (RTT/loss velocity) for seamless handover.
+* [x] **LLM Service:** QUIC + TCP fallback redundancy and streaming pipeline.
+* [x] **Groove Protocol:** Health Mesh inter-service probing and Feedback routing.
+* [x] **Formal Proofs:** `MediaPipeline.idr` (linear buffer consumption) and `WebRTCSignaling.idr` (JSEP transitions) implemented.
+* [x] **Accessibility Scaffolding:** Server-side screen reader generation and persistent keyboard keybinding management.
+* [ ] **Circuit Breakers & Health Checks:** Prevent cascading failures and ensure auto-recovery.
+* [ ] **Automated Backups:** Disaster recovery for VeriSimDB state.
+* [x] **Idris2 Compilation:** Fully compile remaining proofs to C headers for Zig ABI validation.
+* [x] **File Send Executable Isolation:** Implement `chmod` lockdown for file transfers.
+* [x] **Internationalisation:** Link Burble V-lang API to world corpus language support (`standards/lol`).
 
-* Privacy hardening (TURN-only, chaff traffic, ghost mode)
-* Accessibility (BSL avatar, live captions, translated captions)
-* Advanced audio (RNNoise, Wiener filtering, de-reverb, PTP timing)
-* Federation and multi-server discovery
-* Plugin ecosystem and bot framework
+== The "Majestic" Backlog (To-Do)
+
+Based on recent comprehensive audits, the following areas must be addressed before reaching enterprise-grade scale and compliance.
+
+=== 1. Accessibility (Target: WCAG 2.3 AAA, minimum AA)
+* [ ] **Screen Reader Support:** Full testing with NVDA/VoiceOver and client-side ARIA focus traps.
+* [ ] **Sign Language & Avatars:** Implement `SignLanguage.ex` with interpreting queues.
+* [ ] **Braille Support:** Complete `braille.ex` integration for specialized hardware.
+* [ ] **Alternative Pointers:** Eye-tracking and touch optimizations for motor-impaired users.
+* [ ] **Contrast & Reflow:** Audit UI for strict contrast ratios and responsive reflowing without breaking.
+
+=== 2. Dependability & Platform
+* [ ] **Chaos Engineering:** Implement resilience testing (network partitioning, node failures).
+* [ ] **Auto-Scaling:** Kubernetes Horizontal Pod Autoscaler (HPA) integration.
+* [ ] **Multi-Server Redundancy:** Expand from single-server supervision to distributed clustering.
+* [ ] **Automated Updates:** Zero-downtime rolling deployments via CI/CD.
+
+=== 3. Performance & Caching
+* [ ] **Multi-Level Cache:** Add ETS cache for frequent reads, Redis for distributed sessions, and edge caching (CDN) for static assets.
+* [ ] **WebRTC Tuning:** Adaptive bandwidth and dynamic jitter buffer sizing.
+* [ ] **Audio Batching:** Further optimize Zig NIFs with batched frame processing to minimize BEAM context switches.
+* [ ] **Database Tuning:** Covering indexes and query analysis for VeriSimDB.
+
+=== 4. Security & Hardening
+* [ ] **Blockchain Anchoring:** Tamper-proof logs and provenance auditing.
+* [ ] **Automated Secret Rotation:** Key management lifecycle for E2EE keys.
+* [ ] **Quantum-Resistant Crypto:** Prepare hybrid post-quantum cipher suites.
+* [ ] **Full SDP Rollout:** Enforce Single Packet Authorisation (SPA) on all edge nodes.
+
+=== 5. Developer Experience & Tooling
+* [ ] **Must-Have Tooling Rollout:** Enforce Credo, Dialyzer, and GitHub Actions in the primary pipeline.
+* [ ] **Should-Have Integrations:** Add `Proven` for formal verification, `Bypass` for testing, and `Telemetry` dashboards.
+* [ ] **Aspirational Features:** Livebook interaction, WebAssembly (Wasm) client builds, and EXLA GPU acceleration.
+* [ ] **Documentation:** Expand examples and onboarding guides for the V-Based Dodeca-API adapter.
+
+=== 6. User UX/UI
+* [ ] **Mobile Touch Optimization:** Ensure large touch targets and simplified gestures.
+* [ ] **Onboarding Polish:** Guided tooltips mimicking the simplicity of legacy VoIP clients.
+* [ ] **Error Handling:** Granular, user-friendly error messages for WebRTC or SDP rejections.

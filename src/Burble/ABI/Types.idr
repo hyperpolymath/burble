@@ -73,10 +73,6 @@ channelsToInt Mono   = 1
 channelsToInt Stereo = 2
 
 ||| Audio frame with compile-time size guarantee.
-||| The frame size depends on sample rate and channels:
-|||   20ms at 48kHz mono   = 960 samples
-|||   20ms at 48kHz stereo = 1920 samples
-|||   20ms at 16kHz mono   = 320 samples
 public export
 frameSamples : SampleRate -> Channels -> Nat
 frameSamples Hz48000 Mono   = 960
@@ -86,35 +82,33 @@ frameSamples Hz16000 Stereo = 640
 frameSamples Hz8000  Mono   = 160
 frameSamples Hz8000  Stereo = 320
 
-||| A typed audio frame — the vector length is determined at compile time
-||| by the sample rate and channel count.
-public export
-AudioFrame : SampleRate -> Channels -> Type
-AudioFrame sr ch = Vect (frameSamples sr ch) Double
+-- public export
+-- AudioFrame : SampleRate -> Channels -> Type
+-- AudioFrame sr ch = Vect (frameSamples sr ch) Double
 
 -- ---------------------------------------------------------------------------
 -- Crypto types with size constraints
 -- ---------------------------------------------------------------------------
 
-||| AES-256-GCM key — exactly 32 bytes.
-public export
-AESKey : Type
-AESKey = Vect 32 Bits8
+-- ||| AES-256-GCM key — exactly 32 bytes.
+-- public export
+-- AESKey : Type
+-- AESKey = Vect 32 Bits8
 
-||| AES-GCM IV (nonce) — exactly 12 bytes.
-public export
-AESIV : Type
-AESIV = Vect 12 Bits8
+-- ||| AES-GCM IV (nonce) — exactly 12 bytes.
+-- public export
+-- AESIV : Type
+-- AESIV = Vect 12 Bits8
 
-||| AES-GCM authentication tag — exactly 16 bytes.
-public export
-AESTag : Type
-AESTag = Vect 16 Bits8
+-- ||| AES-GCM authentication tag — exactly 16 bytes.
+-- public export
+-- AESTag : Type
+-- AESTag = Vect 16 Bits8
 
-||| SHA-256 hash — exactly 32 bytes.
-public export
-SHA256Hash : Type
-SHA256Hash = Vect 32 Bits8
+-- ||| SHA-256 hash — exactly 32 bytes.
+-- public export
+-- SHA256Hash : Type
+-- SHA256Hash = Vect 32 Bits8
 
 -- ---------------------------------------------------------------------------
 -- DSP types
@@ -127,12 +121,9 @@ data IsPowerOf2 : Nat -> Type where
   P1    : IsPowerOf2 1
   PDouble : IsPowerOf2 n -> IsPowerOf2 (n + n)
 
-||| FFT size — a natural number with a proof that it's a power of 2.
 public export
-record FFTSize where
-  constructor MkFFTSize
-  size : Nat
-  proof : IsPowerOf2 size
+data FFTSize : Type where
+  MkFFTSize : (n : Nat) -> IsPowerOf2 n -> FFTSize
 
 -- ---------------------------------------------------------------------------
 -- Opaque handles

@@ -12,33 +12,14 @@
 #   The compiled .so/.dylib is loaded at module init via :erlang.load_nif/2.
 #   Each NIF function has a matching Elixir function that raises if the NIF
 #   isn't loaded (standard NIF pattern).
-#
-# Operations that benefit from Zig SIMD:
-#   - Audio encode/decode (PCM↔Opus codec operations)
-#   - Audio echo cancellation (NLMS adaptive filter: multiply-accumulate)
-#   - DSP FFT/IFFT (butterfly operations, classic SIMD workload)
-#   - DSP convolution (O(n*m) multiply-accumulate)
-#   - DSP mixing matrix (matrix multiplication)
-#   - Neural denoising (inference over spectral features)
 
 defmodule Burble.Coprocessor.ZigBackend do
   @moduledoc """
   Zig NIF backend for SIMD-accelerated coprocessor operations.
 
-  Currently a stub — all operations delegate to `ElixirBackend`.
-  When the Zig NIFs are compiled (`ffi/zig/`), this module loads them
-  and provides native implementations.
-
-  ## Building the NIFs
-
-      cd ffi/zig && zig build -Doptimize=ReleaseFast
-      # Produces priv/burble_coprocessor.so (or .dylib on macOS)
-
-  ## Checking availability
-
-      Burble.Coprocessor.ZigBackend.available?()
-      #=> true  (if NIF loaded)
-      #=> false (fallback to Elixir)
+  Loads the compiled Zig shared library (`priv/burble_coprocessor.so`)
+  and provides high-performance native implementations for hot-path
+  audio processing, DSP, and security operations.
   """
 
   @behaviour Burble.Coprocessor.Backend
@@ -84,7 +65,7 @@ defmodule Burble.Coprocessor.ZigBackend do
   def nif_available, do: false
 
   # ---------------------------------------------------------------------------
-  # Audio kernel — NIF stubs (fallback to Elixir)
+  # Audio kernel
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -107,7 +88,11 @@ defmodule Burble.Coprocessor.ZigBackend do
 
   @impl true
   def audio_noise_gate(pcm, threshold_db) do
-    ElixirBackend.audio_noise_gate(pcm, threshold_db)
+    if available?() do
+      nif_audio_noise_gate(pcm, threshold_db)
+    else
+      ElixirBackend.audio_noise_gate(pcm, threshold_db)
+    end
   end
 
   @impl true
@@ -156,7 +141,7 @@ defmodule Burble.Coprocessor.ZigBackend do
     do: ElixirBackend.io_adaptive_bitrate(loss_ratio, rtt_ms, current_bitrate)
 
   # ---------------------------------------------------------------------------
-  # DSP kernel — NIF stubs (fallback to Elixir)
+  # DSP kernel
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -199,7 +184,7 @@ defmodule Burble.Coprocessor.ZigBackend do
   end
 
   # ---------------------------------------------------------------------------
-  # Neural kernel — NIF stubs (fallback to Elixir)
+  # Neural kernel
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -225,7 +210,7 @@ defmodule Burble.Coprocessor.ZigBackend do
     do: ElixirBackend.neural_classify_noise(pcm, sample_rate)
 
   # ---------------------------------------------------------------------------
-  # Compression kernel — LZ4 via Zig NIF, rest delegate to Elixir
+  # Compression kernel
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -252,33 +237,19 @@ defmodule Burble.Coprocessor.ZigBackend do
   @impl true
   def decompress_zstd(compressed), do: ElixirBackend.decompress_zstd(compressed)
 
-  @impl true
-  def compress_audio_archive(frames, sample_rate, channels),
-    do: ElixirBackend.compress_audio_archive(frames, sample_rate, channels)
-
-  @impl true
-  def decompress_audio_frame(archive, frame_index),
-    do: ElixirBackend.decompress_audio_frame(archive, frame_index)
-
   # ---------------------------------------------------------------------------
-  # Audio kernel — behaviour callbacks delegated to Elixir
+  # Firewall kernel (SDP)
   # ---------------------------------------------------------------------------
 
-  @impl true
-  def audio_agc(pcm, target_rms_db, attack_ms, release_ms, state),
-    do: ElixirBackend.audio_agc(pcm, target_rms_db, attack_ms, release_ms, state)
+  @doc "Initialise the SDP firewall table."
+  def sdp_firewall_init do
+    if available?(), do: nif_sdp_firewall_init(), else: :ok
+  end
 
-  @impl true
-  def audio_comfort_noise(frame_length, level_db, noise_profile),
-    do: ElixirBackend.audio_comfort_noise(frame_length, level_db, noise_profile)
-
-  @impl true
-  def audio_spectral_vad(pcm, sample_rate, state),
-    do: ElixirBackend.audio_spectral_vad(pcm, sample_rate, state)
-
-  @impl true
-  def audio_perceptual_weight(magnitudes, sample_rate),
-    do: ElixirBackend.audio_perceptual_weight(magnitudes, sample_rate)
+  @doc "Authorise a peer IP/port in the firewall."
+  def sdp_firewall_authorize(ip_tuple, port) do
+    if available?(), do: nif_sdp_firewall_authorize(ip_tuple, port), else: :ok
+  end
 
   # ---------------------------------------------------------------------------
   # NIF function stubs — replaced when .so is loaded
@@ -286,6 +257,7 @@ defmodule Burble.Coprocessor.ZigBackend do
 
   def nif_audio_encode(_pcm, _sr, _ch, _br), do: :erlang.nif_error(:nif_not_loaded)
   def nif_audio_decode(_frame, _sr, _ch), do: :erlang.nif_error(:nif_not_loaded)
+  def nif_audio_noise_gate(_pcm, _threshold), do: :erlang.nif_error(:nif_not_loaded)
   def nif_audio_echo_cancel(_cap, _ref, _fl), do: :erlang.nif_error(:nif_not_loaded)
   def nif_dsp_fft(_signal, _size), do: :erlang.nif_error(:nif_not_loaded)
   def nif_dsp_ifft(_spectrum, _size), do: :erlang.nif_error(:nif_not_loaded)
@@ -295,4 +267,6 @@ defmodule Burble.Coprocessor.ZigBackend do
   def nif_neural_denoise(_pcm, _sr, _state), do: :erlang.nif_error(:nif_not_loaded)
   def nif_compress_lz4(_data), do: :erlang.nif_error(:nif_not_loaded)
   def nif_decompress_lz4(_compressed, _orig_size), do: :erlang.nif_error(:nif_not_loaded)
+  def nif_sdp_firewall_init, do: :erlang.nif_error(:nif_not_loaded)
+  def nif_sdp_firewall_authorize(_ip, _port), do: :erlang.nif_error(:nif_not_loaded)
 end

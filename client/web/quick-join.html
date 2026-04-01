@@ -50,7 +50,10 @@
       <label for="name">Display Name</label>
       <input id="name" type="text" placeholder="Your name" autofocus />
       <label for="room">Room</label>
-      <input id="room" type="text" value="General" />
+      <div style="display: flex; gap: 0.5rem;">
+        <input id="room" type="text" placeholder="apple-banana-cat" style="flex: 1;" />
+        <button class="btn-primary" onclick="generateNewRoomName()" style="padding: 0 0.5rem;">🎲</button>
+      </div>
       <button class="btn-primary" id="btn-join" onclick="joinRoom()">Join Voice</button>
     </div>
 
@@ -69,9 +72,11 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
     // SPDX-License-Identifier: PMPL-1.0-or-later
     // Burble Quick Join — minimal WebRTC voice client.
+
+    import { generateRoomName, isValidRoomName } from './src/room.js';
 
     let token = null;
     let ws = null;
@@ -82,6 +87,17 @@
     let micAnalyser = null;
     let micDataArray = null;
     let meterInterval = null;
+
+    // Generate a random room name on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!document.getElementById('room').value) {
+        document.getElementById('room').value = generateRoomName();
+      }
+    });
+
+    function generateNewRoomName() {
+      document.getElementById('room').value = generateRoomName();
+    }
 
     async function joinRoom() {
       const server = document.getElementById('server').value.replace(/\/$/, '');
