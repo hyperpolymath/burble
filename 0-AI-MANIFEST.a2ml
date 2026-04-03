@@ -1,44 +1,42 @@
-;; SPDX-License-Identifier: PMPL-1.0-or-later
-;; 0-AI-MANIFEST.a2ml — AI Agent Entry Point
-;; Repository: hyperpolymath/burble
-;;
-;; READ THIS FIRST. This is the canonical entry point for all AI agents.
-;; Full manifest is in .machine_readable/0-AI-MANIFEST.a2ml
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# 0-AI-MANIFEST.a2ml — AI Agent Entry Point
+# Repository: hyperpolymath/burble
+#
+# READ THIS FIRST. Canonical entry point for all AI agents.
+# Full narrative manifest is in .machine_readable/0-AI-MANIFEST.a2ml
 
-@abstract:
-  Burble — self-hostable voice communications platform.
-  Elixir/Phoenix control plane, WebRTC media, ReScript web client,
-  Idris2 ABI proofs, Zig FFI coprocessor.
+[manifest]
+name = "burble"
+abstract = "Self-hostable voice communications platform: Elixir/Phoenix control plane, WebRTC media, ReScript web client, Idris2 ABI proofs, Zig FFI coprocessor."
 
-@canonical-locations:
-  machine-readable: .machine_readable/
-  state:            .machine_readable/STATE.a2ml
-  meta:             .machine_readable/META.a2ml
-  ecosystem:        .machine_readable/ECOSYSTEM.a2ml
-  ai-manifest:      .machine_readable/0-AI-MANIFEST.a2ml
+[locations]
+machine-readable = ".machine_readable/"
+state            = ".machine_readable/STATE.a2ml"
+meta             = ".machine_readable/META.a2ml"
+ecosystem        = ".machine_readable/ECOSYSTEM.a2ml"
 
-@invariants:
-  elixir-control-plane:   auth rooms presence permissions signaling telemetry
-  webrtc-media-plane:     browser-compatible standards-based DTLS-SRTP
-  rescript-web-client:    NOT TypeScript
-  deno-js-runtime:        NOT Node NOT npm NOT Bun
-  container-base:         Chainguard images only
-  container-file:         Containerfile NOT Dockerfile
-  license:                PMPL-1.0-or-later
-  design-mantra:          Voice first. Friction last. Complexity optional.
+[invariants]
+elixir-control-plane  = "auth rooms presence permissions signaling telemetry"
+webrtc-media-plane    = "browser-compatible standards-based DTLS-SRTP"
+rescript-web-client   = "NOT TypeScript"
+deno-js-runtime       = "NOT Node NOT npm NOT Bun"
+container-base        = "Chainguard images only"
+container-file        = "Containerfile NOT Dockerfile"
+license               = "PMPL-1.0-or-later"
+design-mantra         = "Voice first. Friction last. Complexity optional."
 
-@abi-ffi-stack:
-  abi-language:  Idris2
-  ffi-language:  Zig
-  abi-location:  src/Burble/ABI/
-  ffi-location:  ffi/zig/src/
+[abi-ffi]
+abi-language = "Idris2"
+ffi-language = "Zig"
+abi-location = "src/Burble/ABI/"
+ffi-location = "ffi/zig/src/"
 
-@build-commands:
-  build:   just build
-  test:    just test
-  server:  just server
-  up:      just up
+[build]
+build   = "just build"
+test    = "just test"
+server  = "just server"
+up      = "just up"
 
-@session-hooks:
-  on-enter:  read .machine_readable/STATE.a2ml
-  on-exit:   update .machine_readable/STATE.a2ml with session progress
+[session-hooks]
+on-enter = "read .machine_readable/STATE.a2ml"
+on-exit  = "update .machine_readable/STATE.a2ml with session progress"
