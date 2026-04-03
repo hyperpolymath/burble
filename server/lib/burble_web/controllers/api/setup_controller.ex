@@ -479,12 +479,13 @@ defmodule BurbleWeb.API.SetupController do
   # Run a speaker test: play a 440Hz test tone for 1 second.
   @spec run_speaker_test(non_neg_integer()) :: map()
   defp run_speaker_test(device_id) do
+    tmp_file = Path.join(System.tmp_dir!(), "burble_spk_test_#{device_id}_#{System.unique_integer([:positive])}.wav")
+
     try do
       # Request exclusive access.
       PipeWire.request_exclusive(device_id)
 
       # Generate a 440Hz test tone WAV file.
-      tmp_file = Path.join(System.tmp_dir!(), "burble_spk_test_#{device_id}_#{System.unique_integer([:positive])}.wav")
       generate_test_tone(tmp_file, 440, 1.0)
 
       # Play using pw-play with the specified device.
@@ -499,7 +500,6 @@ defmodule BurbleWeb.API.SetupController do
       case System.cmd("pw-play", args, stderr_to_stdout: true, timeout: 5_000) do
         {_output, 0} ->
           PipeWire.release_exclusive(device_id)
-          File.rm(tmp_file)
 
           %{
             success: true,
@@ -512,7 +512,6 @@ defmodule BurbleWeb.API.SetupController do
 
         {output, code} ->
           PipeWire.release_exclusive(device_id)
-          File.rm(tmp_file)
 
           %{
             success: false,
@@ -532,6 +531,9 @@ defmodule BurbleWeb.API.SetupController do
           tone_played: false,
           error: Exception.message(error)
         }
+    after
+      # Always clean up the temporary tone file.
+      File.rm(tmp_file)
     end
   end
 

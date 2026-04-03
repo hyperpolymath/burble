@@ -18,7 +18,8 @@ import Burble.ABI.Foreign
 main : IO ()
 main = do
   putStrLn "Burble ABI Proofs Compiled."
-  putStrLn $ "Version: " ++ (unsafePerformIO Foreign.version)
+  ver <- Foreign.version
+  putStrLn $ "Version: " ++ ver
   putStrLn $ "Result Ok: " ++ (show (resultToInt Ok))
   putStrLn $ "State Stable: " ++ (show (signalingStateToInt Stable))
   putStrLn $ "Role Owner: " ++ (show (roleToInt Owner))
