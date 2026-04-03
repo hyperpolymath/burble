@@ -40,6 +40,10 @@ last-result = "pass"
 open-warnings = 0
 open-failures = 0
 
+[session-history]
+# 2026-04-03: Binary Idris2 build artifacts removed from repository. Gitignore updated
+#             to prevent future binary artifact commits.
+
 [ecosystem]
 part-of = ["Burble Platform"]
 depends-on = ["VeriSimDB", "proven", "Avow", "Vext", "Stapeln", "Axiom.jl", "Ephapax"]
