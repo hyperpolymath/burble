@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# tlaiser manifest for burble
+
+[project]
+name = "burble"
+version = "0.1.0"
+description = "State machines for the Burble WebRTC P2P voice/media platform"
+
+# ── Room participant voice state ──────────────────────────────────────────────
+# Source: server/lib/burble/rooms/participant.ex
+# @type voice_state :: :connected | :muted | :deafened | :priority
+
+[[state-machines]]
+name = "ParticipantVoiceState"
+states = ["Connected", "Muted", "Deafened", "Priority"]
+initial-state = "Connected"
+description = "Voice state machine for a single room participant. Tracks microphone and listening status."
+
+  [[state-machines.variables]]
+  name = "is_speaking"
+  init = "FALSE"
+  type = "BOOLEAN"
+
+  [[state-machines.variables]]
+  name = "volume"
+  init = "10"
+  type = "INTEGER"
+
+  [[state-machines.transitions]]
+  from = "Connected"
+  to = "Muted"
+  label = "self_mute"
+  action = "is_speaking := FALSE"
+
+  [[state-machines.transitions]]
+  from = "Connected"
+  to = "Deafened"
+  label = "self_deafen"
+  action = "is_speaking := FALSE"
+
+  [[state-machines.transitions]]
+  from = "Connected"
+  to = "Priority"
+  label = "grant_priority"
+
+  [[state-machines.transitions]]
+  from = "Muted"
+  to = "Connected"
+  label = "self_unmute"
+
+  [[state-machines.transitions]]
+  from = "Muted"
+  to = "Deafened"
+  label = "self_deafen"
+
+  [[state-machines.transitions]]
+  from = "Deafened"
+  to = "Connected"
+  label = "self_undeafen"
+
+  [[state-machines.transitions]]
+  from = "Priority"
+  to = "Connected"
+  label = "revoke_priority"
+
+  [[state-machines.transitions]]
+  from = "Priority"
+  to = "Muted"
+  label = "priority_mute"
+
+# ── Room lifecycle ────────────────────────────────────────────────────────────
+# Source: server/lib/burble/rooms/room.ex
+# Room starts empty, becomes active when first participant joins,
+# returns to empty (idle) when last leaves, then terminates.
+
+[[state-machines]]
+name = "RoomLifecycle"
+states = ["Empty", "Active", "IdleTimeout"]
+initial-state = "Empty"
+description = "Room process lifecycle. Rooms are created on first join and terminate after idle timeout with no participants."
+
+  [[state-machines.variables]]
+  name = "participant_count"
+  init = "0"
+  type = "INTEGER"
+
+  [[state-machines.variables]]
+  name = "max_participants"
+  init = "50"
+  type = "INTEGER"
+
+  [[state-machines.transitions]]
+  from = "Empty"
+  to = "Active"
+  label = "participant_joins"
+  guard = "participant_count < max_participants"
+  action = "participant_count := participant_count + 1"
+
+  [[state-machines.transitions]]
+  from = "Active"
+  to = "Active"
+  label = "participant_joins"
+  guard = "participant_count < max_participants"
+  action = "participant_count := participant_count + 1"
+
+  [[state-machines.transitions]]
+  from = "Active"
+  to = "Active"
+  label = "participant_leaves"
+  guard = "participant_count > 1"
+  action = "participant_count := participant_count - 1"
+
+  [[state-machines.transitions]]
+  from = "Active"
+  to = "Empty"
+  label = "last_participant_leaves"
+  guard = "participant_count = 1"
+  action = "participant_count := 0"
+
+  [[state-machines.transitions]]
+  from = "Empty"
+  to = "IdleTimeout"
+  label = "idle_timeout_fires"
+
+  [[state-machines.transitions]]
+  from = "IdleTimeout"
+  to = "Empty"
+  label = "terminate"
+
+# ── WebRTC peer connection negotiation ───────────────────────────────────────
+# Source: server/lib/burble/media/peer.ex
+# The server always initiates offers; the peer waits for SDP answer.
+
+[[state-machines]]
+name = "PeerNegotiation"
+states = ["Idle", "Negotiating", "Connected", "Renegotiating"]
+initial-state = "Idle"
+description = "Per-peer WebRTC SDP offer/answer negotiation. Server is always the offerer."
+
+  [[state-machines.variables]]
+  name = "pending_peer_count"
+  init = "0"
+  type = "INTEGER"
+
+  [[state-machines.transitions]]
+  from = "Idle"
+  to = "Negotiating"
+  label = "send_offer"
+  action = "pending_peer_count := 0"
+
+  [[state-machines.transitions]]
+  from = "Negotiating"
+  to = "Connected"
+  label = "sdp_answer_received"
+
+  [[state-machines.transitions]]
+  from = "Negotiating"
+  to = "Negotiating"
+  label = "peer_added_while_negotiating"
+  action = "pending_peer_count := pending_peer_count + 1"
+
+  [[state-machines.transitions]]
+  from = "Connected"
+  to = "Renegotiating"
+  label = "peer_added_or_removed"
+
+  [[state-machines.transitions]]
+  from = "Renegotiating"
+  to = "Connected"
+  label = "sdp_answer_received"
+
+# ── Safety properties ─────────────────────────────────────────────────────────
+
+[[properties]]
+name = "MutedParticipantNeverSpeaking"
+kind = "safety"
+formula = "[][ParticipantVoiceState = Muted => ~is_speaking]_ParticipantVoiceState"
+
+[[properties]]
+name = "RoomNeverExceedsMaxParticipants"
+kind = "safety"
+formula = "[][participant_count <= max_participants]_participant_count"
+
+[[properties]]
+name = "NegotiationEventuallyCompletes"
+kind = "liveness"
+formula = "<>(PeerNegotiation = Connected)"
+
+[tlc]
+workers = 4
+max-states = 100000
+symmetry = false
