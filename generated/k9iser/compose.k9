@@ -1,0 +1,15 @@
+# Auto-generated K9 contract for compose
+# Safety tier: yard
+
+[must]
+services.svalinn.restart : string { == 'always' }
+networks.default.driver : string { == 'selur' }
+
+[trust]
+signed-by = "ci-pipeline"
+
+[dust]
+remove = ["unfilled {{PLACEHOLDER}} values in service names"]
+
+[intend]
+production-ready = true

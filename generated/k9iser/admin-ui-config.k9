@@ -1,0 +1,16 @@
+# Auto-generated K9 contract for admin-ui-config
+# Safety tier: yard
+
+[must]
+app.security.sandbox.enabled : string { == true }
+app.ipc.timeout : string { > 0 }
+bundle.license : string { == 'PMPL-1.0-or-later' }
+
+[trust]
+signed-by = "ci-pipeline"
+
+[dust]
+# (no dust rules defined)
+
+[intend]
+production-ready = true

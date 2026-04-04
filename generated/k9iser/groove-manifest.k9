@@ -1,0 +1,17 @@
+# Auto-generated K9 contract for groove-manifest
+# Safety tier: yard
+
+[must]
+service_id : string { == 'burble' }
+capabilities.voice.requires_auth : string { == true }
+capabilities.text.requires_auth : string { == true }
+capabilities.presence.requires_auth : string { == true }
+
+[trust]
+signed-by = "ci-pipeline"
+
+[dust]
+# (no dust rules defined)
+
+[intend]
+production-ready = true
