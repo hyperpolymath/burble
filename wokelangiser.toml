@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# wokelangiser manifest for burble
+
+[project]
+name = "burble"
+
+[consent]
+gdpr = true
+ccpa = true
+default-state = "opt-out"
+categories = ["functional", "analytics", "communications"]
+
+[accessibility]
+wcag-level = "AAA"
+check-contrast = true
+check-alt-text = true
+check-aria = true
+min-contrast-ratio = 7.0
+
+[i18n]
+default-locale = "en-GB"
+supported-locales = ["en-GB", "fr-FR", "de-DE", "es-ES", "pt-BR", "ar-SA"]
+extract-strings = true
+
+[report]
+format = "text"
