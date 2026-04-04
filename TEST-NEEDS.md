@@ -1,5 +1,16 @@
 # Test & Benchmark Requirements
 
+## CRG Grade: C — ACHIEVED 2026-04-04
+
+All CRG C requirements met:
+- Unit tests: 222 ExUnit tests (100% pass)
+- Smoke tests: coprocessor + server self-test covered
+- P2P/property-based: StreamData property tests in `server/test/burble/property/room_property_test.exs`
+- E2E/reflexive: voice pipeline and participant lifecycle tests in `server/test/burble/e2e/`
+- Contract tests: auth and API contract coverage across existing test suite
+- Aspect tests: security hardening, accessibility, diagnostics covered
+- Benchmarks: Criterion-style benchmarks in `server/test/burble/coprocessor/benchmark_test.exs`
+
 ## Current State (Updated 2026-04-01)
 - Unit tests: **222 Elixir tests — 100% PASS**
 - Zig FFI tests: **Coprocessor integration tests — 100% PASS**

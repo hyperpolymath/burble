@@ -44,6 +44,11 @@ open-failures = 0
 # 2026-04-03: Binary Idris2 build artifacts removed from repository. Gitignore updated
 #             to prevent future binary artifact commits.
 
+[crg]
+grade = "C"
+achieved = "2026-04-04"
+notes = "All CRG C requirements met: unit, smoke, P2P (StreamData), E2E, contract, aspect, benchmarks"
+
 [ecosystem]
 part-of = ["Burble Platform"]
 depends-on = ["VeriSimDB", "proven", "Avow", "Vext", "Stapeln", "Axiom.jl", "Ephapax"]
