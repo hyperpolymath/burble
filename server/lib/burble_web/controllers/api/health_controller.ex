@@ -38,8 +38,21 @@ defmodule BurbleWeb.API.HealthController do
         {:error, _} -> :unreachable
       end
 
+    # Get WebRTC peer status from health mesh
+    webrtc_status =
+      case Burble.Groove.HealthMesh.mesh_status() do
+        %{peers: peers} ->
+          webrtc_peers = Enum.filter(peers, fn peer -> :webrtc in peer.capabilities end)
+          if Enum.all?(webrtc_peers, &(&1.status == :up)) do
+            :healthy
+          else
+            :degraded
+          end
+        _ -> :unknown
+      end
+
     overall =
-      if supervisor_ok and pubsub_ok and verisimdb_status == :healthy do
+      if supervisor_ok and pubsub_ok and verisimdb_status == :healthy and webrtc_status == :healthy do
         :healthy
       else
         :degraded

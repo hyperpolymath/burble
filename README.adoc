@@ -149,6 +149,7 @@ link:EXPLAINME.adoc[EXPLAINME.adoc] for the receipts.
 * link:docs/architecture/ARCHITECTURE.adoc[Architecture] — control plane, media plane, topology modes, supervision tree
 * link:docs/architecture/THREAT-MODEL.adoc[Threat Model] — security analysis and mitigations
 * link:docs/developer/ABI-FFI-README.adoc[ABI/FFI Design] — Idris2 proofs + Zig implementation
+* link:docs/accessibility/README.adoc[Accessibility] — accessibility features, compliance, and roadmap
 
 == Questions?
 

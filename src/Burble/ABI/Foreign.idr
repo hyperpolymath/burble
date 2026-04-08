@@ -5,10 +5,6 @@
 -- Declares the C-compatible foreign functions implemented by the Zig FFI
 -- layer. Each declaration maps to an exported function in the compiled
 -- shared library (libburble_coprocessor.so).
---
--- The dependent types from Types.idr ensure that callers cannot pass
--- invalid arguments (wrong buffer sizes, unsupported sample rates, etc.).
--- These constraints are enforced at compile time — no runtime checks needed.
 
 module Burble.ABI.Foreign
 
@@ -19,16 +15,12 @@ import Burble.ABI.Types
 -- ---------------------------------------------------------------------------
 
 ||| Initialise the coprocessor subsystem.
-||| Must be called once before any kernel operations.
 -- %foreign "C:burble_coprocessor_init, libburble_coprocessor"
 -- prim__init : PrimIO Int
 
-||| Initialise the coprocessor, returning a result code.
 public export
 init : IO CoprocessorResult
-init = do
-  -- code <- primIO prim__init
-  pure Ok
+init = pure Ok
 
 ||| Shut down the coprocessor subsystem.
 -- %foreign "C:burble_coprocessor_shutdown, libburble_coprocessor"
@@ -39,8 +31,30 @@ shutdown : IO ()
 shutdown = pure ()
 
 -- ---------------------------------------------------------------------------
--- Audio kernel
+-- Validations (Mirrored in Zig)
 -- ---------------------------------------------------------------------------
+
+||| Check if a number is a power of two (FFI call).
+%foreign "C:burble_is_power_of_two, libburble_coprocessor"
+prim__isPowerOfTwo : Int -> PrimIO Int
+
+||| Safe wrapper for power-of-two check.
+public export
+isPowerOfTwo : Int -> IO Bool
+isPowerOfTwo n = do
+  res <- primIO (prim__isPowerOfTwo n)
+  pure (res == 1)
+
+||| Validate role escalation (FFI call).
+%foreign "C:burble_can_escalate, libburble_coprocessor"
+prim__canEscalate : Int -> Int -> Int -> PrimIO Int
+
+||| Safe wrapper for escalation check.
+public export
+canEscalateFFI : (from, to, auth : Int) -> IO Bool
+canEscalateFFI f t a = do
+  res <- primIO (prim__canEscalate f t a)
+  pure (res == 1)
 
 -- ---------------------------------------------------------------------------
 -- Version info
@@ -48,4 +62,4 @@ shutdown = pure ()
 
 public export
 version : IO String
-version = pure "0.1.0-ABI-PROVEN"
+version = pure "1.1.0-ABI-PROVEN"

@@ -1,0 +1,30 @@
+# PLASMA Framework Sync Configuration
+
+# This file configures how Palimpsest PLASMA feeds lessons to the framework
+
+framework:
+  repo: ../../../plasma-framework
+  
+lessons:
+  output_dir: INTEGRATIONS/burble
+  
+  # What to sync
+  patterns:
+    - "tools/*.sh"          # Tooling patterns
+    - "config.yml"           # Configuration approach
+    - "schemas/*"            # Schema designs
+  
+  # What NOT to sync (Burble-specific)
+  exclude:
+    - "*burble*"             # Burble-specific files
+    - ".plasma-sync"         # This file
+  
+  # Sync schedule
+  frequency: weekly
+  method: manual             # For now
+  
+  # Contribution tracking
+  attribution:
+    source: "Palimpsest PLASMA (Burble)"
+    maintainer: "Jonathan D.A. Jewell"
+    license: "PMPL-1.0-or-later"

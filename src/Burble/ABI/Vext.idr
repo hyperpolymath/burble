@@ -25,6 +25,25 @@ record ChainLink where
   prevHash : Nat
 
 -- ---------------------------------------------------------------------------
+-- Internal LTE helpers
+-- ---------------------------------------------------------------------------
+
+lteReflInternal : {n : Nat} -> LTE n n
+lteReflInternal {n = Z} = LTEZero
+lteReflInternal {n = S k} = LTESucc lteReflInternal
+
+lteTransitiveInternal : LTE x y -> LTE y z -> LTE x z
+lteTransitiveInternal LTEZero _ = LTEZero
+lteTransitiveInternal (LTESucc k) (LTESucc j) = LTESucc (lteTransitiveInternal k j)
+
+lteStepRefl : {n : Nat} -> LTE n (S n)
+lteStepRefl {n = Z} = LTEZero
+lteStepRefl {n = S k} = LTESucc lteStepRefl
+
+lteStep : {n : Nat} -> LTE (S n) m -> LTE n m
+lteStep {n} (LTESucc k) = lteTransitiveInternal lteStepRefl (LTESucc k)
+
+-- ---------------------------------------------------------------------------
 -- Chain validity predicates
 -- ---------------------------------------------------------------------------
 
@@ -60,6 +79,11 @@ data Subsumes : Capability -> Capability -> Type where
 ||| Transitivity of capability subsumption.
 public export
 subsumesTransitive : Subsumes a b -> Subsumes b c -> Subsumes a c
+subsumesTransitive SubRefl p = p
+subsumesTransitive SubRW SubRefl = SubRW
+subsumesTransitive SubAdminRW SubRefl = SubAdminRW
+subsumesTransitive SubAdminRW SubRW = SubAdminRO
+subsumesTransitive SubAdminRO SubRefl = SubAdminRO
 
 ||| An extension carrying a required capability.
 public export
@@ -89,13 +113,16 @@ rwSafeForRO : (e : Extension) -> (s : Sandbox)
            -> (requiredCap e = ReadOnly)
            -> (allowedCap s = ReadWrite)
            -> SafeExtension e s
+rwSafeForRO (MkExtension _ ReadOnly) (MkSandbox ReadWrite) Refl Refl =
+  MkSafe SubRW
 
 -- ---------------------------------------------------------------------------
 -- Monotonicity proofs
 -- ---------------------------------------------------------------------------
 
 public export
-ltTransitive : {a, b, c : Nat} -> LT a b -> LT b c -> LT a c
+ltTransitive : {b : Nat} -> LT a b -> LT b c -> LT a c
+ltTransitive {b} p1 p2 = lteTransitiveInternal p1 (lteStep {n = b} p2)
 
 -- ---------------------------------------------------------------------------
 -- Link construction with proof
@@ -103,6 +130,32 @@ ltTransitive : {a, b, c : Nat} -> LT a b -> LT b c -> LT a c
 
 public export
 mkSuccessorLink : (prev : ChainLink) -> (newHash : Nat) -> (ChainLink, ValidSuccessor prev (MkLink (S (position prev)) newHash (hash prev)))
+mkSuccessorLink prev newHash =
+  let next = MkLink (S (position prev)) newHash (hash prev) in
+  (next, MkValid (MkAfter (LTESucc lteReflInternal)) (MkLinksTo Refl))
+
+-- ---------------------------------------------------------------------------
+-- Decidability and Equality for Capability
+-- ---------------------------------------------------------------------------
+
+public export
+Eq Capability where
+  ReadOnly  == ReadOnly  = True
+  ReadWrite == ReadWrite = True
+  Admin     == Admin     = True
+  _         == _         = False
+
+public export
+decideSubsumes : (a, b : Capability) -> Dec (Subsumes a b)
+decideSubsumes ReadOnly  ReadOnly  = Yes SubRefl
+decideSubsumes ReadOnly  ReadWrite = No (\case SubRefl impossible)
+decideSubsumes ReadOnly  Admin     = No (\case SubRefl impossible)
+decideSubsumes ReadWrite ReadOnly  = Yes SubRW
+decideSubsumes ReadWrite ReadWrite = Yes SubRefl
+decideSubsumes ReadWrite Admin     = No (\case SubRefl impossible)
+decideSubsumes Admin     ReadOnly  = Yes SubAdminRO
+decideSubsumes Admin     ReadWrite = Yes SubAdminRW
+decideSubsumes Admin     Admin     = Yes SubRefl
 
 -- ---------------------------------------------------------------------------
 -- C-compatible integer mapping for FFI

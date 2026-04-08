@@ -54,26 +54,31 @@ data RoleLT : Role -> Role -> Type where
   MkRoleLT : LT (roleLevel a) (roleLevel b) -> RoleLT a b
 
 -- ---------------------------------------------------------------------------
+-- Internal LTE helpers (since Data.Nat names can vary by version)
+-- ---------------------------------------------------------------------------
+
+lteReflInternal : {n : Nat} -> LTE n n
+lteReflInternal {n = Z} = LTEZero
+lteReflInternal {n = S k} = LTESucc lteReflInternal
+
+lteTransitiveInternal : LTE x y -> LTE y z -> LTE x z
+lteTransitiveInternal LTEZero _ = LTEZero
+lteTransitiveInternal (LTESucc k) (LTESucc j) = LTESucc (lteTransitiveInternal k j)
+
+-- ---------------------------------------------------------------------------
 -- Reflexivity, transitivity, and totality of the ordering
 -- ---------------------------------------------------------------------------
 
 ||| Every role is at most as privileged as itself (reflexivity).
 public export
 roleLTERefl : (r : Role) -> RoleLTE r r
-roleLTERefl Listener  = MkRoleLTE LTEZero
-roleLTERefl Speaker   = MkRoleLTE (LTESucc LTEZero)
-roleLTERefl Moderator = MkRoleLTE (LTESucc (LTESucc LTEZero))
-roleLTERefl Owner     = MkRoleLTE (LTESucc (LTESucc (LTESucc LTEZero)))
+roleLTERefl r = MkRoleLTE lteReflInternal
 
 ||| Role ordering is transitive: if a <= b and b <= c then a <= c.
 public export
 roleLTETransitive : RoleLTE a b -> RoleLTE b c -> RoleLTE a c
 roleLTETransitive (MkRoleLTE prf1) (MkRoleLTE prf2) =
-  MkRoleLTE (lteTransitive_internal prf1 prf2)
-  where
-    lteTransitive_internal : LTE x y -> LTE y z -> LTE x z
-    lteTransitive_internal LTEZero _ = LTEZero
-    lteTransitive_internal (LTESucc k) (LTESucc j) = LTESucc (lteTransitive_internal k j)
+  MkRoleLTE (lteTransitiveInternal prf1 prf2)
 
 -- ---------------------------------------------------------------------------
 -- Concrete ordering proofs for the four roles
@@ -105,15 +110,8 @@ listenerLTOwner = MkRoleLT (LTESucc LTEZero)
 
 ||| An authorisation token proving that a role change has been approved
 ||| by someone with sufficient privilege.
-|||
-||| The `authoriser` must have strictly greater privilege than the `target`
-||| role. This prevents:
-|||   - Listeners promoting themselves to Speaker (self-escalation)
-|||   - Speakers promoting to Moderator without a Moderator/Owner
-|||   - Moderators promoting to Owner without an Owner
 public export
 data Authorisation : (target : Role) -> Type where
-  ||| An authorisation carrying proof that the authoriser outranks the target.
   MkAuth : (authoriser : Role)
         -> (target : Role)
         -> RoleLT target authoriser
@@ -124,10 +122,6 @@ data Authorisation : (target : Role) -> Type where
 -- ---------------------------------------------------------------------------
 
 ||| A proven role escalation (promotion).
-||| Contains:
-|||   - The source and destination roles
-|||   - Proof that destination is strictly higher than source
-|||   - Authorisation from someone who outranks the destination
 public export
 data Escalation : Role -> Role -> Type where
   MkEscalation : (from : Role)
@@ -145,22 +139,11 @@ promoteListenerToSpeaker =
     listenerLTSpeaker
     (MkAuth Moderator Speaker speakerLTModerator)
 
-||| Construct a valid escalation from Speaker to Moderator,
-||| authorised by an Owner.
-public export
-promoteSpeakerToModerator : Escalation Speaker Moderator
-promoteSpeakerToModerator =
-  MkEscalation Speaker Moderator
-    speakerLTModerator
-    (MkAuth Owner Moderator moderatorLTOwner)
-
 -- ---------------------------------------------------------------------------
 -- De-escalation: moving down the hierarchy (always permitted)
 -- ---------------------------------------------------------------------------
 
 ||| A proven role de-escalation (demotion).
-||| No authorisation needed — users can always reduce their own privileges,
-||| and moderators/owners can always demote lower-ranked participants.
 public export
 data DeEscalation : Role -> Role -> Type where
   MkDeEscalation : (from : Role)
@@ -168,48 +151,52 @@ data DeEscalation : Role -> Role -> Type where
                 -> RoleLT to from
                 -> DeEscalation from to
 
-||| Demote a Speaker back to Listener.
-public export
-demoteSpeakerToListener : DeEscalation Speaker Listener
-demoteSpeakerToListener =
-  MkDeEscalation Speaker Listener listenerLTSpeaker
-
-||| Demote a Moderator to Speaker.
-public export
-demoteModeratorToSpeaker : DeEscalation Moderator Speaker
-demoteModeratorToSpeaker =
-  MkDeEscalation Moderator Speaker speakerLTModerator
-
 -- ---------------------------------------------------------------------------
 -- Impossibility proofs — preventing privilege abuse
 -- ---------------------------------------------------------------------------
 
+||| Every role level is at most 3.
+public export
+roleLevelMax : (r : Role) -> LTE (roleLevel r) 3
+roleLevelMax Listener  = LTEZero
+roleLevelMax Speaker   = LTESucc LTEZero
+roleLevelMax Moderator = LTESucc (LTESucc LTEZero)
+roleLevelMax Owner     = LTESucc (LTESucc (LTESucc LTEZero))
+
 ||| Proof that Owner cannot be escalated further.
 public export
-ownerCannotEscalate : RoleLT Owner r -> Void
--- ownerCannotEscalate (MkRoleLT (LTESucc (LTESucc (LTESucc (LTESucc _))))) impossible
+ownerCannotEscalate : {r : Role} -> RoleLT Owner r -> Void
+ownerCannotEscalate {r} (MkRoleLT prf) =
+  let maxR = roleLevelMax r in
+  case (lteTransitiveInternal prf maxR) of
+       (LTESucc (LTESucc (LTESucc (LTESucc _)))) impossible
 
-||| Proof that a Listener cannot authorise any escalation.
-||| Listeners have the lowest privilege level, so they cannot
-||| be strictly above any role (not even Listener itself).
+||| Proof that if someone is an authoriser, they cannot be a Listener.
 public export
-listenerCannotAuthorise : Authorisation r -> Role
-listenerCannotAuthorise (MkAuth auth _ _) = auth
+authoriserNotListener : {target : Role} -> Authorisation target -> (auth : Role ** (auth = Listener -> Void))
+authoriserNotListener (MkAuth auth target (MkRoleLT prf)) =
+  (auth ** (\case Refl => case prf of { LTESucc _ impossible }))
 
 -- ---------------------------------------------------------------------------
 -- Decision procedure for runtime validation
 -- ---------------------------------------------------------------------------
 
 ||| Decidable role comparison for the Zig FFI layer.
+public export
+decideRoleLTE : (a, b : Role) -> Dec (RoleLTE a b)
+decideRoleLTE a b =
+  case isLTE (roleLevel a) (roleLevel b) of
+       (Yes prf) => Yes (MkRoleLTE prf)
+       (No contra) => No (\(MkRoleLTE prf) => contra prf)
+
 ||| Returns True if `from` can be escalated to `to` given the
-||| authoriser's role (all checked via privilege level arithmetic).
+||| authoriser's role.
 public export
 canEscalate : (from : Role) -> (to : Role) -> (authoriser : Role) -> Bool
 canEscalate from to authoriser =
   (roleLevel from < roleLevel to) && (roleLevel to < roleLevel authoriser)
 
 ||| Check if a de-escalation from `from` to `to` is valid.
-||| Always succeeds if `to` has strictly lower privilege than `from`.
 public export
 canDeEscalate : (from : Role) -> (to : Role) -> Bool
 canDeEscalate from to = roleLevel to < roleLevel from
@@ -218,8 +205,6 @@ canDeEscalate from to = roleLevel to < roleLevel from
 -- C-compatible integer mapping for FFI
 -- ---------------------------------------------------------------------------
 
-||| Map roles to C-compatible integers for the Zig FFI layer.
-||| Matches the ParticipantRole enum in room_event.bop.
 public export
 roleToInt : Role -> Int
 roleToInt Listener  = 0
@@ -227,7 +212,7 @@ roleToInt Speaker   = 1
 roleToInt Moderator = 2
 roleToInt Owner     = 3
 
-||| Equality instance for Role (needed for runtime checks).
+||| Equality instance for Role.
 public export
 Eq Role where
   Listener  == Listener  = True

@@ -65,18 +65,55 @@ data TrustChain : (anchor : Identity) -> (subject : Identity) -> Type where
       -> TrustChain anchor subject
 
 -- ---------------------------------------------------------------------------
--- Proof of Non-Circularity (Postulated for compilation)
+-- Internal LTE helpers
+-- ---------------------------------------------------------------------------
+
+lteTransitiveInternal : LTE x y -> LTE y z -> LTE x z
+lteTransitiveInternal LTEZero _ = LTEZero
+lteTransitiveInternal (LTESucc k) (LTESucc j) = LTESucc (lteTransitiveInternal k j)
+
+lteStepRefl : {n : Nat} -> LTE n (S n)
+lteStepRefl {n = Z} = LTEZero
+lteStepRefl {n = S k} = LTESucc lteStepRefl
+
+lteStep : {n : Nat} -> LTE (S n) m -> LTE n m
+lteStep {n} (LTESucc k) = lteTransitiveInternal lteStepRefl (LTESucc k)
+
+ltIrreflInternal : {n : Nat} -> LT n n -> Void
+ltIrreflInternal {n = Z} prf = case prf of {}
+ltIrreflInternal {n = S m} (LTESucc k) = ltIrreflInternal k
+
+-- ---------------------------------------------------------------------------
+-- Proof of Non-Circularity
 -- ---------------------------------------------------------------------------
 
 ||| Proof that if a trust chain exists from anchor to subject,
 ||| then either they are the same (Root) or the anchor outranks the subject.
 public export
-chainOutranks : TrustChain anchor subject -> (anchor = subject) `Either` (LT (rank subject) (rank anchor))
+chainOutranks : {anchor, subject : Identity} -> TrustChain anchor subject -> (anchor = subject) `Either` (LT (rank subject) (rank anchor))
+chainOutranks (Root i) = Left Refl
+chainOutranks (Link tc (MkAttestation prf)) =
+  case chainOutranks tc of
+       Left Refl => Right prf
+       Right prf2 => Right (lteStep (lteTransitiveInternal (LTESucc prf) prf2))
 
 ||| Core Theorem: Circular trust is impossible.
 ||| Proof that a trust chain from `i` back to `i` cannot contain any links.
 public export
-noCircularTrust : TrustChain i i -> (c : TrustChain i i ** c = Root i)
+noCircularTrust : {i : Identity} -> TrustChain i i -> (c : TrustChain i i ** c = Root i)
+noCircularTrust (Root i) = (Root i ** Refl)
+noCircularTrust (Link tc (MkAttestation prf)) =
+  case chainOutranks tc of
+       Left Refl => absurd (ltIrreflInternal prf)
+       Right prf2 => absurd (ltIrreflInternal (lteStep (lteTransitiveInternal (LTESucc prf) prf2)))
+
+-- ---------------------------------------------------------------------------
+-- Equality for Identity
+-- ---------------------------------------------------------------------------
+
+public export
+Eq Identity where
+  (MkIdentity id1 r1) == (MkIdentity id2 r2) = (id1 == id2) && (r1 == r2)
 
 -- ---------------------------------------------------------------------------
 -- C-compatible integer mapping for FFI

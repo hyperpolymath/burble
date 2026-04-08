@@ -97,10 +97,26 @@ tryTransition : (from : SignalingState) -> (to : SignalingState)
              -> Maybe (ValidTransition from to)
 tryTransition Stable HaveLocalOffer = Just SetLocalOffer
 tryTransition HaveLocalOffer Stable = Just SetRemoteAnswer
+tryTransition HaveLocalOffer HaveRemotePranswer = Just SetRemotePranswer
+tryTransition HaveRemotePranswer Stable = Just AcceptRemotePranswer
 tryTransition Stable HaveRemoteOffer = Just SetRemoteOffer
 tryTransition HaveRemoteOffer Stable = Just SetLocalAnswer
--- ... (rest of transitions)
+tryTransition HaveRemoteOffer HaveLocalPranswer = Just SetLocalPranswer
+tryTransition HaveLocalPranswer Stable = Just AcceptLocalPranswer
+tryTransition Stable Closed = Just CloseFromStable
+tryTransition HaveLocalOffer Closed = Just CloseFromOffer
+tryTransition HaveRemoteOffer Closed = Just CloseFromRemoteOffer
 tryTransition _ _ = Nothing
+
+||| Proof that you cannot go from stable to closed and back.
+public export
+noClosedReturn : ValidTransition Closed s -> Void
+noClosedReturn _ impossible
+
+||| Proof that HaveLocalOffer and HaveRemoteOffer are distinct paths.
+public export
+offerDistinct : ValidTransition HaveLocalOffer HaveRemoteOffer -> Void
+offerDistinct _ impossible
 
 -- ---------------------------------------------------------------------------
 -- C-compatible integer mapping for FFI

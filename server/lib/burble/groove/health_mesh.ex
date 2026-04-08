@@ -65,6 +65,11 @@ defmodule Burble.Groove.HealthMesh do
     GenServer.cast(__MODULE__, :probe_now)
   end
 
+  @doc "Report status for a specific peer (used by WebRTC, etc.)."
+  def report_peer_status(peer_id, status, metadata \ %{}) do
+    GenServer.cast(__MODULE__, {:report_peer_status, peer_id, status, metadata})
+  end
+
   # --- GenServer Callbacks ---
 
   @impl true
@@ -96,6 +101,25 @@ defmodule Burble.Groove.HealthMesh do
   @impl true
   def handle_cast(:probe_now, state) do
     new_state = do_probe(state)
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_cast({:report_peer_status, peer_id, status, metadata}, state) do
+    # Update or add peer status
+    timestamp_ms = System.system_time(:millisecond)
+    peer_entry = %{
+      service_id: peer_id,
+      status: status,
+      last_seen_ms: timestamp_ms,
+      capabilities: [:webrtc] ++ [metadata.type || :unknown],
+      metadata: metadata
+    }
+    
+    new_peers = Map.put(state.peers, peer_id, peer_entry)
+    new_state = %{state | peers: new_peers}
+    
+    Logger.debug("[HealthMesh] Peer #{peer_id} status: #{status}")
     {:noreply, new_state}
   end
 

@@ -157,12 +157,29 @@ defmodule Burble.Media.Peer do
   @impl true
   def handle_info({:ex_webrtc, pc, {:connection_state_change, :connected}}, %{pc: pc} = state) do
     Logger.info("[Peer] #{state.peer_id} WebRTC connected")
+    # Report connection success to health mesh
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :up, %{type: :webrtc, room: state.room_id})
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:ex_webrtc, pc, {:connection_state_change, :failed}}, %{pc: pc} = state) do
+    Logger.warning("[Peer] #{state.peer_id} WebRTC connection failed")
+    # Report connection failure to health mesh
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :down, %{type: :webrtc, room: state.room_id})
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:ex_webrtc, pc, {:connection_state_change, new_state}}, %{pc: pc} = state) do
     Logger.debug("[Peer] #{state.peer_id} connection state: #{new_state}")
+    # Report intermediate states
+    status = case new_state do
+      :connecting -> :degraded
+      :disconnected -> :down
+      _ -> :degraded
+    end
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, status, %{type: :webrtc, room: state.room_id})
     {:noreply, state}
   end
 
@@ -266,11 +283,24 @@ defmodule Burble.Media.Peer do
   @impl true
   def handle_cast({:forward_rtp, from_peer_id, packet}, %{pc: pc} = state) do
     case Map.get(state.outbound_tracks, from_peer_id) do
-      %{track_id: track_id} ->
-        PeerConnection.send_rtp(pc, track_id, packet)
+      %{track_id: track_id, transceiver_id: transceiver_id} ->
+        # Forward RTP packet through the transceiver's sender
+        # In ex_webrtc, we send RTP packets via the transceiver
+        case PeerConnection.send_rtp(pc, transceiver_id, packet) do
+          :ok -> :ok
+          {:error, reason} ->
+            Logger.warning("[Peer] #{state.peer_id} failed to forward RTP to #{from_peer_id}: #{reason}")
+        end
+
+        # Also send via multipath for line bonding (if available)
+        case Burble.Transport.Multipath.send(:voice, {state.peer_id, from_peer_id}, packet) do
+          :ok -> :ok
+          {:error, mp_reason} ->
+            Logger.debug("[Peer] #{state.peer_id} multipath send failed: #{mp_reason}")
+        end
 
       nil ->
-        :ok
+        Logger.debug("[Peer] #{state.peer_id} no outbound track for #{from_peer_id}")
     end
 
     {:noreply, state}

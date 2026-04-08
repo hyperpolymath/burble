@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Palimpsest PLASMA
+:toc: preamble
+
+Documentation integrity system for Burble.
+
+== Purpose
+
+Maintains provenance, licensing, and adaptation history for Burble's documentation assets.
+
+== Scope
+
+* Burble documentation (README, EXPLAINME, architecture docs)
+* License tracking and compliance
+* Basic adaptation history
+* Deployment constraint enforcement
+
+== How It Works
+
+1. **Document Wrapping**: Each doc gets PLASMA metadata header
+2. **Validation**: Automated checks via Hypatia bot
+3. **Tracking**: Git hooks enforce PLASMA compliance
+4. **Evolution**: Changes maintain provenance chain
+
+== Integration
+
+Feeds lessons to broader PLASMA Framework while staying Burble-focused.
+
+== Quick Start
+
+Add PLASMA header → Validate → Commit → Deploy
