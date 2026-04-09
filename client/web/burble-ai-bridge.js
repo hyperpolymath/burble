@@ -25,33 +25,87 @@ let wsClient = null;
 // Aligned with proven SafeQueue's bounded capacity principle (drop-oldest).
 const MAX_MESSAGE_QUEUE_SIZE = 1000;
 
+// Maximum payload size for /send (64 KiB). Reject oversized messages early
+// to prevent memory pressure and WebSocket frame issues.
+const MAX_SEND_PAYLOAD_BYTES = 65536;
+
+// JSON response helper.
+const jsonResponse = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
 // HTTP server for Claude to interact with
 Deno.serve({ port: PORT, hostname: "127.0.0.1" }, async (req) => {
   const url = new URL(req.url);
 
   // Send a message to the remote peer
   if (req.method === "POST" && url.pathname === "/send") {
-    const body = await req.json();
-    if (wsClient?.readyState === 1) {
-      wsClient.send(JSON.stringify({ type: "send", payload: body }));
-      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    // Validate Content-Type header.
+    const ct = req.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      return jsonResponse(
+        { ok: false, error: "Content-Type must be application/json" },
+        415
+      );
     }
-    return new Response(JSON.stringify({ ok: false, error: "not connected" }), { status: 503, headers: { "Content-Type": "application/json" } });
+
+    // Read body with size limit.
+    let rawBody;
+    try {
+      rawBody = await req.text();
+    } catch (e) {
+      return jsonResponse({ ok: false, error: "failed to read request body" }, 400);
+    }
+
+    if (rawBody.length > MAX_SEND_PAYLOAD_BYTES) {
+      return jsonResponse(
+        { ok: false, error: `payload too large (max ${MAX_SEND_PAYLOAD_BYTES} bytes)` },
+        413
+      );
+    }
+
+    // Parse JSON with error handling.
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (e) {
+      return jsonResponse({ ok: false, error: "invalid JSON: " + e.message }, 400);
+    }
+
+    if (wsClient?.readyState === 1) {
+      try {
+        wsClient.send(JSON.stringify({ type: "send", payload: body }));
+        return jsonResponse({ ok: true });
+      } catch (e) {
+        console.error("[Burble AI Bridge] WebSocket send error:", e);
+        return jsonResponse({ ok: false, error: "send failed: " + e.message }, 502);
+      }
+    }
+    return jsonResponse({ ok: false, error: "not connected" }, 503);
+  }
+
+  // Reject non-POST to /send.
+  if (url.pathname === "/send" && req.method !== "POST") {
+    return jsonResponse({ ok: false, error: "method not allowed, use POST" }, 405);
   }
 
   // Receive messages from remote peer (poll)
   if (req.method === "GET" && url.pathname === "/recv") {
     const msgs = messageQueue.splice(0);
-    return new Response(JSON.stringify({ messages: msgs }), { headers: { "Content-Type": "application/json" } });
+    return jsonResponse({ messages: msgs, count: msgs.length });
   }
 
   // Check status
   if (req.method === "GET" && url.pathname === "/status") {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       connected: wsClient?.readyState === 1,
       queued: messageQueue.length,
       port: PORT,
-    }), { headers: { "Content-Type": "application/json" } });
+      maxQueueSize: MAX_MESSAGE_QUEUE_SIZE,
+      maxPayloadBytes: MAX_SEND_PAYLOAD_BYTES,
+    });
   }
 
   // Health
@@ -59,7 +113,7 @@ Deno.serve({ port: PORT, hostname: "127.0.0.1" }, async (req) => {
     return new Response("ok");
   }
 
-  return new Response("Burble AI Bridge\n\nPOST /send — send JSON to remote peer\nGET /recv — poll received messages\nGET /status — connection status\n", { status: 200 });
+  return new Response("Burble AI Bridge\n\nPOST /send — send JSON to remote peer\nGET /recv — poll received messages\nGET /status — connection status\nGET /health — health check\n", { status: 200 });
 });
 
 // WebSocket server for p2p-voice.html to connect to

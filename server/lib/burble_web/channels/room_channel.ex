@@ -224,6 +224,46 @@ defmodule BurbleWeb.RoomChannel do
     end
   end
 
+  # ── Catch-all for unmatched text messages ──
+  # Prevents FunctionClauseError crashes when clients send malformed or
+  # unrecognised events. Returns a structured error so the client knows
+  # the event was rejected.
+
+  @impl true
+  def handle_in("text", _params, socket) do
+    {:reply, {:error, %{reason: "invalid_text_payload"}}, socket}
+  end
+
+  @impl true
+  def handle_in(event, _params, socket) do
+    require Logger
+    Logger.warning("[RoomChannel] Unhandled event: #{inspect(event)}")
+    {:reply, {:error, %{reason: "unknown_event", event: event}}, socket}
+  end
+
+  # ── PubSub events from other processes ──
+  # Handle participant join/leave notifications broadcast via PubSub
+  # so the channel does not crash on unexpected info messages.
+
+  @impl true
+  def handle_info({:participant_joined, user_id, meta}, socket) do
+    push(socket, "participant_joined", %{user_id: user_id, meta: meta})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:participant_left, user_id}, socket) do
+    push(socket, "participant_left", %{user_id: user_id})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(msg, socket) do
+    require Logger
+    Logger.debug("[RoomChannel] Unhandled info: #{inspect(msg)}")
+    {:noreply, socket}
+  end
+
   # ── Cleanup ──
 
   @impl true
