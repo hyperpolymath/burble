@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
+# ── DISAMBIGUATION ────────────────────────────────────────────────────────────
+# "Vext" here = the feed-integrity verification protocol (BLAKE3 hash chains).
+# NOT the IRC VCS notification daemon, which was renamed to vcs-ircd.
+# See burble/server/lib/burble/verification/vext.ex for the full disambiguation.
+# ─────────────────────────────────────────────────────────────────────────────
+#
 # Burble.Verification.VextGroove — Groove-aware bridge to the Vext service.
 #
 # When Vext is available via groove (port 6480), Burble forwards text
