@@ -8,9 +8,9 @@
 #     BLAKE3 hash chains proving feeds are chronological, complete,
 #     uninjected, and attributable. Part of burble only.
 #
-#   PROTOCOL SPEC → vexometer/vext  ← THE CANONICAL HOME OF THE PROTOCOL
+#   PROTOCOL SPEC → hyperpolymath/vext  ← THE CANONICAL HOME OF THE PROTOCOL
 #     The actual Vext protocol definition, Idris2 proofs, reference impl.
-#     Lives at: vexometer/vext/  (inside the vexometer monorepo)
+#     GitHub: hyperpolymath/vext
 #     This file is a CONSUMER of that spec, not the spec itself.
 #     Go there for protocol design decisions, formal proofs, a2ml layer.
 #
