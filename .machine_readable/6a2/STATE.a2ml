@@ -19,6 +19,11 @@ phase = "hardening"
 maturity = "pre-production"
 rationale = "Foundations + SFU solid. LLM service, PTP hardware read, Avow attestation, Opus server NIF are stubs contradicting earlier 'done' claims. Migration in progress: V-lang removed, ReScript -> AffineScript pending."
 
+[dogfooding-status]
+# Populated 2026-04-19 against real on-disk integrations. Each entry must
+# resolve to a grep-hit in the cited path.
+vext-protocol-implementation = "2026-04-19 — vext protocol implemented in burble server, not in the vext repo (531 LOC: vext.ex 257 + vext_groove.ex 155 + vext_test.exs 119). Paths: server/lib/burble/verification/vext.ex, server/lib/burble/verification/vext_groove.ex, server/test/burble/verification/vext_test.exs"
+
 [route-to-mvp]
 milestones = [
   { name = "v0.1.0 to v0.4.0 — Foundation & Transport", completion = 100 },
@@ -82,7 +87,7 @@ achieved = "2026-04-18"
 previous-grade = "C"
 demoted-on = "2026-04-18"
 demotion-reference = "docs/governance/CRG-AUDIT-2026-04-18.adoc"
-notes = "Demoted C->D per CRG v2.0 STRICT audit: missing [dogfooding-status], no READINESS file, weak per-directory README coverage in core subtrees, and no CI test-pass evidence."
+notes = "Demoted C->D per CRG v2.0 STRICT audit. [dogfooding-status] populated 2026-04-19 citing vext.ex/vext_groove.ex/vext_test.exs. Remaining C-blockers: no READINESS file, weak per-directory README coverage in core subtrees, and no CI test-pass evidence."
 
 [ecosystem]
 part-of = ["Burble Platform"]
