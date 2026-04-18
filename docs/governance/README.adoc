@@ -13,4 +13,6 @@ Latest integrated sitrep and baseline:
 Supporting criteria:
 
 * link:CRG-CRITERIA.adoc[CRG-CRITERIA.adoc]
+* link:CRG-AUDIT-2026-04-18.adoc[CRG-AUDIT-2026-04-18.adoc]
+* link:CRG-LIFT-PLAN-2026-04-18.adoc[CRG-LIFT-PLAN-2026-04-18.adoc]
 * link:SOFTWARE-DEVELOPMENT-APPROACH.adoc[SOFTWARE-DEVELOPMENT-APPROACH.adoc]
