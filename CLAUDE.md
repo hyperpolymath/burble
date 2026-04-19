@@ -6,16 +6,17 @@ Burble is a P2P voice chat with an AI data channel. When two people connect via 
 
 ## Quick start (receiver side)
 
-You've been sent a room code. Do this:
+You've been sent a room code. Do this **in order** — the bridge must start before
+the page so the page's auto-retry can pick it up:
 
 ```bash
 git clone https://github.com/hyperpolymath/burble
 cd burble
 
-# Start the AI bridge (runs in background)
-deno run --allow-net client/web/burble-ai-bridge.js &
+# 1. Start the AI bridge (leaves it running in the background)
+deno run --allow-net --allow-env client/web/burble-ai-bridge.js &
 
-# Open the voice client in your browser
+# 2. Open the voice client in your browser
 xdg-open client/web/p2p-voice.html
 ```
 
@@ -26,19 +27,38 @@ In the browser:
 4. Click **Generate Reply**
 5. Copy the reply code and send it back
 
-Once connected, the AI bridge auto-links. Test it:
+Once connected, the "AI Channel" card shows a green dot next to "bridge online" —
+that confirms the page has reached your local Claude. Test the path:
 
 ```bash
 # Check bridge is connected
 curl http://localhost:6474/status
+# {"connected":true,"queued":0,"port":6474,...}
 
 # Send a message to the other Claude
 curl -X POST http://localhost:6474/send -H "Content-Type: application/json" \
   -d '{"type":"hello","from":"receiver"}'
 
-# Poll for messages from the other side
+# Poll for messages from the other side (drains the queue)
 curl http://localhost:6474/recv
 ```
+
+### Troubleshooting the AI channel
+
+- **`/send` returns `{"ok":false,"error":"not connected"}`** — the page isn't
+  connected to the bridge. Reload `p2p-voice.html` or check that the bridge
+  process is still running (`lsof -i :6474`).
+- **`/recv` always empty even though the other side sends** — this was a real
+  bug up to 2026-04-16 (a dead `setupAIChannelWithBridge` function was never
+  called, so the remote-to-local leg didn't forward). Fix landed in the
+  commit that replaced it with inline bridge-forwarding. If the symptom
+  recurs, check the browser console for `[Burble AI] Bridge forward failed`.
+- **Bridge status dot stays grey on the page** — the page retries the bridge
+  every 5-10 s. If the dot never goes green, the bridge isn't listening on
+  `ws://127.0.0.1:6475`.
+- **Need two bridges on one machine** (testing/dev): set
+  `BURBLE_AI_BRIDGE_PORT=7474 deno run …` — both HTTP and WS ports shift
+  together (`7474` + `7475`).
 
 ## Claude-to-Claude protocol
 

@@ -114,7 +114,12 @@
 
   <!-- AI Data Channel -->
   <div class="card hidden" id="step-ai-channel">
-    <h2>AI Channel</h2>
+    <h2>AI Channel
+      <span id="bridge-status" style="float:right; font-size:0.75rem; color:#8b949e;">
+        <span id="bridge-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#6e7681; margin-right:4px; vertical-align:middle;"></span>
+        <span id="bridge-label">bridge offline</span>
+      </span>
+    </h2>
     <p class="instructions">A JSON data channel running alongside voice. Claude (or any AI) on either side can send structured messages peer-to-peer. Open your browser console or use the API below.</p>
     <div id="ai-log" style="background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:0.5rem; max-height:200px; overflow-y:auto; font-family:monospace; font-size:0.8rem; margin-bottom:0.8rem; white-space:pre-wrap;"></div>
     <div style="display:flex; gap:0.5rem;">
@@ -236,13 +241,38 @@
       };
 
       ch.onmessage = (ev) => {
+        // Parse the incoming payload once.
+        let msg;
+        let parsed = false;
         try {
-          const msg = JSON.parse(ev.data);
-          aiLog('recv', JSON.stringify(msg, null, 2));
-          // Fire callback for programmatic consumers (Claude, MCP, etc.)
-          if (window.burble?.onMessage) window.burble.onMessage(msg);
-        } catch (e) {
-          aiLog('recv', ev.data);
+          msg = JSON.parse(ev.data);
+          parsed = true;
+        } catch (_) {
+          msg = ev.data;
+        }
+
+        // UI log.
+        aiLog('recv', parsed ? JSON.stringify(msg, null, 2) : String(msg));
+
+        // Fire callback for programmatic consumers (Claude, MCP, etc.)
+        if (parsed && window.burble?.onMessage) {
+          try { window.burble.onMessage(msg); } catch (cbErr) {
+            console.error('[Burble AI] onMessage callback threw:', cbErr);
+          }
+        }
+
+        // ALSO forward to the local Deno AI bridge so `curl /recv` can drain it.
+        // This is the critical link that makes remote → local Claude work:
+        //   remote DataChannel → this onmessage → bridge WS → bridge /recv queue → curl.
+        // Previously this was wired via a separate setupAIChannelWithBridge()
+        // function that was defined but never called — the receive leg was
+        // effectively broken until this inlining (2026-04-16).
+        if (bridgeWs?.readyState === 1) {
+          try {
+            bridgeWs.send(JSON.stringify({ type: 'received', payload: parsed ? msg : ev.data }));
+          } catch (fwdErr) {
+            console.error('[Burble AI] Bridge forward failed:', fwdErr);
+          }
         }
       };
 
@@ -264,6 +294,7 @@
         history: [],
         channel: () => aiChannel,
         isOpen: () => aiChannel?.readyState === 'open',
+        bridgeConnected: () => bridgeWs?.readyState === 1,
       };
     }
 
@@ -301,57 +332,67 @@
 
     let bridgeWs = null;
 
+    function setBridgeStatus(state) {
+      // state: 'online' | 'offline' | 'connecting'
+      const dot = document.getElementById('bridge-dot');
+      const label = document.getElementById('bridge-label');
+      if (!dot || !label) return;
+      if (state === 'online') {
+        dot.style.background = '#3fb950';
+        label.textContent = 'bridge online — curl localhost:6474';
+        label.style.color = '#3fb950';
+      } else if (state === 'connecting') {
+        dot.style.background = '#d29922';
+        label.textContent = 'bridge connecting…';
+        label.style.color = '#d29922';
+      } else {
+        dot.style.background = '#6e7681';
+        label.textContent = 'bridge offline';
+        label.style.color = '#8b949e';
+      }
+    }
+
     function connectBridge() {
+      setBridgeStatus('connecting');
       try {
-        bridgeWs = new WebSocket('ws://localhost:6475');
-        bridgeWs.onopen = () => {
+        const ws = new WebSocket('ws://localhost:6475');
+        ws.onopen = () => {
+          bridgeWs = ws;
+          setBridgeStatus('online');
           aiLog('system', 'AI bridge connected — Claude can use curl localhost:6474');
         };
-        bridgeWs.onmessage = (ev) => {
+        ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
             if (msg.type === 'send' && window.burble?.isOpen()) {
-              // Bridge is asking us to send to remote peer
+              // Bridge is asking us to send to the remote peer.
               window.burble.send(msg.payload);
+            } else if (msg.type === 'ping') {
+              // Heartbeat from the bridge — respond so the bridge knows we're alive.
+              ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
             }
-          } catch (e) { /* ignore */ }
+          } catch (_) { /* ignore malformed bridge frames */ }
         };
-        bridgeWs.onclose = () => {
-          bridgeWs = null;
-          // Retry in 5s
+        ws.onclose = () => {
+          if (bridgeWs === ws) bridgeWs = null;
+          setBridgeStatus('offline');
+          // Retry in 5 s.
           setTimeout(connectBridge, 5000);
         };
-        bridgeWs.onerror = () => {
-          bridgeWs?.close();
-          bridgeWs = null;
-          // Bridge not running — silent retry
+        ws.onerror = () => {
+          // Bridge probably not running yet; quietly retry.
+          try { ws.close(); } catch (_) {}
+          if (bridgeWs === ws) bridgeWs = null;
+          setBridgeStatus('offline');
           setTimeout(connectBridge, 10000);
         };
-      } catch (e) {
+      } catch (_) {
+        setBridgeStatus('offline');
         setTimeout(connectBridge, 10000);
       }
     }
 
-    // Hook into the AI channel to forward received messages to the bridge
-    const originalSetupAIChannel = setupAIChannel;
-    function setupAIChannelWithBridge(ch) {
-      const origOnMessage = ch.onmessage;
-      setupAIChannel(ch);
-      const hookedOnMessage = ch.onmessage;
-      ch.onmessage = (ev) => {
-        hookedOnMessage(ev);
-        // Forward to bridge
-        if (bridgeWs?.readyState === 1) {
-          try {
-            bridgeWs.send(JSON.stringify({ type: 'received', payload: JSON.parse(ev.data) }));
-          } catch (e) {
-            bridgeWs.send(JSON.stringify({ type: 'received', payload: ev.data }));
-          }
-        }
-      };
-    }
-
-    // Start bridge connector on page load (silent — doesn't block anything)
+    // Start bridge connector on page load (silent — doesn't block anything).
     connectBridge();
 
     // ── Auto-connect via relay ────────────────────────────────────────
