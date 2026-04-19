@@ -19,11 +19,6 @@ phase = "hardening"
 maturity = "pre-production"
 rationale = "Foundations + SFU solid. LLM service, PTP hardware read, Avow attestation, Opus server NIF are stubs contradicting earlier 'done' claims. Migration in progress: V-lang removed, ReScript -> AffineScript pending."
 
-[dogfooding-status]
-# Populated 2026-04-19 against real on-disk integrations. Each entry must
-# resolve to a grep-hit in the cited path.
-vext-protocol-implementation = "2026-04-19 — vext protocol implemented in burble server, not in the vext repo (531 LOC: vext.ex 257 + vext_groove.ex 155 + vext_test.exs 119). Paths: server/lib/burble/verification/vext.ex, server/lib/burble/verification/vext_groove.ex, server/test/burble/verification/vext_test.exs"
-
 [route-to-mvp]
 milestones = [
   { name = "v0.1.0 to v0.4.0 — Foundation & Transport", completion = 100 },
@@ -45,8 +40,10 @@ signaling-relay = { status = "consolidated", canonical = "signaling/relay.js", r
 doc-reality-drift = [
   "ROADMAP.adoc claims LLM Service DONE — is a stub (provider missing, parse_frame broken)",
   "ROADMAP.adoc claims Formal Proofs DONE — Avow attestation is data-type-only, no dependent-type enforcement",
-  "README.adoc PTP claim sub-microsecond assumes hardware — code falls back to system clock without NIF",
-  "ffi/zig coprocessor nif_audio_encode/decode are not real Opus (intentional SFU-opaque, but misleadingly named)"
+  "README.adoc PTP claim sub-microsecond assumes hardware — code falls back to system clock without NIF"
+]
+resolved-2026-04-16 = [
+  "Opus naming/contract drift: Backend.audio_encode/4 + audio_decode/3 docstrings rewritten to state explicitly that they are PCM frame pack/unpack, NOT Opus. Added explicit Backend.opus_transcode/4 callback returning {:error, :not_implemented} on every backend (ElixirBackend, ZigBackend, SmartBackend, SNIFBackend). Added opus_available?/0 callback (always false). Pinned by opus_contract_test.exs."
 ]
 
 [critical-next-actions]
