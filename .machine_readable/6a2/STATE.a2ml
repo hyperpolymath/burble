@@ -25,7 +25,8 @@ milestones = [
   { name = "v1.0.0 — Stable Release", completion = 100 },
   { name = "Phase 0 — Scrub baseline (V-lang removed, docs honest)", completion = 100, date = "2026-04-16" },
   { name = "Phase 1 — Audio dependable (Opus honest, jitter sync, comfort noise, REMB, Avow chain)", completion = 0 },
-  { name = "Phase 2 — LLM real (provider, circuit breaker, fixed parse_frame, NimblePool wired)", completion = 0 },
+  { name = "Phase 2 — P2P AI channel dependable (burble-ai-bridge fixes, round-trip tests, docs) — CRITICAL PATH for family/pair-programming use case", completion = 30 },
+  { name = "Phase 2b — server-side Burble.LLM (provider, circuit breaker, fixed parse_frame, NimblePool wired) — SECONDARY, not required for family use case", completion = 0 },
   { name = "Phase 3 — RTSP + signaling + text + AffineScript client start", completion = 0 },
   { name = "Phase 4 — PTP hardware clock via Zig NIF, phc2sys supervisor, multi-node align", completion = 0 },
   { name = "Phase 5 — ReScript -> AffineScript completion", completion = 0 }
@@ -47,13 +48,24 @@ resolved-2026-04-16 = [
 ]
 
 [critical-next-actions]
+phase-2-p2p-ai-bridge = [
+  "DONE 2026-04-16: Opus honest-demotion (commit 179fa34)",
+  "DONE 2026-04-16: AI bridge receive-leg bug fix (dead setupAIChannelWithBridge replaced with inline forwarding in setupAIChannel)",
+  "DONE 2026-04-16: Bridge heartbeat + robust wsClient assign + env-var port",
+  "DONE 2026-04-16: Bridge UI status indicator (green/amber/grey dot)",
+  "DONE 2026-04-16: Deno round-trip test (POST /send on A -> GET /recv on B)",
+  "DONE 2026-04-16: CLAUDE.md troubleshooting section",
+  "NEXT: multi-message ordering test (bursts of 100 messages each way, no drops)",
+  "NEXT: reconnect-resume test (drop bridge WS mid-session, verify queue not lost)",
+  "NEXT: documentation for the Claude-to-Claude protocol patterns (task/result/chat shapes)"
+]
 phase-1-audio = [
-  "Decide Opus strategy: honest-demotion vs libopus link",
-  "Validate TFLite neural model or gate behind feature flag",
-  "Wire RTP-timestamp jitter sync across peers (precursor to PTP phase)",
-  "Server-side comfort noise injection on RX silence",
-  "REMB bitrate adaptation feedback loop",
-  "Replace Avow stub with hash-chain audit log + non-circularity property test"
+  "DONE 2026-04-16: Opus honest contract (opus_transcode returns :not_implemented)",
+  "NEXT: Validate TFLite neural model or gate behind feature flag",
+  "NEXT: Wire RTP-timestamp jitter sync across peers (precursor to PTP phase)",
+  "NEXT: Server-side comfort noise injection on RX silence",
+  "NEXT: REMB bitrate adaptation feedback loop",
+  "NEXT: Replace Avow stub with hash-chain audit log + non-circularity property test"
 ]
 
 [maintenance-status]

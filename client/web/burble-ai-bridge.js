@@ -14,7 +14,9 @@
 // into the page. Messages flow:
 //   curl POST /send → bridge → WS → page → DataChannel → remote page → WS → bridge → curl GET /recv
 
-const PORT = 6474;
+// Port can be overridden by env var so tests can run two bridges side-by-side.
+// Defaults to 6474 (HTTP) + 6475 (WebSocket relay) for normal use.
+const PORT = parseInt(Deno.env.get("BURBLE_AI_BRIDGE_PORT") || "6474");
 const messageQueue = [];
 let wsClient = null;
 
@@ -116,28 +118,67 @@ Deno.serve({ port: PORT, hostname: "127.0.0.1" }, async (req) => {
   return new Response("Burble AI Bridge\n\nPOST /send — send JSON to remote peer\nGET /recv — poll received messages\nGET /status — connection status\nGET /health — health check\n", { status: 200 });
 });
 
-// WebSocket server for p2p-voice.html to connect to
+// Heartbeat parameters. The bridge pings every HEARTBEAT_INTERVAL_MS; if no
+// pong arrives within HEARTBEAT_TIMEOUT_MS the socket is considered dead.
+// Silent network drops (laptop sleep, wifi switch) otherwise leave wsClient
+// stuck at readyState=1 until the next send fails.
+const HEARTBEAT_INTERVAL_MS = 15_000;
+const HEARTBEAT_TIMEOUT_MS = 5_000;
+
+// WebSocket server for p2p-voice.html to connect to.
 Deno.serve({ port: PORT + 1, hostname: "127.0.0.1" }, (req) => {
   if (req.headers.get("upgrade") !== "websocket") {
     return new Response("WebSocket only", { status: 400 });
   }
   const { socket, response } = Deno.upgradeWebSocket(req);
 
+  // Assign wsClient IMMEDIATELY after upgrade rather than inside onopen.
+  // Under Deno 2.x upgraded sockets are frequently already in readyState=1
+  // by the time we reach this line, meaning the `open` event may not fire
+  // and wsClient would otherwise stay null indefinitely.
+  wsClient = socket;
+
+  let pongTimer = null;
+  let heartbeatTimer = null;
+
+  const stopHeartbeat = () => {
+    if (heartbeatTimer !== null) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (pongTimer !== null) { clearTimeout(pongTimer); pongTimer = null; }
+  };
+
+  const sendPing = () => {
+    if (socket.readyState !== 1) return;
+    try {
+      socket.send(JSON.stringify({ type: "ping", ts: Date.now() }));
+      pongTimer = setTimeout(() => {
+        console.warn("[Burble AI Bridge] Pong timeout — closing stale socket");
+        try { socket.close(1011, "heartbeat timeout"); } catch (_) {}
+      }, HEARTBEAT_TIMEOUT_MS);
+    } catch (e) {
+      console.warn("[Burble AI Bridge] Ping send failed:", e.message);
+    }
+  };
+
   socket.onopen = () => {
-    wsClient = socket;
     console.log("[Burble AI Bridge] Page connected via WebSocket");
+    heartbeatTimer = setInterval(sendPing, HEARTBEAT_INTERVAL_MS);
   };
 
   socket.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
+      if (msg.type === "pong") {
+        // Heartbeat reply — cancel the timeout.
+        if (pongTimer !== null) { clearTimeout(pongTimer); pongTimer = null; }
+        return;
+      }
       if (msg.type === "received") {
         // Message from remote peer, queue for Claude to poll.
         // SECURITY FIX: Enforce bounded queue size (proven SafeQueue principle).
         // Discard oldest messages when at capacity to prevent memory exhaustion
         // if the consumer stops polling /recv.
         if (messageQueue.length >= MAX_MESSAGE_QUEUE_SIZE) {
-          const discarded = messageQueue.shift();
+          messageQueue.shift();
           console.warn(
             `[Burble AI Bridge] Queue full (${MAX_MESSAGE_QUEUE_SIZE}), discarded oldest message`
           );
@@ -151,9 +192,13 @@ Deno.serve({ port: PORT + 1, hostname: "127.0.0.1" }, (req) => {
   };
 
   socket.onclose = () => {
-    wsClient = null;
+    stopHeartbeat();
+    if (wsClient === socket) wsClient = null;
     console.log("[Burble AI Bridge] Page disconnected");
   };
+
+  // Start the heartbeat even if onopen never fires (see comment above).
+  heartbeatTimer = setInterval(sendPing, HEARTBEAT_INTERVAL_MS);
 
   return response;
 });
