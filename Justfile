@@ -26,7 +26,8 @@ info:
     @echo "Project: {{project}} {{version}}"
     @echo "Server:  Elixir/Phoenix (server/)"
     @echo "FFI:     Zig SIMD coprocessor (ffi/zig/)"
-    @echo "Client:  ReScript + WebRTC (client/web/)"
+    @echo "Client:  WebRTC + AI data channel (client/web/) — migrating to AffineScript"
+    @echo "P2P:     burble-ai-bridge.js on :6474 + p2p-voice.html"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUILD

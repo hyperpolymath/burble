@@ -9,7 +9,7 @@ However, beneath this simple surface lies a **"Majestic"** architecture. For pow
 
 == Current Status
 
-Burble has cleared its foundational milestones and successfully passed its entire test suite (222 tests, 0 failures across Elixir and Zig). We are currently in the **Production Hardening** phase, bridging high-rigor formal proofs with system-level optimizations and ensuring WCAG compliance.
+Burble has cleared its foundational milestones. Test suite: 222+ Elixir tests + Zig coprocessor tests + 6 channel safety-contract tests + 6 Opus-contract tests + 5 AI bridge Deno tests (round-trip, ordering, reconnect, heartbeat). We are currently in a **phased hardening** cycle: audio reliability (Phase 1), P2P AI bridge dependability (Phase 2), then signaling/channels (Phase 3) and PTP hardware integration (Phase 4). See `.machine_readable/6a2/STATE.a2ml` for the authoritative status.
 
 == Milestones
 
@@ -34,15 +34,16 @@ Burble has cleared its foundational milestones and successfully passed its entir
 
 * [x] **SDP Foundation:** Software-Defined Perimeter zero-trust logic with Zig FFI `nftables` bridge.
 * [x] **AWOL Routing:** Layline predictive routing (RTT/loss velocity) for seamless handover.
-* [x] **LLM Service:** QUIC + TCP fallback redundancy and streaming pipeline.
+* [ ] **LLM Service:** QUIC + TCP transport scaffold exists; **provider not wired, `parse_frame` has a bug, worker pool is no-op** (Phase 2b — secondary to P2P AI bridge).
+* [x] **P2P AI Bridge:** Claude-to-Claude JSON data channel over WebRTC. Both send and receive legs working (receive-leg bug fixed 2026-04-16). Heartbeat, status UI, round-trip + ordering + reconnect tests. This is the **critical path** for pair-programming.
 * [x] **Groove Protocol:** Health Mesh inter-service probing and Feedback routing.
-* [x] **Formal Proofs:** `MediaPipeline.idr` (linear buffer consumption) and `WebRTCSignaling.idr` (JSEP transitions) implemented.
+* [x] **Formal Proofs:** `MediaPipeline.idr` (linear buffer consumption) and `WebRTCSignaling.idr` (JSEP transitions) implemented. **Avow attestation is data-type-only — no dependent-type enforcement at runtime yet** (Phase 1 target: hash-chain audit log).
 * [x] **Accessibility Scaffolding:** Server-side screen reader generation and persistent keyboard keybinding management.
 * [ ] **Circuit Breakers & Health Checks:** Prevent cascading failures and ensure auto-recovery.
 * [ ] **Automated Backups:** Disaster recovery for VeriSimDB state.
 * [x] **Idris2 Compilation:** Fully compile remaining proofs to C headers for Zig ABI validation.
 * [x] **File Send Executable Isolation:** Implement `chmod` lockdown for file transfers.
-* [x] **Internationalisation:** Link Burble V-lang API to world corpus language support (`standards/lol`).
+* [x] **Internationalisation:** Link Zig FFI API to world corpus language support (`standards/lol`). _(V-lang API layer removed 2026-04-16; Zig FFI is now the sole surface.)_
 
 == The "Majestic" Backlog (To-Do)
 
