@@ -31,7 +31,7 @@ Based on extension counts (file-count level, excluding deps/build outputs):
 * `*.eph` = 6
 
 Burble has active Ephapax use, but the dominant implementation footprint is
-Elixir, with ReScript/Zig/Idris2 support layers and large AsciiDoc governance.
+Elixir, with AffineScript/Zig/Idris2 support layers and large AsciiDoc governance.
 
 == Baseline Evidence (This Run)
 

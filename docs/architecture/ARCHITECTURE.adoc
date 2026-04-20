@@ -16,7 +16,7 @@
 | WebRTC-compatible — RTP/SRTP, mixing/forwarding, recording, screen-share
 
 | **Web client**
-| ReScript + WebRTC APIs — first-class browser client
+| AffineScript + WebRTC APIs — first-class browser client
 
 | **Desktop client**
 | Tauri 2 — native wrapper around web client for power users
@@ -47,7 +47,7 @@
 | Media plane — WebRTC SFU, RTP handling, mixing
 
 | `client/web/`
-| ReScript web client (first-class browser experience)
+| AffineScript web client (first-class browser experience)
 
 | `client/desktop/`
 | Tauri 2 desktop wrapper
