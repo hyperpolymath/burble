@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+//
+// WebRTC.affine — Low-level WebRTC bindings and helpers.
+//
+// AffineScript migration of WebRTC.res
+
+module RTC = {
+  // PeerConnection is linear: it must be created and eventually closed.
+  type linear pc
+  // DataChannel is linear: must be created and eventually closed.
+  type linear dc
+  // MediaStream is linear: must be stopped when no longer needed.
+  type linear stream
+  // track is affine: it can be added to a connection at most once.
+  type affine track
+  // sdp and iceCandidate are plain value types — no resource qualifier.
+  type sdp = {
+    @as("type") type_: string,
+    sdp: string,
+  }
+  type iceCandidate = {
+    candidate: string,
+    sdpMid: string,
+    sdpMLineIndex: int,
+  }
+
+  type iceServer = {urls: array<string>}
+  type config = {iceServers: array<iceServer>}
+
+  // createPC: config -> linear pc (consumes config, produces linear pc)
+  @new external createPC: config => linear pc = "RTCPeerConnection"
+  // createOffer/createAnswer borrow pc (shared reference)
+  @send external createOffer: (&pc, 'opts) => promise<sdp> = "createOffer"
+  @send external createAnswer: (&pc, 'opts) => promise<sdp> = "createAnswer"
+  @send external setLocalDescription: (&pc, sdp) => promise<unit> = "setLocalDescription"
+  @send external setRemoteDescription: (&pc, sdp) => promise<unit> = "setRemoteDescription"
+  // addTrack consumes the affine track (placed once)
+  @send external addTrack: (&pc, affine track, &stream) => unit = "addTrack"
+  @send external createDataChannel: (&pc, string, 'opts) => linear dc = "createDataChannel"
+  @send external addIceCandidate: (&pc, iceCandidate) => promise<unit> = "addIceCandidate"
+  // close: linear pc => unit — consumes the pc
+  @send external close: linear pc => unit = "close"
+
+  @get external getTracks: &stream => array<track> = "getTracks"
+  @set external setOnTrack: (&pc, 'ev => unit) => unit = "ontrack"
+  @set external setOnIceConnectionStateChange: (&pc, unit => unit) => unit = "oniceconnectionstatechange"
+  @set external setOnIceGatheringStateChange: (&pc, unit => unit) => unit = "onicegatheringstatechange"
+  @set external setOnDataChannel: (&pc, 'ev => unit) => unit = "ondatachannel"
+  @get external getIceConnectionState: &pc => string = "iceConnectionState"
+  @get external getIceGatheringState: &pc => string = "iceGatheringState"
+}
+
+module Media = {
+  type constraints = {audio: bool}
+  @val external navigator: 'nav = "navigator"
+  @get external mediaDevices: 'nav => 'md = "mediaDevices"
+  // getUserMedia: produces a linear stream (caller must stop it)
+  @send external getUserMedia: ('md, constraints) => promise<linear RTC.stream> = "getUserMedia"
+  // stop: consumes a track reference
+  @send external stop: RTC.track => unit = "stop"
+}
+
+let default_ice_servers = [
+  {RTC.urls: ["stun:stun.l.google.com:19302"]},
+  {RTC.urls: ["stun:stun.cloudflare.com:3478"]},
+  {RTC.urls: ["stun:stun1.l.google.com:19302"]},
+]
+
+// createPC: unit -> linear RTC.pc
+let createPC = () => RTC.createPC({iceServers: default_ice_servers})
+
+let waitForIceGathering = (pc: &RTC.pc) => {
+  if pc->RTC.getIceGatheringState == "complete" {
+    Promise.resolve()
+  } else {
+    Promise.make((resolve, _reject) => {
+      pc->RTC.setOnIceGatheringStateChange(() => {
+        if pc->RTC.getIceGatheringState == "complete" {
+          resolve()
+        }
+      })
+      // Safety timeout
+      let _ = setTimeout(() => resolve(), 5000)
+    })
+  }
+}

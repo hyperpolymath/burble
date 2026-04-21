@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// STUB — awaiting AffineScript compiler; ReScript version is authoritative until migration completes
-//
 // Main.affine — Entry point for the Burble web client.
 //
 // Initialises the application state, sets up routing, and
 // starts the render loop.
-
-@migrate_from("client/web/src/Main.res")
+//
+// AffineScript migration of Main.res
 
 // app is a linear resource: it must be initialised exactly once at startup
 // and must not be dropped without a clean shutdown path.

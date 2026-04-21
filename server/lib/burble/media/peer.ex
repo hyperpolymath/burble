@@ -221,6 +221,11 @@ defmodule Burble.Media.Peer do
           wall_ns
         )
 
+        # Propagate local node's observation into the multi-node alignment
+        # registry so that other nodes in the same room can compute clock offsets
+        # relative to this node (Phase 4 PTP multi-node playout alignment).
+        Burble.Timing.Alignment.report_node_sync(node(), packet.timestamp, wall_ns)
+
         %{state | pipeline_pid: pipeline_pid}
       else
         state
