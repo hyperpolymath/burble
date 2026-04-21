@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble.LLM — Server-side LLM Service
+:toc: preamble
+
+== Purpose
+
+Provides server-side LLM integration so Burble rooms can offer AI-assisted features (transcription summaries, moderation hints, meeting notes) without requiring clients to hold API keys. This is the server path; the Claude-to-Claude P2P AI bridge (`client/web/burble-ai-bridge.js`) is a separate, independent system.
+
+== Key files
+
+`anthropic_provider.ex`:: Calls the Anthropic Claude Messages API via Erlang's built-in `:httpc` (no additional HTTP deps). Reads `ANTHROPIC_API_KEY` from env. Includes an ETS-backed circuit breaker: after 5 consecutive failures the circuit opens for 30 s, rejecting calls immediately. A single probe is allowed after the open period (half-open); success closes the circuit.
+
+`supervisor.ex`:: OTP supervisor for the LLM subsystem. Starts `Burble.LLM.Transport` and a `NimblePool` of 10 `Burble.LLM.Worker` processes. Detects `ANTHROPIC_API_KEY` at startup and configures the provider, or logs a warning if the key is absent.
+
+`worker.ex`:: `NimblePool` worker that holds a persistent HTTP connection. Handles per-user rate limiting before forwarding to the provider.
+
+`transport.ex`:: Phoenix endpoint wiring. Exposes three REST endpoints: `POST /llm/query` (blocking), `POST /llm/stream` (SSE chunked response), `GET /llm/status` (circuit breaker health).
+
+`protocol.ex`:: Shared structs for LLM requests and responses. Enforces a maximum prompt length and sanitises user input before it reaches the provider.
+
+== How it fits into the system
+
+```
+Phoenix router
+  └─► Burble.LLM.Transport       (HTTP endpoint)
+        └─► NimblePool checkout
+              └─► Burble.LLM.Worker (rate limit check)
+                    └─► AnthropicProvider.query/2
+                          └─► :httpc  →  api.anthropic.com/v1/messages
+```
+
+The circuit breaker state is stored in a named ETS table (`:burble_llm_circuit_breaker`) shared across all workers. No GenServer is needed for the breaker — ETS operations are atomic enough for this use case.
+
+== Configuration
+
+[source,bash]
+----
+export ANTHROPIC_API_KEY=sk-ant-…
+export ANTHROPIC_MODEL=claude-sonnet-4-6   # optional, this is the default
+----
+
+Without `ANTHROPIC_API_KEY`, all LLM queries return `{:error, :no_provider_configured}`. The P2P voice path is unaffected.

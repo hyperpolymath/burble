@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble.Chat — Text Messaging
+:toc: preamble
+
+== Purpose
+
+Provides in-session text chat alongside voice. Messages are ephemeral: they live for the duration of the voice session and are not persisted across server restarts. This is intentional — Burble is a voice-first tool, and the chat is a lightweight coordination layer, not an archive.
+
+== Key file
+
+`message_store.ex`:: ETS-backed GenServer that stores per-room message lists. The ETS table is owned by the GenServer so it is automatically cleaned up when the process exits (e.g. when the room closes). Per-room lists are stored newest-first (reversed insertion order) so `get_messages/2` with a limit is O(limit) rather than O(n). Each room is capped at 500 messages; when the cap is hit, the oldest message is evicted at write time (amortised O(1)).
+
+== Message shape
+
+[source,elixir]
+----
+%{
+  id: "a3f2…",          # unique hex ID
+  from: "user_id",      # sender's user_id
+  body: "Hello!",       # UTF-8 message text
+  timestamp: ~U[…]      # DateTime UTC when stored
+}
+----
+
+== API
+
+[source,elixir]
+----
+Burble.Chat.MessageStore.store_message(room_id, msg)   # :ok
+Burble.Chat.MessageStore.get_messages(room_id, 50)     # [msg, …] newest-first
+Burble.Chat.MessageStore.clear_room(room_id)           # :ok
+----
+
+== How it fits into the system
+
+`RoomChannel` (`server/lib/burble_web/channels/room_channel.ex`) handles the `text:send` and `text:typing` Phoenix channel events. On `text:send` it calls `MessageStore.store_message/2` and broadcasts the message to all room subscribers. On `text:history` it calls `MessageStore.get_messages/2` and returns the last N messages to the requesting client.
+
+For archival, messages are also forwarded to `NNTPSBackend` (news-style archival, optional, not required for normal operation).
