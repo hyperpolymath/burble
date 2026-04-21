@@ -1,4 +1,22 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
+#
+# SNIF kernel coverage
+# ====================
+#
+# Kernels with SNIF (WASM) coverage — crash-isolated execution:
+#   - dsp_fft          (burble_fft.wasm — "fft" export)
+#   - dsp_ifft         (burble_fft.wasm — "ifft" export)
+#   - audio_noise_gate (burble_noise_gate.wasm — "noise_gate" export)
+#   - audio_echo_cancel (burble_echo_cancel.wasm — "echo_cancel" export)
+#
+# SNIF candidates — deferred:
+#   - neural_denoise   (deferred: stateful model — the WASM guest would need to
+#                       hold opaque model weights across calls, which requires
+#                       either persistent WASM instance management or serialising
+#                       model state through linear memory on every invocation.
+#                       Neither is trivial; revisit when a stateless checkpoint
+#                       format is defined for the Zig RNNoise port.)
+#
 defmodule Burble.Coprocessor.SNIFBackend do
   @moduledoc """
   SNIF (Safe Native Implemented Function) backend using WebAssembly for crash-isolated DSP operations.
@@ -72,9 +90,15 @@ defmodule Burble.Coprocessor.SNIFBackend do
   
   alias Burble.Coprocessor.{ElixirBackend, ZigBackend}
   
-  # Configuration - path to WASM modules
-  @snif_path Application.compile_env(:burble, :snif_path) || 
+  # Configuration - paths to WASM modules.
+  # Each kernel has its own WASM module so that a missing or corrupt module for
+  # one operation does not affect the others.
+  @snif_path Application.compile_env(:burble, :snif_path) ||
                "priv/snif/burble_fft.wasm"
+  @snif_noise_gate_path Application.compile_env(:burble, :snif_noise_gate_path) ||
+                          "priv/snif/burble_noise_gate.wasm"
+  @snif_echo_cancel_path Application.compile_env(:burble, :snif_echo_cancel_path) ||
+                           "priv/snif/burble_echo_cancel.wasm"
   
   # ---------------------------------------------------------------------------
   # Backend metadata

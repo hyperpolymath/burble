@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+//
+// STUB — awaiting AffineScript compiler; ReScript version is authoritative until migration completes
+//
+// Bindings — Generic JS/DOM bindings for Burble.
+
+@migrate_from("client/web/src/Bindings.res")
+
+// Opaque DOM handle types. These are affine: a handle should not be
+// duplicated across ownership boundaries without explicit sharing.
+type affine element
+type affine window
+type affine document
+
+@val external window: window = "window"
+@val external document: document = "document"
+
+// getElementById consumes nothing but returns an affine element handle.
+@send external getElementById: (document, string) => affine element = "getElementById"
+
+// createElement produces a fresh affine element (must be appended or dropped).
+@send external createElement: (document, string) => affine element = "createElement"
+
+// appendChild consumes the child element (transferred into the DOM tree).
+@send external appendChild: (affine element, linear element) => unit = "appendChild"
+
+// Mutation helpers — setters borrow the element, do not consume it.
+@set external setInnerHtml: (element, string) => unit = "innerHTML"
+@set external setClassName: (element, string) => unit = "className"
+@set external setTextContent: (element, string) => unit = "textContent"
+@set external setOnclick: (element, 'ev => unit) => unit = "onclick"
+
+// localStorage is a shared global resource; not affine.
+@val external localStorage: {..} = "localStorage"

@@ -610,7 +610,8 @@ fn nif_ptp_read_clock(env: ?*ErlNifEnv, _: c_int, _: [*c]const ERL_NIF_TERM) cal
     const ns = ptp.read_ptp_clock("/dev/ptp0") catch |err| {
         return switch (err) {
             error.NoPtpDevice => make_error(env, "no_ptp_device"),
-            error.IoctlNotImplemented => make_error(env, "ioctl_not_implemented"),
+            error.IoctlFailed => make_error(env, "ioctl_failed"),
+            error.UnsupportedOS => make_error(env, "unsupported_os"),
             else => make_error(env, "ptp_error"),
         };
     };
