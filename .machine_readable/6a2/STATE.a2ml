@@ -66,7 +66,7 @@ phase-1-audio = [
   "DONE 2026-04-16: Server-side comfort noise injection after 3 silent frames (60ms at 20ms/frame)",
   "DONE 2026-04-16: REMB bitrate adaptation — Pipeline.update_bitrate/3 wired via Backend.io_adaptive_bitrate",
   "DONE 2026-04-16: Avow hash-chain linkage + ETS store + 10 property tests (commit 43669aa)",
-  "NEXT: Wire RTP-timestamp sync in media/peer.ex → Pipeline (precursor to PTP Phase 4, not blocking audio)"
+  "DONE 2026-04-21: Wire RTP-timestamp sync — peer.ex extracts packet.timestamp, pipeline.ex stores last_rtp_ts via record_rtp_timestamp/2 cast (Phase 4 PTP correlation ready)"
 ]
 
 [maintenance-status]
