@@ -19,6 +19,8 @@ defmodule Burble.Auth do
   Handles user registration, login, guest access, and session management.
   """
 
+  require Logger
+
   alias Burble.Store
   alias Burble.Auth.User
 
@@ -137,12 +139,16 @@ defmodule Burble.Auth do
   Verify an LLM service authentication token.
   """
   def verify_llm_token(token) do
-    # In reality, this would verify a JWT or special service token.
-    # For now, we simulate a valid token for any non-empty string.
-    if is_binary(token) and byte_size(token) > 0 do
-      {:ok, "user_simulated_from_token"}
+    if Mix.env() == :prod do
+      # In production a real JWT verifier is required; reject anything without one.
+      {:error, :jwt_required}
     else
-      {:error, :invalid_token}
+      Logger.debug("[Auth] verify_llm_token: dev mode, skipping real JWT verification")
+      if is_binary(token) and byte_size(token) > 0 do
+        {:ok, "user_dev_from_token"}
+      else
+        {:error, :invalid_token}
+      end
     end
   end
 end

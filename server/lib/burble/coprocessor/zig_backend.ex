@@ -280,4 +280,26 @@ defmodule Burble.Coprocessor.ZigBackend do
   def nif_decompress_lz4(_compressed, _orig_size), do: :erlang.nif_error(:nif_not_loaded)
   def nif_sdp_firewall_init, do: :erlang.nif_error(:nif_not_loaded)
   def nif_sdp_firewall_authorize(_ip, _port), do: :erlang.nif_error(:nif_not_loaded)
+  def nif_ptp_read_clock, do: :erlang.nif_error(:nif_not_loaded)
+
+  # ---------------------------------------------------------------------------
+  # PTP hardware clock
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Read the PTP hardware clock via the Zig NIF.
+
+  Returns `{:ok, nanoseconds}` on success, or `{:error, reason}` if the NIF
+  is not loaded or the device is unavailable.
+  """
+  def ptp_read_clock do
+    try do
+      case nif_ptp_read_clock() do
+        {:ok, ns} -> {:ok, ns}
+        {:error, _} = err -> err
+      end
+    rescue
+      _ -> {:error, :nif_not_loaded}
+    end
+  end
 end

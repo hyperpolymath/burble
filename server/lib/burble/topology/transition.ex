@@ -35,7 +35,6 @@ defmodule Burble.Topology.Transition do
         end
 
         # 3. Update room process state
-        # In reality, this would be a GenServer.call to the room process
         send_transition_signal(room_id, new_mode)
         :ok
 
@@ -62,9 +61,7 @@ defmodule Burble.Topology.Transition do
 
   defp fork_vext_chain(room_id, state) do
     Logger.info("[Vext] Forking chain for room #{room_id} at position #{state[:position] || 0}")
-    # In reality, creates a new genesis block in VeriSimDB that references 
-    # the last anchored checkpoint as its 'Parent of Secession'.
-    :ok
+    {:ok, :stub}
   end
 
   defp send_transition_signal(room_id, new_mode) do

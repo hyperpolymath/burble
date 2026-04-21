@@ -8,16 +8,31 @@ defmodule Burble.LLM do
 
   require Logger
 
+  # The provider module to delegate queries to. Set via configure_provider/1.
+  # When nil, all queries return {:error, :no_provider_configured}.
+  @provider nil
+
+  @doc """
+  Set the LLM provider module at runtime.
+  The module must implement process_query/2 and stream_query/3.
+  """
+  def configure_provider(module) do
+    :persistent_term.put({__MODULE__, :provider}, module)
+    :ok
+  end
+
   @doc """
   Process a synchronous LLM query.
   """
   def process_query(user_id, prompt) do
     Logger.debug("[LLM] Processing query for #{user_id}: #{prompt}")
-    # In reality, this would route to a worker pool or remote API.
-    if String.contains?(prompt, "trigger_error") do
-      {:error, :simulated_error}
+    provider = :persistent_term.get({__MODULE__, :provider}, @provider)
+
+    if provider do
+      provider.process_query(user_id, prompt)
     else
-      {:ok, "This is a simulated response to: #{prompt}"}
+      Logger.warning("[LLM] process_query called but no provider is configured")
+      {:error, :no_provider_configured}
     end
   end
 
@@ -26,11 +41,14 @@ defmodule Burble.LLM do
   """
   def stream_query(user_id, prompt, callback) do
     Logger.debug("[LLM] Streaming query for #{user_id}: #{prompt}")
-    # Simulate streaming
-    callback.("Simulated ")
-    callback.("stream ")
-    callback.("response.")
-    :ok
+    provider = :persistent_term.get({__MODULE__, :provider}, @provider)
+
+    if provider do
+      provider.stream_query(user_id, prompt, callback)
+    else
+      Logger.warning("[LLM] stream_query called but no provider is configured")
+      {:error, :no_provider_configured}
+    end
   end
 end
 
@@ -40,8 +58,14 @@ defmodule Burble.LLM.Registry do
   """
 
   def register_connection(user_id, pid) do
-    # In reality, uses Registry.register/3
-    _ = {user_id, pid}
+    :persistent_term.put({__MODULE__, user_id}, pid)
     :ok
+  end
+
+  def lookup_connection(user_id) do
+    case :persistent_term.get({__MODULE__, user_id}, nil) do
+      nil -> {:error, :not_found}
+      pid -> {:ok, pid}
+    end
   end
 end
