@@ -30,6 +30,13 @@ RUN apk add --no-cache \
 # Install Rust toolchain for proven NIF dependency.
 RUN apk add --no-cache rust cargo
 
+# Install OCaml toolchain for AffineScript compiler.
+RUN apk add --no-cache \
+    ocaml \
+    ocaml-compiler-libs \
+    opam \
+    m4
+
 WORKDIR /build
 
 # Copy mix config first for dependency caching.
@@ -53,6 +60,15 @@ COPY server/rel rel
 RUN mix compile && \
     mix release burble
 
+# ── AffineScript compiler ──
+COPY tools/affinescript /build/tools/affinescript
+WORKDIR /build/tools/affinescript
+RUN opam init --disable-sandboxing --bare --yes && \
+    opam switch create . --packages "ocaml-base-compiler.5.1.1" --yes || true && \
+    eval $(opam env) && \
+    opam install . --deps-only --yes && \
+    dune build
+
 # --- Runtime stage ---
 FROM cgr.dev/chainguard/wolfi-base:latest
 
@@ -68,8 +84,16 @@ WORKDIR /app
 # Copy the OTP release from the build stage.
 COPY --from=build /build/_build/prod/rel/burble ./
 
+# Copy the AffineScript compiler binary.
+COPY --from=build /build/tools/affinescript/_build/default/bin/main.exe /usr/local/bin/affinec
+
+# Copy the AffineScript stdlib so the compiler can find it.
+COPY --from=build /build/tools/affinescript/stdlib /usr/local/lib/affinescript/stdlib
+
 # Copy static web client files.
 COPY client/web /app/client/web
+
+ENV AFFINESCRIPT_STDLIB=/usr/local/lib/affinescript/stdlib
 
 # Non-root user (Chainguard default).
 USER nonroot

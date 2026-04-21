@@ -1,0 +1,3 @@
+[submodule "tools/affinescript"]
+	path = tools/affinescript
+	url = https://github.com/hyperpolymath/affinescript

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// STUB — awaiting AffineScript compiler; ReScript version is authoritative until migration completes
-//
 // Room.affine — Room utilities (name generation, validation).
-
-@migrate_from("client/web/src/Room.res")
+//
+// AffineScript migration of Room.res
 
 // word_list is a plain shared array; no affine qualifier needed.
 let word_list: array<string> = [

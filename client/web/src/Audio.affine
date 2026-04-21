@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// STUB — awaiting AffineScript compiler; ReScript version is authoritative until migration completes
-//
 // Audio.affine — Microphone and audio analysis helper.
-
-@migrate_from("client/web/src/Audio.res")
+//
+// AffineScript migration of Audio.res
 
 open WebRTC
 

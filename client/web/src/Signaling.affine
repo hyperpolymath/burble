@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
 //
-// STUB — awaiting AffineScript compiler; ReScript version is authoritative until migration completes
-//
 // Signaling.affine — Relay and WebSocket signaling.
-
-@migrate_from("client/web/src/Signaling.res")
+//
+// AffineScript migration of Signaling.res
 
 open WebRTC
 

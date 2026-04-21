@@ -202,9 +202,30 @@ defmodule Burble.Media.Peer do
         # Propagate RTP timestamp to the pipeline for Phase 4 PTP correlation.
         # Resolve pipeline pid lazily so we don't fail if pipeline hasn't started.
         pipeline_pid = state.pipeline_pid || resolve_pipeline(state.peer_id)
+
         if pipeline_pid do
           Burble.Coprocessor.Pipeline.record_rtp_timestamp(pipeline_pid, packet.timestamp)
         end
+
+        # Feed the correlator with a simultaneous RTP+wall-clock observation.
+        # Prefer the PTP hardware clock; fall back to monotonic time.
+        wall_ns =
+          case Burble.Coprocessor.ZigBackend.ptp_read_clock() do
+            {:ok, ns} -> ns
+            {:error, _} -> :erlang.monotonic_time(:nanosecond)
+          end
+
+        Burble.Timing.ClockCorrelator.record_sync_point(
+          Burble.Timing.ClockCorrelator,
+          packet.timestamp,
+          wall_ns
+        )
+
+        # Propagate local node's observation into the multi-node alignment
+        # registry so that other nodes in the same room can compute clock offsets
+        # relative to this node (Phase 4 PTP multi-node playout alignment).
+        Burble.Timing.Alignment.report_node_sync(node(), packet.timestamp, wall_ns)
+
         %{state | pipeline_pid: pipeline_pid}
       else
         state
