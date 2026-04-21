@@ -1300,6 +1300,12 @@ defmodule Burble.Bridges.SIP do
     send_sip(socket, response, src_ip, src_port)
   end
 
+  # Resolve a SIP domain via DNS SRV (_sip._udp.<domain>).
+  # Not implemented: direct host:port is required.
+  defp resolve_sip_srv(_domain) do
+    {:error, :dns_srv_not_implemented}
+  end
+
   # Send a raw SIP message over UDP.
   defp send_sip(socket, message, host, port) when is_binary(host) do
     send_sip(socket, message, String.to_charlist(host), port)
@@ -1386,12 +1392,11 @@ defmodule Burble.Bridges.SIP do
     end
   end
 
-  # Stub: decode Opus frame to PCM float list.
-  # In production, this would use a proper Opus decoder (NIF or port).
+  # No Opus decoder is wired: returns silence samples (8kHz, 20ms = 160 samples).
+  # Wire a real Opus NIF or port to decode actual audio.
   defp opus_to_pcm_stub(_opus_frame) do
-    # Generate silence (160 samples for 8kHz, 20ms) as placeholder.
-    # Real implementation would decode Opus → 48kHz PCM → resample to 8kHz.
-    List.duplicate(0.0, 160)
+    frame_size = 160
+    List.duplicate(0.0, frame_size)
   end
 
   # Convert DTMF digit character to RFC 2833 event code.

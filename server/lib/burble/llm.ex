@@ -39,12 +39,12 @@ defmodule Burble.LLM do
   @doc """
   Stream an LLM query response.
   """
-  def stream_query(user_id, prompt, _callback) do
+  def stream_query(user_id, prompt, callback) do
     Logger.debug("[LLM] Streaming query for #{user_id}: #{prompt}")
     provider = :persistent_term.get({__MODULE__, :provider}, @provider)
 
     if provider do
-      provider.stream_query(user_id, prompt, _callback)
+      provider.stream_query(user_id, prompt, callback)
     else
       Logger.warning("[LLM] stream_query called but no provider is configured")
       {:error, :no_provider_configured}
