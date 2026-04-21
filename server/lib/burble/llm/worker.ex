@@ -15,7 +15,8 @@ defmodule Burble.LLM.Worker do
 
   @impl true
   def init_worker(state) do
-    # In reality, this might open a persistent connection to an LLM provider.
+    # Intentionally minimal: no persistent connection is opened until a
+    # provider module is configured via Burble.LLM.configure_provider/1.
     {:ok, %{}, state}
   end
 

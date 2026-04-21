@@ -21,6 +21,7 @@ const dsp = @import("dsp.zig");
 const neural = @import("neural.zig");
 const compression = @import("compression.zig");
 const firewall = @import("firewall.zig");
+const ptp = @import("ptp.zig");
 
 const c = @cImport({
     @cInclude("erl_nif.h");
@@ -599,6 +600,21 @@ fn nif_sdp_firewall_authorize(env: ?*ErlNifEnv, _: c_int, argv: [*c]const ERL_NI
 
     firewall.authorize_peer(ip, @intCast(port)) catch return make_error(env, "auth_failed");
     return make_atom(env, "ok");
+}
+
+// ---------------------------------------------------------------------------
+// NIF: nif_ptp_read_clock/0
+// ---------------------------------------------------------------------------
+
+fn nif_ptp_read_clock(env: ?*ErlNifEnv, _: c_int, _: [*c]const ERL_NIF_TERM) callconv(.c) ERL_NIF_TERM {
+    const ns = ptp.read_ptp_clock("/dev/ptp0") catch |err| {
+        return switch (err) {
+            error.NoPtpDevice => make_error(env, "no_ptp_device"),
+            error.IoctlNotImplemented => make_error(env, "ioctl_not_implemented"),
+            else => make_error(env, "ptp_error"),
+        };
+    };
+    return make_ok(env, c.enif_make_int64(env, ns));
 }
 
 // ---------------------------------------------------------------------------

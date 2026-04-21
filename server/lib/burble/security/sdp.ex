@@ -121,8 +121,8 @@ defmodule Burble.Security.SDP do
   end
 
   defp check_policy(_user_id, _port, _state) do
-    # Default policy: allow standard Burble ports.
-    # In reality, checks VeriSimDB for user-specific permissions.
+    # Local check only: allows all ports. VeriSimDB policy lookup not wired.
+    {:ok, :local_check_only}
     true
   end
 

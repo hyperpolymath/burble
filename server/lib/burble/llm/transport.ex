@@ -105,9 +105,12 @@ defmodule Burble.LLM.Transport do
   end
 
   defp check_endpoint_health(endpoint) do
-    # Simple TCP/QUIC connect check
-    # In reality, sends a NOOP frame and waits for response.
-    endpoint
+    case :gen_tcp.connect(String.to_charlist(endpoint.host), endpoint.port, [], 2_000) do
+      {:ok, socket} -> :gen_tcp.close(socket); %{endpoint | status: :online}
+      {:error, _} -> %{endpoint | status: :offline}
+    end
+  rescue
+    _ -> %{endpoint | status: :offline}
   end
 
   @doc """
