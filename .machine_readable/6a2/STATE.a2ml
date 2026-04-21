@@ -29,7 +29,7 @@ milestones = [
   { name = "Phase 2b — server-side Burble.LLM (provider, circuit breaker, fixed parse_frame, NimblePool wired) — SECONDARY, not required for family use case", completion = 100 },
   { name = "Phase 3 — RTSP + signaling + text + AffineScript client start", completion = 30 },
   { name = "Phase 4 — PTP hardware clock via Zig NIF, phc2sys supervisor, multi-node align", completion = 70 },
-  { name = "Phase 5 — ReScript -> AffineScript completion", completion = 0 }
+  { name = "Phase 5 — ReScript -> AffineScript completion", completion = 90 }
 ]
 
 [migration]
