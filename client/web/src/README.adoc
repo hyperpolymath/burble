@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= client/web/src — AffineScript Web Client
+:toc: preamble
+
+== Purpose
+
+The browser-side Burble client, written in AffineScript (`.affine`). AffineScript is a resource-typed superset of ReScript that enforces linear and affine ownership at compile time — ensuring that WebRTC connections, AudioContexts, and other browser resources are created exactly once and closed properly, with no dangling handles.
+
+The original ReScript sources (`.res`) are kept as a fallback. The `affinec` compiler (OCaml + dune, bundled via `tools/affinescript` submodule and the `Containerfile`) compiles `.affine` to JavaScript. All 35 source files have been migrated.
+
+== Key files
+
+`Main.affine`:: Entry point. Initialises the application state as a *linear* resource (must be created once, cannot be silently dropped), sets up URL routing via `window.addEventListener("popstate", …)`, and starts the render loop. The `app` value is borrowed affinely by closures — they may be called at most once per event.
+
+`Audio.affine`:: Microphone capture and audio analysis. `AudioContext` and `AnalyserNode` are typed as linear/affine resources respectively, so the type system prevents them from being garbage-collected while a stream is active. Wraps the Web Audio API via `@send`/`@get`/`@new` external bindings.
+
+`WebRTC.affine`:: `RTCPeerConnection` lifecycle, SDP offer/answer exchange, ICE candidate handling, and data channel setup. `RTC.connection` is a linear type — the compiler ensures it is either closed or transferred, never just dropped.
+
+`Room.affine`:: Room state machine: joining, connected, disconnected. Coordinates `Audio`, `WebRTC`, and `Signaling` modules. Holds the list of participants as an affine value that is consumed and rebuilt on each membership change.
+
+`Signaling.affine`:: WebSocket connection to the Burble signaling server (`signaling/relay.js`). Typed as affine — at most one signaling connection is live per room session.
+
+`Bindings.affine`:: Raw JavaScript FFI declarations for browser APIs not covered by the standard AffineScript stdlib (MediaDevices, RTCSessionDescription, etc.).
+
+== How it fits into the system
+
+```
+affinec compiler
+  └─► .affine sources  →  JavaScript bundle
+        │
+        ▼
+  Browser loads bundle
+    └─► Main.affine entry point
+          ├─► Audio: getUserMedia → AudioContext → AnalyserNode
+          ├─► Signaling: WebSocket → signaling/relay.js
+          └─► WebRTC: RTCPeerConnection → SDP → ICE → Media tracks
+```
+
+The compiled JavaScript is served from `client/web/` alongside `p2p-voice.html`. No build step is needed to run the P2P mode in development — the `.res` fallback files are pre-compiled.
+
+== Build
+
+[source,bash]
+----
+# From repo root
+cd tools/affinescript && dune build   # builds affinec compiler
+affinec client/web/src/               # compiles all .affine to .js
+----
+
+Or via container (the `Containerfile` runs this automatically during image build).

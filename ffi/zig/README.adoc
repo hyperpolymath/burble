@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= ffi/zig — Zig SIMD Coprocessor
+:toc: preamble
+
+== Purpose
+
+SIMD-accelerated audio processing kernels compiled as Erlang NIFs. The shared library (`libburble_coprocessor.so`) is loaded by `Burble.Coprocessor.ZigBackend` at runtime, providing 6–26 000× speedups over pure Elixir for the hot audio path.
+
+== Key files
+
+`build.zig`:: Zig 0.15 build script. Compiles `src/coprocessor/nif.zig` as a shared library with Erlang NIF headers. The Erlang include path defaults to `/usr/lib/erlang/usr/include` and can be overridden with `-Derl-include=…`. Also wires up the test suite (`zig build test`).
+
+`src/abi.zig`:: Zig mirror of the Idris2 formal proofs in `verification/`. Defines `Result`, `Role`, `SignalingState` enums whose integer values MUST match the proofs in `Burble.ABI.Types` and `Burble.ABI.Permissions`. Includes runtime enforcement functions (`canEscalate`, `isValidTransition`).
+
+`src/ffi.zig`:: Elixir ↔ Zig bridge utilities: term decoding/encoding helpers, binary-to-slice conversions, and NIF environment wrappers.
+
+`src/coprocessor/nif.zig`:: NIF entry point. Exports the NIF function table to Erlang. All exported functions call into the kernel modules below.
+
+`src/coprocessor/audio.zig`:: Echo cancellation, comfort noise injection, and REMB bitrate adaptation. Echo cancel uses a real playback reference (not silence). Benchmarked at 62× faster than pure Elixir.
+
+`src/coprocessor/dsp.zig`:: FFT (256-point, 37× speedup), convolution (27×), and spectral-gate neural denoising (6×).
+
+`src/coprocessor/compression.zig`:: LZ4 compression for RTP payload compaction. 26 350× speedup over pure Elixir — this is the most extreme case because LZ4 is embarrassingly parallelisable with SIMD.
+
+`src/coprocessor/ptp.zig`:: Zig NIF stub for reading the PTP hardware clock (`/dev/ptp0`). Code-complete but not yet validated against real Intel I210 hardware (see `READINESS.adoc`).
+
+`src/coprocessor/neural.zig`:: Spectral gating implementation used by the denoiser. Not a TFLite model — pure signal processing.
+
+`src/coprocessor/firewall.zig`:: Packet validation helpers called from the transport layer.
+
+== Build
+
+[source,bash]
+----
+cd ffi/zig
+zig build -Doptimize=ReleaseFast
+cp zig-out/lib/libburble_coprocessor.so ../../server/priv/
+----
+
+Or via the top-level Justfile:
+
+[source,bash]
+----
+just build   # builds everything including the NIF
+just test-ffi  # runs the Zig test suite
+just bench     # runs Elixir vs Zig benchmarks
+----
+
+== How it fits into the system
+
+```
+Burble.Coprocessor.SmartBackend (Elixir)
+  └─► detects libburble_coprocessor.so at startup
+  └─► if present: delegates to Burble.Coprocessor.ZigBackend (NIF calls)
+  └─► if absent: falls back to Burble.Coprocessor.ElixirBackend (pure Elixir)
+```
+
+No configuration is needed — the `SmartBackend` auto-detects whether the NIF is available. In CI and containers, the NIF is always built; in local dev without Zig, the Elixir backend is used transparently.
