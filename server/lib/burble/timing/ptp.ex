@@ -399,16 +399,13 @@ defmodule Burble.Timing.PTP do
   # Returns {nanoseconds, source_used}.
   @spec read_timestamp(clock_source()) :: {integer(), clock_source()}
   defp read_timestamp(:ptp_hardware) do
-    # Read the PTP hardware clock via /dev/ptp0.
-    # The PTP device supports the PTP_CLOCK_GETTIME ioctl, but from
-    # Elixir we read the system clock that phc2sys keeps synchronised.
-    # If phc2sys isn't running, we read CLOCK_REALTIME which chrony
-    # keeps in sync via PTP.
-    #
-    # For true hardware PTP clock reads, a NIF would be needed
-    # (ioctl on /dev/ptp0). For now, we use the synchronised system clock.
-    ts = System.system_time(:nanosecond)
-    {ts, :ptp_hardware}
+    case Burble.Coprocessor.ZigBackend.ptp_read_clock() do
+      {:ok, ns} -> {ns, :ptp_hardware}
+      {:error, _} ->
+        # Fallback to system clock synchronized by phc2sys
+        ts = System.system_time(:nanosecond)
+        {ts, :ptp_hardware}
+    end
   end
 
   defp read_timestamp(:phc2sys) do

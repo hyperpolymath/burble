@@ -637,6 +637,7 @@ var nif_funcs = [_]c.ErlNifFunc{
     .{ .name = "nif_decompress_lz4", .arity = 2, .fptr = nif_decompress_lz4, .flags = 0 },
     .{ .name = "nif_sdp_firewall_init", .arity = 0, .fptr = nif_sdp_firewall_init, .flags = 0 },
     .{ .name = "nif_sdp_firewall_authorize", .arity = 2, .fptr = nif_sdp_firewall_authorize, .flags = 0 },
+    .{ .name = "nif_ptp_read_clock", .arity = 0, .fptr = nif_ptp_read_clock, .flags = 0 },
 };
 
 // ---------------------------------------------------------------------------

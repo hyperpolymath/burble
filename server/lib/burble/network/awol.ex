@@ -137,12 +137,15 @@ defmodule Burble.Network.AWOL do
         # Implement Redundancy: send on active path + others if redundancy > 1.0.
         paths_to_use = select_paths(session, traffic_class)
 
-        Enum.each(paths_to_use, fn path ->
-          # In reality, this calls the Multipath transport or low-level UDP.
-          transport().send(traffic_class, {path.remote_ip, 4020}, payload)
+        send_results = Enum.map(paths_to_use, fn _path ->
+          Logger.debug("[AWOL] send: multipath transport not wired, dropping packet")
+          {:error, :multipath_not_wired}
         end)
 
-        {:reply, :ok, state}
+        case send_results do
+          [] -> {:reply, {:error, :no_paths}, state}
+          _ -> {:reply, {:error, :multipath_not_wired}, state}
+        end
     end
   end
 

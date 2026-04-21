@@ -85,14 +85,15 @@ defmodule Burble.Security.SDP do
   def handle_call({:process_spa, packet_binary, sender_ip}, _from, state) do
     case verify_spa_packet(packet_binary) do
       {:ok, %{sender_id: user_id, requested_port: port}} ->
-        if check_policy(user_id, port, state) do
-          open_firewall_port(sender_ip, port)
-          new_state = record_session(state, sender_ip, user_id, port)
-          Logger.info("[SDP] Access GRANTED for #{user_id} at #{inspect(sender_ip)} on port #{port}")
-          {:reply, :ok, new_state}
-        else
-          Logger.warning("[SDP] Access REJECTED for #{user_id}: policy violation")
-          {:reply, {:error, :policy_denied}, state}
+        case check_policy(user_id, port, state) do
+          {:ok, _} ->
+            open_firewall_port(sender_ip, port)
+            new_state = record_session(state, sender_ip, user_id, port)
+            Logger.info("[SDP] Access GRANTED for #{user_id} at #{inspect(sender_ip)} on port #{port}")
+            {:reply, :ok, new_state}
+          {:error, reason} ->
+            Logger.warning("[SDP] Access REJECTED for #{user_id}: #{reason}")
+            {:reply, {:error, :policy_denied}, state}
         end
 
       {:error, reason} ->
@@ -123,7 +124,6 @@ defmodule Burble.Security.SDP do
   defp check_policy(_user_id, _port, _state) do
     # Local check only: allows all ports. VeriSimDB policy lookup not wired.
     {:ok, :local_check_only}
-    true
   end
 
   defp open_firewall_port(ip, port) do
