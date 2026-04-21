@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble.Media — SFU Architecture
+:toc: preamble
+
+== Purpose
+
+Implements the server-side media plane: WebRTC peer connection management, audio routing, and processing pipelines. The control plane (rooms, auth, permissions) is deliberately isolated from the media plane — they communicate only via Phoenix PubSub events.
+
+== SFU, not MCU
+
+Burble uses a Selective Forwarding Unit (SFU) rather than a Multipoint Control Unit (MCU):
+
+* The SFU forwards encrypted RTP packets without decoding them, which preserves end-to-end encryption.
+* An MCU would need to decode, mix, and re-encode audio, which breaks E2EE.
+* The trade-off is that each client decodes N-1 streams instead of one, but this is trivially handled by modern hardware for voice workloads.
+
+== Key files
+
+`engine.ex`:: Central SFU GenServer. Manages one Membrane RTC Engine instance per active voice room. Handles session lifecycle (`create_room_session`, `destroy_room_session`) and peer membership (`add_peer`, `remove_peer`). Applies privacy hardening to SDP offers based on the room's privacy mode: standard → TURN-only → E2EE → maximum.
+
+`peer.ex`:: Per-participant GenServer. Each participant gets one PeerConnection with one recvonly transceiver (their microphone) and N-1 sendonly transceivers (one per other participant). RTP packets received on the recvonly track are forwarded to all other peers' sendonly tracks. The server always initiates offers; when a new peer joins, all existing peers renegotiate. Also integrates with `Burble.Timing.ClockCorrelator` — on each RTP packet arrival it records a `{rtp_ts, wall_ns}` sync point and forwards it to `Burble.Timing.Alignment`.
+
+`channel_routing.ex`:: Maps room participants to their send and receive tracks. Maintained as an ETS table for O(1) lookup when forwarding RTP packets.
+
+`screen_share.ex`:: Manages screen share streams. Creates a dedicated video track per sharing participant and routes it to all viewers in the room.
+
+`recorder.ex`:: Optional session recorder. Writes RTP packets to disk in a format that can be post-processed into an audio file. Disabled by default.
+
+`lmdb_playout.ex`:: Jitter buffer backed by LMDB for low-latency playout with durable sequence tracking.
+
+== Privacy layers
+
+Applied in order when adding a peer:
+
+. SFU — participants never connect directly; all traffic flows through the server.
+. TURN-only — no ICE host or srflx candidates are exposed; the participant's IP is hidden.
+. E2EE — Insertable Streams; the server forwards opaque frames it cannot decrypt.
+. WebTransport / MoQ — QUIC upgrade (future; tracked in `transport/quic.ex`).
+
+== How it fits into the system
+
+```
+Browser  ←WebRTC signaling→  RoomChannel  →  Peer GenServer
+                                                  │
+                                          ExWebRTC.PeerConnection
+                                                  │
+                                          RTP forwarding (Engine)
+                                                  │
+                                    Timing.ClockCorrelator + Alignment
+```

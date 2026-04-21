@@ -75,6 +75,10 @@ defmodule Burble.Application do
       # wall_to_rtp conversion + PPM drift estimation for Phase 4 playout alignment.
       {Burble.Timing.ClockCorrelator, [name: Burble.Timing.ClockCorrelator, clock_rate: 48_000]},
 
+      # Multi-node playout alignment — tracks per-node clock offsets and drift,
+      # enables synchronized playout across Burble instances in the same room.
+      {Burble.Timing.Alignment, [name: Burble.Timing.Alignment]},
+
       # Groove discovery endpoint (message queue for Gossamer/PanLL/etc.)
       # Serves GET /.well-known/groove with Burble capability manifest.
       # Groove connectors verified via Idris2 dependent types (Groove.idr).
@@ -91,6 +95,11 @@ defmodule Burble.Application do
       # Blockchain anchoring bridge for Vext chains.
       Burble.Verification.Anchor,
 
+      # RTSP transport — serves broadcast/stage rooms and screen-share streams.
+      # Listens on TCP port 8554 (RTSP control) and allocates UDP port pairs for
+      # RTP media. Degrades gracefully if the port is unavailable.
+      Burble.Transport.RTSP,
+
       # LLM service — QUIC+TLS on 8503, TCP+TLS fallback on 8085
       # Provides real-time LLM query processing with streaming responses
       {Burble.LLM.Supervisor, [port: 8503, fallback_port: 8085]},
@@ -104,7 +113,42 @@ defmodule Burble.Application do
     ]
 
     opts = [strategy: :one_for_one, name: Burble.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+    log_hardware_capabilities()
+    result
+  end
+
+  # Log which hardware acceleration paths are active at startup.
+  # This makes it immediately visible in logs whether you're getting
+  # SIMD audio, WASM isolation, or PTP hardware timing — vs soft fallbacks.
+  defp log_hardware_capabilities do
+    alias Burble.Coprocessor.{ZigBackend, SNIFBackend}
+
+    zig  = if ZigBackend.available?(),  do: "ACTIVE (SIMD)",      else: "UNAVAILABLE → Elixir fallback"
+    snif = if SNIFBackend.available?(), do: "ACTIVE (WASM/SNIF)", else: "UNAVAILABLE → Zig/Elixir fallback"
+
+    ptp_source =
+      case Burble.Timing.PTP.status() do
+        {:ok, %{source: s}} -> Atom.to_string(s)
+        _ -> "unknown"
+      end
+
+    llm =
+      if System.get_env("ANTHROPIC_API_KEY") do
+        model = System.get_env("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+        "ACTIVE (#{model})"
+      else
+        "DISABLED (ANTHROPIC_API_KEY not set)"
+      end
+
+    Logger.info("""
+    ┌─ Burble capability report ────────────────────────────────
+    │  Zig NIF (SIMD audio/DSP)  : #{zig}
+    │  SNIF (WASM crash-isolated) : #{snif}
+    │  PTP clock source          : #{ptp_source}
+    │  LLM service               : #{llm}
+    └────────────────────────────────────────────────────────────
+    """)
   end
 
   @impl true

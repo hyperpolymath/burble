@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble.Transport — RTSP and Multipath
+:toc: preamble
+
+== Purpose
+
+Handles non-WebRTC transport concerns: RTSP for one-to-many broadcast and screen share, and multipath UDP management for resilient voice delivery in multi-homed environments.
+
+== Key files
+
+`rtsp.ex`:: Lightweight RTSP server for broadcast rooms and screen share. Rather than creating N WebRTC PeerConnections for N listeners, the SFU forwards a single RTP stream to this module which redistributes it via RTSP. Listens on TCP port 8554 (configurable). RTP media is sent over dynamically allocated UDP port pairs. No transcoding — codecs (Opus for audio, VP8/VP9/H.264 for video) are passed through unchanged.
+
+Three use cases are supported:
+
+* *Stage rooms*: A speaker's RTP stream is served as `/live/room-{id}/speaker`.
+* *Screen share*: Screen video is served as `/live/room-{id}/screen`.
+* *IDApTIK CCTV*: Camera feeds for the asymmetric co-op game Q character are served as `/live/idaptik/{level}/cctv/{cam}`.
+
+`multipath.ex`:: GenServer that manages multiple UDP paths for voice, bulk, and signaling traffic. In multi-homed environments (WiFi + Ethernet, or multiple ISPs) it distributes traffic intelligently:
+
+[cols="1,2,2"]
+|===
+| Port | Purpose | Strategy
+
+| 4020 | Voice audio | Lowest-RTT path; failover if loss > 10%
+| 6474 | Bulk data | Striped across all healthy paths
+| 6475 | Signaling | Duplicated on all paths for reliability
+|===
+
+Path quality metrics (RTT, loss rate, jitter, bandwidth) are measured via periodic probe packets. When a path degrades, traffic migrates within one RTT measurement cycle.
+
+`quic.ex`:: Placeholder for future WebTransport/QUIC upgrade path (Phase 4+). Currently a no-op module that logs when QUIC is requested and falls back to standard WebRTC.
+
+== How it fits into the system
+
+Standard voice rooms use the SFU (`Burble.Media.Engine`) directly over WebRTC. The RTSP module is invoked only for broadcast and screen share use cases. Multipath is transparent to the rest of the system — it sits below the UDP socket layer and requires no changes to higher-level code.
