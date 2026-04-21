@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burble.Timing — PTP Clock Stack
+:toc: preamble
+
+== Purpose
+
+Provides precision timing services for Burble: synchronising the server clock to IEEE 1588 PTP hardware, correlating RTP timestamps with wall-clock nanoseconds, and tracking per-node offsets in multi-node deployments.
+
+== Key files
+
+`ptp.ex`:: Startup probe that detects the clock source available on this host. Walks a priority chain: `:ptp_hardware` (Intel I210 via `/dev/ptp0`) → `:phc2sys` (OS clock disciplined by phc2sys) → `:ntp` → `:system`. The selected source is stored in application env so other modules can read it without re-probing.
+
+`phc2sys.ex`:: GenServer that optionally launches `phc2sys` as a managed port process. Keeps the Linux system clock tightly aligned with the PTP hardware clock (~1 µs accuracy). Safe for containers: `auto_start` defaults to `false` and is forced to `false` in `Mix.env() == :test`.
+
+`clock_correlator.ex`:: GenServer that maintains a 64-point sliding window of `{rtp_ts, wall_ns}` sync points and uses ordinary least-squares linear regression to map between RTP timestamps and nanosecond wall-clock time. Handles 32-bit RTP counter wraparound. Exposes `drift_ppm/1` so telemetry can track oscillator drift over time.
+
+`alignment.ex`:: GenServer that collects per-node sync reports from `peer.ex` (forwarded via cast or Phoenix PubSub broadcast) and computes the nanosecond offset each remote node's clock has from the local clock. Playout buffers call `playout_offset_ns/1` to get the correction needed to keep audio in phase across nodes. Stale nodes are evicted after 30 s.
+
+== How it fits into the system
+
+```
+RTP packet arrives at peer.ex
+  └─► ClockCorrelator.record_sync_point/3   (RTP ts + monotonic_ns)
+  └─► Alignment.report_node_sync/3          (forwarded to multi-node registry)
+
+Playout buffer
+  └─► Alignment.playout_offset_ns/1         (ns to add to local playout timer)
+  └─► ClockCorrelator.rtp_to_wall/2         (convert RTP ts to wall time)
+```
+
+The Phc2sys supervisor sits below the OTP supervision tree: if it exits, only the phc2sys port restarts — no effect on media processing.
+
+== Current status
+
+PTP hardware path (`ptp_hardware`) is code-complete including the Zig NIF stub (`ffi/zig/src/coprocessor/ptp.zig`) but has not been validated against real hardware — the Intel I210 NIC has not yet arrived. All other paths (phc2sys, NTP, system) are operational. See `READINESS.adoc` for details.
