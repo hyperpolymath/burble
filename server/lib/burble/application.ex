@@ -108,12 +108,51 @@ defmodule Burble.Application do
       # Note: LMDBPlayout instances are started dynamically per room, not here.
       # The RoomSupervisor above handles their lifecycle.
 
+      # Bolt listener — UDP port 7373. Receives magic "incoming call" packets.
+      # Degrades gracefully if the port is unavailable (logs warning, no crash).
+      Burble.Bolt.Listener,
+
       # Web endpoint (must be last — depends on PubSub and Presence)
       BurbleWeb.Endpoint
     ]
 
     opts = [strategy: :one_for_one, name: Burble.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+    log_hardware_capabilities()
+    result
+  end
+
+  # Log which hardware acceleration paths are active at startup.
+  # This makes it immediately visible in logs whether you're getting
+  # SIMD audio, WASM isolation, or PTP hardware timing — vs soft fallbacks.
+  defp log_hardware_capabilities do
+    alias Burble.Coprocessor.{ZigBackend, SNIFBackend}
+
+    zig  = if ZigBackend.available?(),  do: "ACTIVE (SIMD)",      else: "UNAVAILABLE → Elixir fallback"
+    snif = if SNIFBackend.available?(), do: "ACTIVE (WASM/SNIF)", else: "UNAVAILABLE → Zig/Elixir fallback"
+
+    ptp_source =
+      case Burble.Timing.PTP.status() do
+        {:ok, %{source: s}} -> Atom.to_string(s)
+        _ -> "unknown"
+      end
+
+    llm =
+      if System.get_env("ANTHROPIC_API_KEY") do
+        model = System.get_env("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+        "ACTIVE (#{model})"
+      else
+        "DISABLED (ANTHROPIC_API_KEY not set)"
+      end
+
+    Logger.info("""
+    ┌─ Burble capability report ────────────────────────────────
+    │  Zig NIF (SIMD audio/DSP)  : #{zig}
+    │  SNIF (WASM crash-isolated) : #{snif}
+    │  PTP clock source          : #{ptp_source}
+    │  LLM service               : #{llm}
+    └────────────────────────────────────────────────────────────
+    """)
   end
 
   @impl true

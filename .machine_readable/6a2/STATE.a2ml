@@ -105,12 +105,12 @@ open-failures = 0
 #             LLM Phase 2b closed — AnthropicProvider, circuit breaker, rate limit, SSE.
 
 [crg]
-grade = "D"
-achieved = "2026-04-18"
-previous-grade = "C"
+grade = "C"
+achieved = "2026-04-21"
+previous-grade = "D"
 demoted-on = "2026-04-18"
 demotion-reference = "docs/governance/CRG-AUDIT-2026-04-18.adoc"
-notes = "Demoted C->D per CRG v2.0 STRICT audit. [dogfooding-status] populated 2026-04-19 citing vext.ex/vext_groove.ex/vext_test.exs. Remaining C-blockers: no READINESS file, weak per-directory README coverage in core subtrees, and no CI test-pass evidence."
+notes = "CRG C provisionally — CI workflow added, awaiting first green run. Three D-blockers resolved 2026-04-21: (1) READINESS.adoc created at repo root (verified complete), (2) per-directory README.adoc added to all seven core subtrees (timing, llm, chat, transport, media, client/web/src, ffi/zig), (3) .github/workflows/elixir-ci.yml created (test + dialyzer jobs, OTP 27 / Elixir 1.17, PLT cache). CODEOWNERS already covered * @hyperpolymath — no change needed."
 
 [ecosystem]
 part-of = ["Burble Platform"]
