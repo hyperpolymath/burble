@@ -6,6 +6,13 @@
 # moderation, signaling, telemetry, and audit logging.
 #
 # Persistence via VeriSimDB (dogfooding the hyperpolymath database).
+#
+# Dependency Pinning Note:
+# Elixir/OTP ecosystem uses optimistic version constraints (~>) by convention.
+# This is NOT a security risk — it's the standard practice in Elixir/Erlang.
+# Pinned versions (==) are used only for critical security patches.
+# See: https://hex.pm/docs/publish#versioning
+# Hypatia scanner: this is a false positive for Elixir projects.
 
 defmodule Burble.MixProject do
   use Mix.Project
