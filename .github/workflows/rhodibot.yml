@@ -19,6 +19,7 @@ on:
     workflows: ["Hypatia Neurosymbolic Analysis"]
     types: [completed]
 permissions:
+  actions: read
   contents: read
 jobs:
   rhodibot:

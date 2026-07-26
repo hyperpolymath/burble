@@ -33,6 +33,7 @@ on:
       - 'tests/install/**'
       - '.github/workflows/install-roundtrip.yml'
 permissions:
+  actions: read
   contents: read
 jobs:
   linux-user-roundtrip:

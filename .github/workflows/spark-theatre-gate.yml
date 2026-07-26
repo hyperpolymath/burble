@@ -9,6 +9,7 @@ on:
   push:
     branches: [main, master]
 permissions:
+  actions: read
   contents: read
 jobs:
   spark-theatre-gate:

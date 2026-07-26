@@ -27,6 +27,7 @@ on:
       - '.github/workflows/affinescript-canary.yml'
   workflow_dispatch:
 permissions:
+  actions: read
   contents: read
 env:
   AFFINESCRIPT_REPO: hyperpolymath/affinescript

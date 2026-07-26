@@ -25,6 +25,7 @@ on:
       - '.github/workflows/web-client-tests.yml'
   workflow_dispatch:
 permissions:
+  actions: read
   contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

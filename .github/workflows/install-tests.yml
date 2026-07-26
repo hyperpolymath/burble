@@ -45,6 +45,7 @@ on:
       - 'tests/install/**'
       - '.github/workflows/install-tests.yml'
 permissions:
+  actions: read
   contents: read
 jobs:
   lint-linux:
