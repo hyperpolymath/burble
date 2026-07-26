@@ -17,7 +17,7 @@
 #     "LM-LA-LIFECYCLE-STANDARD.adoc"
 #     "cross-platform-system-integration-modes"
 #   ]
-#   standard-spec-version = "0.2.0"
+#   standard-spec-version = "0.3.0"
 #   generator             = "launch-scaffolder"
 # )
 # @a2ml-metadata end
@@ -44,21 +44,21 @@ APP_CATEGORIES="Network;AudioVideo;Development;"
 APP_GENERIC_NAME="Burble"
 RUNTIME_KIND="server-url"
 
-REPO_DIR="/var/mnt/eclipse/repos/developer-ecosystem/burble"
-ICON_SOURCE="/var/mnt/eclipse/repos/developer-ecosystem/burble/assets/icon-256.png"
+REPO_DIR=""
+ICON_SOURCE="/assets/icon-256.png"
 
 # Absolute path back to the per-app `<app>.launcher.a2ml` config that
 # produced this script. Consumed by the --integ / --disinteg arms when
 # the `launch-scaffolder` binary is on $PATH, so they can delegate to
 # the Rust implementation instead of running the shell fallback.
-CONFIG_FILE="/var/mnt/eclipse/repos/developer-ecosystem/burble/burble.launcher.a2ml"
+CONFIG_FILE="/home/hyperpolymath/developer/meta-repos/burble/burble.launcher.a2ml"
 
 URL="http://localhost:6473"
 APP_PORT="6473"
 WAIT_SECONDS="20"
 
-PID_FILE="/tmp/burble-server.pid"
-LOG_FILE="/tmp/burble-server.log"
+PID_FILE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/burble-server.pid"
+LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/burble/server.log"
 
 # Explicit argv from [runtime].command
 START_COMMAND=(env MIX_ENV=dev mix phx.server )
