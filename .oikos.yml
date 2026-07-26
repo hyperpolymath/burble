@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MPL-2.0
+# Minimal OikosBot configuration for meta-repos
+# Full options: https://github.com/hyperpolymath/oikosbot/blob/main/config/oikos.yaml
+
+# Operating mode: consultant (ask), advisor (recommend), regulator (enforce)
+mode: advisor
+
+# Score thresholds
+thresholds:
+  eco_minimum:
+    carbon: 50
+    energy: 50
+    enforcement: warning
+
+# Analysis exclusions
+exclude:
+  - "**/node_modules/**"
+  - "**/.git/**"
+  - "**/target/**"
+  - "**/build/**"
+  - "**/.zig-cache/**"
+  - "**/.cargo/**"
+  - "**/third_party/**"
+  - "**/.well-known/**"
+
+# Language support
+analysis:
+  languages:
+    - rust
+    - idris
+    - zig
+    - haskell
+    - typescript
+    - python
+
+# Reporting
+reporting:
+  pr_comments:
+    enabled: true
+    include_scores: true
+    include_recommendations: true
+    max_recommendations: 5
+  sarif:
+    enabled: true
+    upload_to_github: true

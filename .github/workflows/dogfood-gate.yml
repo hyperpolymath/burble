@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check for A2ML files
         id: detect
@@ -39,7 +39,7 @@ jobs:
 
       - name: Validate A2ML manifests
         if: steps.detect.outputs.count > 0
-        uses: hyperpolymath/a2ml-validate-action@6bff6ec134fc977e86d25166a5c522ddea5c1e78 # main
+        uses: hyperpolymath/a2ml-validate-action@05bcb78917c09702e90ed18004298a6728753914 # main
         with:
           path: '.'
           strict: 'false'
@@ -71,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check for K9 files
         id: detect
@@ -88,7 +88,7 @@ jobs:
 
       - name: Validate K9 contracts
         if: steps.detect.outputs.k9_count > 0
-        uses: hyperpolymath/k9-validate-action@2d96f43c538964b097d159ed3a56ba5b5ceca227 # main
+        uses: hyperpolymath/k9-validate-action@bddcd9109ee96f9ea3fdb4bf51084fe9cd0909ce # main
         with:
           path: '.'
           strict: 'false'
@@ -121,7 +121,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Scan for invisible characters
         id: lint
@@ -186,7 +186,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check for Groove manifest
         id: groove
@@ -245,7 +245,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check and validate eclexiaiser manifest
         id: eclex
@@ -263,26 +263,26 @@ jobs:
 
           # Validate TOML structure using Python 3.11+ tomllib
           python3 -c "
-import tomllib, sys
-with open('eclexiaiser.toml', 'rb') as f:
-    data = tomllib.load(f)
-project = data.get('project', {})
-if not project.get('name', '').strip():
-    print('ERROR: project.name is required', file=sys.stderr)
-    sys.exit(1)
-functions = data.get('functions', [])
-if not functions:
-    print('ERROR: at least one [[functions]] entry is required', file=sys.stderr)
-    sys.exit(1)
-for fn in functions:
-    if not fn.get('name', '').strip():
-        print('ERROR: function name cannot be empty', file=sys.stderr)
-        sys.exit(1)
-    if not fn.get('source', '').strip():
-        print(f'ERROR: function {fn[\"name\"]} has no source path', file=sys.stderr)
-        sys.exit(1)
-print(f'Valid: {project[\"name\"]} ({len(functions)} function(s))')
-" || {
+          import tomllib, sys
+          with open('eclexiaiser.toml', 'rb') as f:
+              data = tomllib.load(f)
+          project = data.get('project', {})
+          if not project.get('name', '').strip():
+              print('ERROR: project.name is required', file=sys.stderr)
+              sys.exit(1)
+          functions = data.get('functions', [])
+          if not functions:
+              print('ERROR: at least one [[functions]] entry is required', file=sys.stderr)
+              sys.exit(1)
+          for fn in functions:
+              if not fn.get('name', '').strip():
+                  print('ERROR: function name cannot be empty', file=sys.stderr)
+                  sys.exit(1)
+              if not fn.get('source', '').strip():
+                  print(f'ERROR: function {fn[\"name\"]} has no source path', file=sys.stderr)
+                  sys.exit(1)
+          print(f'Valid: {project[\"name\"]} ({len(functions)} function(s))')
+          " || {
             echo "::error file=eclexiaiser.toml::Invalid eclexiaiser.toml — see step output for details"
             exit 1
           }
@@ -311,7 +311,7 @@ print(f'Valid: {project[\"name\"]} ({len(functions)} function(s))')
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Generate dogfooding scorecard
         run: |

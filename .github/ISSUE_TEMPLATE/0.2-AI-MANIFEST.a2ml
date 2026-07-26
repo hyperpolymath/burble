@@ -1,0 +1,42 @@
+# AI Manifest - Level 2: .github/ISSUE_TEMPLATE
+
+This is the AI manifest for the `.github/ISSUE_TEMPLATE/` directory (Level 2) of paint-type.
+
+## Purpose
+
+The `ISSUE_TEMPLATE/` directory contains GitHub issue templates that standardize
+and streamline the issue reporting and tracking process for the paint-type repository.
+
+## Authority Split
+
+- **Central protocol authority:** `standards/` repository issue template standards
+- **Local integration authority (this directory):** paint-type specific issue templates
+
+## Canonical Files
+
+GitHub issue template YAML files:
+- `bug_report.yml` -- Template for reporting bugs and defects
+- `feature_request.yml` -- Template for requesting new features
+- `documentation.yml` -- Template for documentation requests and improvements
+- `question.yml` -- Template for general questions and support requests
+- `custom.yml` -- Custom issue template for other types
+- `config.yml` -- Configuration for issue template selection
+
+## Subdirectories
+
+None - all files are directly in this directory.
+
+## Invariants
+
+1. All template files must be valid GitHub issue template YAML.
+2. Templates must collect necessary information for proper issue triage.
+3. Templates must follow the organization's standards for issue metadata.
+4. Each template must have a clear name, description, and appropriate labels.
+
+## Startup Checklist for Agents
+
+1. Read this file (`0.2-AI-MANIFEST.a2ml`).
+2. Read `README.adoc` for issue template directory overview.
+3. Refer to central template standards in `standards/.github/ISSUE_TEMPLATE/`.
+4. Validate YAML syntax before committing changes.
+5. Ensure all templates collect necessary diagnostic information.
