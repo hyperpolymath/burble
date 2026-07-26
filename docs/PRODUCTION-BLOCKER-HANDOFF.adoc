@@ -100,6 +100,13 @@ sensor" to "knock-observed presence events."
 *Size:* ~1–2 h. *Owner-gated:* the phase-model change (Phase 2 rescope)
 should be owner-ratified; the factual corrections are safe to make now.
 
+*RESOLVED 2026-07-09 by ADR-0015 + the BLE wire-format freeze PR.* Detection is
+now defined as knock-triggered rendezvous (a normative "Detection model" table
+in ANDROID-CLIENT.adoc), the three Gabeldorsche realities are folded into the
+BLE-SPA properties, and Phase 2 is rescoped from "continuous presence sensor"
+to "knock-observed events (Silent) + contact-resolved presence field (Presence
+zones)". Approving that PR's plan ratified the phase-model change.
+
 == TIER 2 — well-scoped, deployment or hook (owner/infra touch)
 
 === 2.1 Enable authenticated Bolt QUIC
@@ -178,10 +185,15 @@ re-scope. Large build.
 needs an Intel I210 (or compatible) NIC, not yet arrived. NTP fallback
 carries every platform meanwhile; no code change until hardware lands.
 
-=== 4.3 `MediaPipeline.idr` Idris2 proof
-6 of 7 ABI proofs compile; `MediaPipeline.idr` fails on Idris1 `postulate`
-syntax. Design-assurance only (no runtime enforcement, ADR-0008), so low
-urgency — but it's the one red in the proof suite.
+=== 4.3 `MediaPipeline.idr` Idris2 proof — RESOLVED 2026-05-20
+All 7 ABI proof modules compile under Idris2 0.8.0; the `MediaPipeline.idr`
+Idris1 `postulate resampleFrame` was replaced with a pure-Idris2
+linear-interpolation definition (see `BURBLE-PROOF-STATUS.md`).
+Design-assurance only (no runtime enforcement, ADR-0008). Remaining
+proof-layer debt (not a blocker, tracked under epic #53): the
+`just build-proofs` recipe still has a path-escaping bug (`cd src\Burble\ABI`
+in an sh recipe) and idris2 is not yet wired into CI, so the suite is not
+gated.
 
 == Suggested sequence if credit/time is limited
 

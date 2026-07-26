@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MPL-2.0
+name: OikosBot Sustainability Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  oikosbot:
+    name: Sustainability Analysis
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/hyperpolymath/oikos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OikosBot analysis
+        run: |
+          oikosbot report /github/workspace \
+            --format sarif \
+            --output /github/workspace/results.sarif \
+            --config /github/workspace/.oikos.yml \
+            --eco-threshold 50 || echo "OikosBot analysis completed"
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: /github/workspace/results.sarif
+          category: oikosbot
