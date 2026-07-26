@@ -1,130 +1,116 @@
-<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
-# Contributing
+# Clone the repository
+git clone https://github.com/hyperpolymath/squisher-corpus.git
+cd squisher-corpus
 
-Thank you for your interest in contributing! We follow a "Dual-Track" architecture where human-readable documentation lives in the root and machine-readable policies live in `.machine_readable/`.
+# Using Nix (recommended for reproducibility)
+nix develop
+
+# Or using toolbox/distrobox
+toolbox create squisher-corpus-dev
+toolbox enter squisher-corpus-dev
+# Install dependencies manually
+
+# Verify setup
+just check   # or: cargo check / mix compile / etc.
+just test    # Run test suite
+```
+
+### Repository Structure
+```
+squisher-corpus/
+├── src/                 # Source code (Perimeter 1-2)
+├── lib/                 # Library code (Perimeter 1-2)
+├── extensions/          # Extensions (Perimeter 2)
+├── plugins/             # Plugins (Perimeter 2)
+├── tools/               # Tooling (Perimeter 2)
+├── docs/                # Documentation (Perimeter 3)
+│   ├── architecture/    # ADRs, specs (Perimeter 2)
+│   └── proposals/       # RFCs (Perimeter 3)
+├── examples/            # Examples (Perimeter 3)
+├── spec/                # Spec tests (Perimeter 3)
+├── tests/               # Test suite (Perimeter 2-3)
+├── .well-known/         # Protocol files (Perimeter 1-3)
+├── .github/             # GitHub config (Perimeter 1)
+│   ├── ISSUE_TEMPLATE/
+│   └── workflows/
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md      # This file
+├── GOVERNANCE.md
+├── LICENSE
+├── MAINTAINERS.md
+├── README.adoc
+├── SECURITY.md
+├── flake.nix            # Nix flake (Perimeter 1)
+└── Justfile             # Task runner (Perimeter 1)
+```
+
+---
 
 ## How to Contribute
 
-We welcome contributions in many forms:
+### Reporting Bugs
 
-- **Code:** Improving the core stack or extensions
-- **Documentation:** Enhancing docs or AI manifests
-- **Testing:** Adding property-based tests or formal proofs
-- **Bug reports:** Filing clear, reproducible issues
+**Before reporting**:
+1. Search existing issues
+2. Check if it's already fixed in `main`
+3. Determine which perimeter the bug affects
 
-## Building from source — system prerequisites
+**When reporting**:
 
-`quicer` (the QUIC transport library used by Burble's server) builds `msquic` from
-source. This requires several system packages that are **not** pre-installed on a
-vanilla developer machine. Install them before running `just test` or `mix deps.get`.
+Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) and include:
 
-### Debian 12 / Ubuntu 24.04
+- Clear, descriptive title
+- Environment details (OS, versions, toolchain)
+- Steps to reproduce
+- Expected vs actual behaviour
+- Logs, screenshots, or minimal reproduction
 
-```bash
-sudo apt-get update
-sudo apt-get install -y cmake perl build-essential libssl-dev
-```
+### Suggesting Features
 
-### Fedora 40
+**Before suggesting**:
+1. Check the [roadmap](ROADMAP.md) if available
+2. Search existing issues and discussions
+3. Consider which perimeter the feature belongs to
 
-```bash
-sudo dnf install -y cmake perl-FindBin make gcc openssl-devel
-```
+**When suggesting**:
 
-### Wolfi (Chainguard — used in `containers/Containerfile.server`)
+Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md) and include:
 
-```bash
-apk add --no-cache cmake perl make gcc musl-dev openssl-dev
-```
+- Problem statement (what pain point does this solve?)
+- Proposed solution
+- Alternatives considered
+- Which perimeter this affects
 
-### Cross-distro prerequisite mapping
+### Your First Contribution
 
-| Prerequisite | Debian 12 / Ubuntu 24.04 | Fedora 40 | Wolfi |
-|---|---|---|---|
-| Perl + FindBin | `perl` (core) | `perl-FindBin` | `perl` |
-| CMake ≥ 3.20 | `cmake` | `cmake` | `cmake` |
-| C compiler + Make | `build-essential` | `make` + `gcc` | `make` + `gcc` + `musl-dev` |
-| OpenSSL headers | `libssl-dev` | `openssl-devel` | `openssl-dev` |
-| Erlang/OTP 27 | via `setup-beam` / `kerl` | same | same |
+Look for issues labelled:
 
-### Validating your environment
+- [`good first issue`](https://github.com/hyperpolymath/squisher-corpus/labels/good%20first%20issue) — Simple Perimeter 3 tasks
+- [`help wanted`](https://github.com/hyperpolymath/squisher-corpus/labels/help%20wanted) — Community help needed
+- [`documentation`](https://github.com/hyperpolymath/squisher-corpus/labels/documentation) — Docs improvements
+- [`perimeter-3`](https://github.com/hyperpolymath/squisher-corpus/labels/perimeter-3) — Community sandbox scope
 
-Run the guard scripts to confirm all prerequisites are present before spending
-time on a full `mix deps.get`:
-
-```bash
-just guard-quicer-prereqs   # checks perl, cmake, make/ninja
-just guard-msquic            # checks msquic is at the required tag (v2.3.8)
-```
-
-If either guard fails, it will print which package is missing.
-`just doctor` also reports whether `cmake`, `perl`, and `make` are on PATH.
-
-## Getting Started
-
-1. **Read the AI Manifest:** Start with `0-AI-MANIFEST.a2ml` (if present) to understand the repository structure.
-2. **Install system prerequisites:** Follow the "Building from source" section above for your distro.
-3. **Environment:** Use `nix develop` or `direnv allow` to set up your tools.
-4. **Task Runner:** Use `just` to see available commands (`just --list`).
+---
 
 ## Development Workflow
 
-### The liveness invariant (ADR-0007)
-
-Every Elixir module under `server/lib/burble/` must be one of:
-
-1. **Supervised** — started by the supervision tree (`application.ex`), or
-2. **Invoked** — a library called by supervised code, or
-3. **Experimental** — under `server/lib/burble/experimental/` with an
-   `EXPERIMENTAL` moduledoc stating what has and has not been validated.
-
-Code that is none of these is dead weight that misleads readers about what
-Burble can do — it gets deleted (git history preserves it; see ADR-0009
-for the bridge precedent and revival criteria). The same spirit applies
-repo-wide: no empty scaffolding directories, no config files describing
-stacks this project doesn't use, no generated artifacts nothing consumes.
-
 ### Branch Naming
-
 ```
-docs/short-description       # Documentation
-test/what-added              # Test additions
-feat/short-description       # New features
-fix/issue-number-description # Bug fixes
-refactor/what-changed        # Code improvements
-security/what-fixed          # Security fixes
+docs/short-description       # Documentation (P3)
+test/what-added              # Test additions (P3)
+feat/short-description       # New features (P2)
+fix/issue-number-description # Bug fixes (P2)
+refactor/what-changed        # Code improvements (P2)
+security/what-fixed          # Security fixes (P1-2)
 ```
 
 ### Commit Messages
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
 ```
 <type>(<scope>): <description>
 
 [optional body]
 
 [optional footer]
-```
-
-Types: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`, `security`
-
-## Reporting Bugs
-
-Before reporting:
-1. Search existing issues
-2. Check if it's already fixed in `main`
-
-When reporting, include:
-- Clear, descriptive title
-- Environment details (OS, versions, toolchain)
-- Steps to reproduce
-- Expected vs actual behaviour
-
-## Code of Conduct
-
-All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the same license as the project (see [LICENSE](LICENSE)).

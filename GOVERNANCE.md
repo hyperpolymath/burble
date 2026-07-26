@@ -1,34 +1,60 @@
-<!--
-SPDX-License-Identifier: CC-BY-SA-4.0
-Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
--->
 # Governance
 
-> Default governance note for `hyperpolymath` projects. Individual repositories
-> may document their own governance and supersede this.
+## Overview
 
-## Decision-making
+This project is governed by the following principles and structures to ensure transparent, inclusive, and effective decision-making.
 
-These are primarily research and personal-estate projects. Direction and final
-decisions rest with the maintainer (**@hyperpolymath**). Contributions are
-welcome and reviewed on their merits.
+## Roles and Responsibilities
 
-## How decisions are made
+### Maintainers
 
-- Significant or hard-to-reverse changes are discussed in an issue or discussion
-  before implementation.
-- Soundness and correctness concerns take precedence over features.
-- Where a change would take more than a couple of minutes to review or revert,
-  expect it to be raised for discussion first rather than merged directly.
+Maintainers are responsible for:
+- Reviewing and merging pull requests
+- Managing releases and versioning
+- Ensuring code quality and standards
+- Triaging issues and bug reports
+- Community engagement and support
 
-## Licensing & provenance
+### Contributors
 
-Code and config are licensed `MPL-2.0`; prose documentation is `CC-BY-SA-4.0`.
-Licence and provenance changes are made manually by the maintainer and are not
-delegated to automation.
+Contributors are expected to:
+- Follow the code of conduct
+- Submit well-documented pull requests
+- Write tests for new functionality
+- Maintain existing tests
+- Update documentation as needed
 
-## Becoming a contributor
+## Decision Making
 
-Open good issues and PRs. Sustained, high-quality contribution to a given project
-may lead to triage or review permissions on that repository, at the maintainer's
-discretion.
+### Minor Changes
+- Can be made by any maintainer
+- Include bug fixes, documentation updates, dependency updates
+
+### Major Changes
+- Require discussion in issues or pull requests
+- Include new features, architectural changes, API changes
+- Need approval from at least 2 maintainers
+
+### Breaking Changes
+- Require RFC (Request for Comments) process
+- Need approval from majority of maintainers
+- Must include migration guide
+
+## Code of Conduct
+
+All participants are expected to follow our Code of Conduct. Violations can be reported to the maintainers.
+
+## Communication
+
+- **Issues**: For bug reports and feature requests
+- **Discussions**: For questions and general discussion
+- **Pull Requests**: For code contributions
+
+## Licensing
+
+All contributions are made under the terms of the repository's LICENSE file.
+By submitting a pull request, you agree to license your contributions accordingly.
+
+---
+
+*Last updated: 2026-07-18*
