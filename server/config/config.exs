@@ -56,4 +56,23 @@ config :burble, Burble.Mailer,
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60, cleanup_interval_ms: 60_000 * 10]}
 
+# EXPERIMENTAL — server-mediated RTSP broadcast egress.
+#
+# When enabled, stage/broadcast rooms revive the Media.Engine SFU session and
+# fan their single RTP stream out to RTSP viewers (VLC/ffmpeg/OBS play the
+# `rtsp://host:8554/live/room-<id>/speaker` mountpoint) alongside WebRTC peers.
+# Default OFF: no effect on the standard peer-to-peer path. This is a
+# switchable, community-preview feature — flip it on to try it and give
+# feedback, or set BURBLE_RTSP_BROADCAST=true at runtime (see runtime.exs).
+config :burble, :rtsp_broadcast, false
+
+# Bolt SPA (Single-Packet-Authorisation) shared secret.
+#
+# nil (default) = bolts are unauthenticated (legacy, spoofable — a startup
+# warning is logged). Set a secret here or via BURBLE_BOLT_SECRET at runtime
+# to require every bolt to carry a valid HMAC + fresh timestamp + one-shot
+# nonce, dropping spoofed/replayed pokes. Cheap interim while the authenticated
+# QUIC transport (ADR-0004) is parked — see the Bolt-QUIC "help wanted" issue.
+config :burble, :bolt_secret, nil
+
 import_config "#{config_env()}.exs"

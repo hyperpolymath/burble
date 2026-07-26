@@ -18,11 +18,14 @@ jobs:
         working-directory: server/
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          submodules: recursive
+        # No submodules: this job only builds ffi/zig and runs the server
+        # suite, neither of which uses tools/affinescript — and that
+        # submodule's pinned commit is currently unreachable upstream
+        # ("upload-pack: not our ref"), which was hard-failing checkout
+        # before any test could run.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Set up Beam (OTP 27 + Elixir 1.17)
-        uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # v1.18.2
+        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           otp-version: '27'
           elixir-version: '1.17'
@@ -38,7 +41,7 @@ jobs:
           # tracks ffi/zig/build.zig's declared "Zig 0.15".
           version: '0.15.2'
       - name: Install just
-        uses: taiki-e/install-action@899b013517f9e7774591216672bf75a46bb9a481 # v2.9.4
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           # Pin an explicit modern just: the Justfile uses `import?`
           # (optional import, just >= 1.19.0). Unversioned `tool: just`
@@ -52,7 +55,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y cmake perl build-essential libssl-dev
       - name: Cache Mix dependencies
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             server/deps
@@ -80,21 +83,21 @@ jobs:
           echo "erl_nif.h include dir: $ERL_INCLUDE"
           test -f "$ERL_INCLUDE/erl_nif.h" || { echo "::error::erl_nif.h not found at $ERL_INCLUDE"; exit 1; }
           ( cd ffi/zig && zig build -Doptimize=ReleaseFast -Derl-include="$ERL_INCLUDE" )
+          # Run the Zig unit tests too, so kernel/verifier regressions (e.g. the
+          # BLE-SPA ble_spa_verify agreement with the committed vectors) turn CI
+          # red rather than only surfacing at NIF load. Tests don't link the NIF
+          # headers, so no -Derl-include is needed.
+          ( cd ffi/zig && zig build test )
           cp ffi/zig/zig-out/lib/libburble_coprocessor.so server/priv/ 2>/dev/null || true
       - name: Run server tests
         working-directory: ${{ github.workspace }}
-        # GATE NARROWED 2026-05-25: the underlying boot-failure root cause
-        # from #39 IS fixed (`offline_ok: true` on Burble.Store, optional
-        # :quicer, graceful Bolt/RTSP bind degradation, SingletonWatcher
-        # in test_helper.exs) — confirmed by PR #87 reaching 3m30s
-        # of executing tests rather than fast-bailing at boot.
-        # However the re-armed gate then exposed pre-existing test
-        # residue in LLM.Transport, Packet, Safety.ProvenBridge,
-        # Timing, and Topology clusters that pre-date #39 and need
-        # per-cluster fixes (some tracked in #77 etc.). Keeping the
-        # gate suppressed until those land — *not* the same situation
-        # as the 2026-05-15 "test suite won't even boot" deactivation.
-        continue-on-error: true
+        # GATE RE-ARMED 2026-07-07: every pre-existing failure cluster is
+        # fixed (LLM singleton stop/start app-collapse cascade, RTSP socket
+        # ownership + instance threading, Groove :pop state wipe, Packet
+        # format_mac, ProvenBridge constant_time_eq?, Timing drift/wraparound,
+        # Topology, Store init-retry ladder, typing-throttle monotonic bug,
+        # circuit-breaker test drift). A failing test turns this job red —
+        # this is the CRG grade-C test-pass-evidence artefact (#35/#39).
         run: just test-server
   dialyzer:
     name: Dialyzer
@@ -106,11 +109,10 @@ jobs:
         working-directory: server/
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          submodules: recursive
+        # No submodules — same rationale as the test job above.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Set up Beam (OTP 27 + Elixir 1.17)
-        uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # v1.18.2
+        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           otp-version: '27'
           elixir-version: '1.17'
@@ -119,7 +121,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y cmake perl build-essential libssl-dev
       - name: Restore PLT cache
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: plt-cache
         with:
           path: server/priv/plts
@@ -128,7 +130,7 @@ jobs:
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-
       - name: Cache Mix dependencies
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             server/deps

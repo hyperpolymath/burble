@@ -27,14 +27,18 @@ The other two are per-directory READMEs in core subtrees and CI test-pass eviden
   `server/lib/burble_web`, `client/web`, `client/desktop`,
   `client/lib`, `signaling`, `ffi/zig`. Closes the second of the
   three grade-C artefacts.
-* ❌ CI test-pass evidence: `.github/workflows/elixir-ci.yml`
-  exists, but the Run-server-tests / Build-Zig-FFI / Run-Dialyzer
-  steps carry `continue-on-error: true` ("GATE DEACTIVATED
-  2026-05-15"). Re-arming is tracked in issue #39 and attempted
-  in PR #87 — the boot-collapse root cause is fixed, but
-  pre-existing test-residue failures need addressing per-cluster
-  before the gate can stay green. **This is the remaining blocker
-  for grade C.**
+* ✅ CI test-pass evidence: the Run-server-tests gate in
+  `.github/workflows/elixir-ci.yml` was RE-ARMED 2026-07-07 —
+  `continue-on-error` removed, a failing test turns CI red. All
+  pre-existing failure clusters were fixed: the LLM-test
+  singleton stop/start app-collapse cascade (~50 collateral
+  failures), RTSP socket-ownership + instance threading, Groove
+  `:pop` state wipe, `format_mac` casing, `constant_time_eq?`
+  raise-on-unequal-length, Timing drift/wraparound math, Topology,
+  Store init-retry ladder, and the typing-throttle monotonic-time
+  bug. 652 tests / 0 failures locally (1 skipped: AWOL multipath,
+  data plane not yet built). The Dialyzer step remains advisory
+  pending per-warning suppression work.
 
 ---
 
@@ -109,6 +113,35 @@ The following server modules have 100 % test coverage (as of 2026-04-20):
 * Signaling relay
 
 ---
+
+== Experimental (opt-in, community preview)
+
+=== RTSP Broadcast Egress
+
+`Burble.Transport.RTSP` can fan a stage/broadcast room's single RTP stream out
+to RTSP viewers (VLC/ffmpeg/OBS play `rtsp://host:8554/live/room-<id>/speaker`)
+alongside the WebRTC peers — one source, N listeners, no per-listener
+PeerConnection. It is *switchable and off by default*: enable with
+`config :burble, :rtsp_broadcast, true` or `BURBLE_RTSP_BROADCAST=true` at
+runtime. When enabled, stage/broadcast rooms revive the server-mediated SFU
+session (`Burble.Media.Engine`) and `distribute_rtp` also calls
+`RTSP.inject_rtp/2`; the default peer-to-peer path is byte-for-byte unchanged
+when the flag is off.
+
+*Status:* the server-side path (session → mountpoint → `inject_rtp` → RTSP
+subscriber fanout) is wired and unit-tested (`rtsp_broadcast_test.exs`). What
+is NOT yet built is a *client* that connects a broadcaster in SFU mode so real
+RTP reaches the server Peer — today's `p2p-voice.html` is pure peer-to-peer.
+Shipped as a preview so the community can experience the mountpoint, give
+feedback, and drive the client-side broadcast increment.
+
+*Privacy posture:* a broadcast/stage room is inherently one-to-many and
+public-facing — RTSP viewers (VLC/ffmpeg/OBS) are anonymous and receive the
+raw RTP. This is deliberately a *different* posture from Burble's E2EE-opaque
+1:1 calls: end-to-end encryption to anonymous stage viewers is not meaningful,
+so broadcast rooms are not E2EE. This is not a contradiction with the
+E2EE-opaque SFU — a public stage and a private call are different products —
+but it must be surfaced in the UI so no one expects E2EE on a broadcast.
 
 == What is NOT ready
 

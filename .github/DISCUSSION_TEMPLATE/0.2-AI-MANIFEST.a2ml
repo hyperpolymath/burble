@@ -1,0 +1,38 @@
+# AI Manifest - Level 2: .github/DISCUSSION_TEMPLATE
+
+This is the AI manifest for the `.github/DISCUSSION_TEMPLATE/` directory (Level 2) of paint-type.
+
+## Purpose
+
+The `DISCUSSION_TEMPLATE/` directory contains GitHub discussion templates that structure
+community conversations and provide context for different discussion topics.
+
+## Authority Split
+
+- **Central protocol authority:** `standards/` repository discussion template standards
+- **Local integration authority (this directory):** paint-type specific discussion templates
+
+## Canonical Files
+
+GitHub discussion template YAML files:
+- `q-and-a.yml` -- Template for Q&A discussions
+- `ideas.yml` -- Template for sharing and discussing ideas
+
+## Subdirectories
+
+None - all files are directly in this directory.
+
+## Invariants
+
+1. All template files must be valid GitHub discussion template YAML.
+2. Templates must provide clear guidance on discussion topics.
+3. Templates must follow the organization's standards for discussion metadata.
+4. Each template must have a clear category and purpose.
+
+## Startup Checklist for Agents
+
+1. Read this file (`0.2-AI-MANIFEST.a2ml`).
+2. Read `README.adoc` for discussion template directory overview.
+3. Refer to central template standards in `standards/.github/DISCUSSION_TEMPLATE/`.
+4. Validate YAML syntax before committing changes.
+5. Ensure all templates provide helpful context and guidance.

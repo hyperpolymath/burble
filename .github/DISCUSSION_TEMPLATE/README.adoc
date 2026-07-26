@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+
+= Discussion Templates
+:description: Structured community discussions for paint-type
+
+This directory contains GitHub discussion templates that provide structure and
+context for community conversations in the paint-type repository.
+
+== Purpose
+
+Discussion templates help:
+
+* *Organize conversations* by topic and purpose
+* *Provide context* for community members joining discussions
+* *Guide participants* on what information to include
+* *Maintain quality* of community interactions
+* *Make discussions* more productive and focused
+
+Unlike issues (which track work), discussions are for open-ended conversations,
+brainstorming, and community collaboration.
+
+== Contents by Functional Grouping
+
+=== Discussion Category Templates
+
+* `q-and-a.yml`:: Template for Question & Answer discussions. Used for:
+  - Technical questions
+  - Usage questions
+  - Troubleshooting
+  - General inquiries
+  
+  Collects information about:
+  - The specific question or problem
+  - What has been tried
+  - Environment or context
+  - Relevant code or examples
+
+* `ideas.yml`:: Template for Ideas discussions. Used for:
+  - Feature brainstorming
+  - Architecture discussions
+  - Proposal feedback
+  - Future direction exploration
+  
+  Collects information about:
+  - The idea or proposal
+  - Motivation and use cases
+  - Potential approaches
+  - Considerations and tradeoffs
+
+== Purpose of Each Template
+
+=== q-and-a.yml
+
+The Q&A template structures technical and usage discussions to:
+
+* Clearly state the question or problem
+* Provide necessary context
+* Help community members provide accurate answers
+* Make discussions searchable and reusable
+
+Well-structured Q&A discussions become a knowledge base for the community.
+
+=== ideas.yml
+
+The Ideas template structures feature and architecture discussions to:
+
+* Clearly articulate the proposal
+* Explain the motivation and value
+* Explore different approaches
+* Identify potential issues or concerns
+* Build consensus within the community
+
+Good idea discussions lead to better project decisions and roadmaps.
+
+== Discussion vs. Issues
+
+Use *Discussions* for:
+
+* Open-ended questions
+* Brainstorming and idea exploration
+* Community feedback and opinions
+* General conversations
+
+Use *Issues* for:
+
+* Bug reports
+* Feature requests (formal)
+* Documentation requests
+* Actionable work items
+
+== Template Structure
+
+All discussion templates follow a consistent structure:
+
+1. *Category*: The discussion category (Q&A, Ideas, etc.)
+2. *Title*: Clear, descriptive template name
+3. *Description*: What the template is for and when to use it
+4. *Labels*: Automatic labels to apply
+5. *Body*: The form fields to collect information
+
+== Best Practices
+
+When creating or modifying discussion templates:
+
+* Keep templates focused on specific discussion types
+* Provide clear guidance on what belongs in each category
+* Include helpful descriptions and examples
+* Make it easy for participants to provide necessary context
+* Encourage constructive and respectful conversations
+
+== Related Files
+
+* link:../0.1-AI-MANIFEST.a2ml[Parent AI Manifest]
+* link:../README.adoc[Parent Directory README]
+* link:../../.machine_readable/[Machine Readable Metadata]
+* link:../ISSUE_TEMPLATE/[Issue Templates]

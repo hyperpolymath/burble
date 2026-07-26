@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+
+= Issue Templates
+:description: Standardized issue reporting for paint-type
+
+This directory contains GitHub issue templates that provide structure and guidance
+for reporting bugs, requesting features, asking questions, and submitting other
+types of issues to the paint-type repository.
+
+== Purpose
+
+Issue templates serve several important purposes:
+
+* *Standardization*: Ensure all issues contain necessary information for triage
+* *Efficiency*: Reduce back-and-forth by collecting required data upfront
+* *Guidance*: Help contributors understand what information is needed
+* *Categorization*: Automatically apply appropriate labels based on issue type
+* *Quality*: Improve the overall quality of issue submissions
+
+== Contents by Functional Grouping
+
+=== Issue Type Templates
+
+* `bug_report.yml`:: Template for reporting bugs and defects. Collects information about:
+  - Expected vs. actual behavior
+  - Steps to reproduce
+  - Environment details (OS, version, etc.)
+  - Screenshots or error messages
+  - Severity and impact assessment
+
+* `feature_request.yml`:: Template for requesting new features. Collects information about:
+  - Feature description and use case
+  - Proposed solution or API
+  - Alternatives considered
+  - Priority and complexity assessment
+
+* `documentation.yml`:: Template for documentation requests and improvements. Collects:
+  - Missing or unclear documentation
+  - Suggested improvements
+  - Location of relevant code
+
+* `question.yml`:: Template for general questions and support requests. Collects:
+  - Question details
+  - What has been tried
+  - Relevant context
+
+* `custom.yml`:: Custom template for other issue types not covered above.
+
+=== Configuration
+
+* `config.yml`:: GitHub issue template configuration. Defines:
+  - Which templates are available
+  - Default template selection
+  - Template ordering in the UI
+
+== Purpose of Each Template
+
+=== bug_report.yml
+
+The bug report template is designed to collect all information needed to:
+
+* Reproduce the issue consistently
+* Understand the impact and severity
+* Prioritize the fix appropriately
+* Assign to the correct maintainer or team
+
+Without complete bug reports, maintainers spend significant time requesting
+additional information, delaying resolution.
+
+=== feature_request.yml
+
+The feature request template helps:
+
+* Clarify the requested functionality
+* Understand the motivation and use cases
+* Evaluate feasibility and complexity
+* Prioritize against other requests
+* Design the feature properly
+
+Well-structured feature requests make it easier to assess and plan new functionality.
+
+=== documentation.yml
+
+The documentation template helps:
+
+* Identify documentation gaps
+* Understand what users need to know
+* Prioritize documentation improvements
+* Track documentation-related work
+
+Good documentation reduces support burden and improves user experience.
+
+=== question.yml
+
+The question template helps:
+
+* Provide context for the question
+* Understand what the user has tried
+* Route to the appropriate maintainer
+* Track frequently asked questions
+
+Many questions can be answered more efficiently with proper context.
+
+== Template Structure
+
+All templates follow a consistent structure:
+
+1. *Name*: Clear, descriptive title
+2. *Description*: What the template is for and when to use it
+3. *Labels*: Automatic labels to apply
+4. *Assignees*: Optional default assignees
+5. *Body*: The form fields to collect information
+
+== Best Practices
+
+When creating or modifying templates:
+
+* Keep forms concise but comprehensive
+* Use clear, descriptive field names
+* Group related fields together
+* Use dropdowns for standardized options
+* Include helpful descriptions and examples
+* Mark required fields appropriately
+
+== Related Files
+
+* link:../0.1-AI-MANIFEST.a2ml[Parent AI Manifest]
+* link:../README.adoc[Parent Directory README]
+* link:../../.machine_readable/[Machine Readable Metadata]
+* link:../DISCUSSION_TEMPLATE/[Discussion Templates]
