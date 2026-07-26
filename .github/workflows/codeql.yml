@@ -16,12 +16,15 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+  actions: read
+  security-events: write
 jobs:
   analyze:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
+      actions: read
       security-events: write
     strategy:
       fail-fast: false
