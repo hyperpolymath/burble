@@ -116,9 +116,12 @@ The Burble FFT WASM module (`burble_fft.wasm`) exports:
 
 #### Building WASM Module
 
+Paths below use the `repo:path` convention — set `SNIF` and `BURBLE` to your
+checkouts of those repos (they are independent repos, not vendored here).
+
 ```bash
-# From SNIF repository
-cd /var/mnt/eclipse/repos/snif
+# From SNIF repository (snif:.)
+cd "$SNIF"
 zig build
 
 # This produces:
@@ -130,11 +133,12 @@ zig build
 
 ```bash
 # Copy WASM module to Burble
-cp /var/mnt/eclipse/repos/snif/priv/safe_nif_ReleaseSafe.wasm \
-   /var/mnt/eclipse/repos/developer-ecosystem/burble/server/priv/snif/burble_fft.wasm
+# snif:priv/safe_nif_ReleaseSafe.wasm -> burble:server/priv/snif/burble_fft.wasm
+cp "$SNIF/priv/safe_nif_ReleaseSafe.wasm" \
+   "$BURBLE/server/priv/snif/burble_fft.wasm"
 
 # Install dependencies
-cd /var/mnt/eclipse/repos/developer-ecosystem/burble/server
+cd "$BURBLE/server"
 mix deps.get
 
 # Build release
