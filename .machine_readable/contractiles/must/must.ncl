@@ -7,8 +7,8 @@
 # CLI:        `contractile must run` → reads Mustfile.a2ml, evaluates each check,
 #             emits pass/fail verdict per item, exits non-zero if any failed.
 #
-# This file is the *schema + runner* that the `contractile` CLI (at
-# /var/mnt/eclipse/repos/reposystem/contractiles/cli/) loads alongside
+# This file is the *schema + runner* that the `contractile` CLI (the reposystem
+# `contractiles/cli/` component) loads alongside
 # Mustfile.a2ml. Anything else in this directory is human-only notes/archive
 # and MUST be ignored by machines.
 #
