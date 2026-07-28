@@ -116,26 +116,14 @@ defmodule BurbleWeb.SignalingChannel do
 
   @doc "Route an SDP offer to the target peer."
   @impl true
-  def handle_in("sdp:offer", %{"to" => peer_id, "sdp" => sdp}, socket) do
-    route_to_peer(peer_id, %{
-      type: "sdp:offer",
-      from: socket.assigns.user_id,
-      sdp: sdp
-    })
-
-    {:noreply, socket}
+  def handle_in("sdp:offer", %{"to" => peer_id, "sdp" => sdp} = params, socket) do
+    route_sdp("sdp:offer", peer_id, sdp, params, socket)
   end
 
   @doc "Route an SDP answer to the target peer."
   @impl true
-  def handle_in("sdp:answer", %{"to" => peer_id, "sdp" => sdp}, socket) do
-    route_to_peer(peer_id, %{
-      type: "sdp:answer",
-      from: socket.assigns.user_id,
-      sdp: sdp
-    })
-
-    {:noreply, socket}
+  def handle_in("sdp:answer", %{"to" => peer_id, "sdp" => sdp} = params, socket) do
+    route_sdp("sdp:answer", peer_id, sdp, params, socket)
   end
 
   @doc "Route an ICE candidate to the target peer."
@@ -196,7 +184,7 @@ defmodule BurbleWeb.SignalingChannel do
   """
   @impl true
   def handle_info({:signaling_msg, payload}, socket) do
-    push(socket, "msg", payload)
+    push(socket, "msg", decode_sdp_body(payload))
     {:noreply, socket}
   end
 
@@ -249,6 +237,128 @@ defmodule BurbleWeb.SignalingChannel do
   defp route_to_peer(peer_id, payload) do
     Phoenix.PubSub.broadcast(Burble.PubSub, peer_topic(peer_id), {:signaling_msg, payload})
   end
+
+  # ---------------------------------------------------------------------------
+  # SDP routing — JSON today, Bebop when enabled (spline ADR-0005 criterion (a))
+  # ---------------------------------------------------------------------------
+  #
+  # The SDP body is carried either as a plain string (JSON plane, the default)
+  # or as a base64-wrapped Bebop `SdpPayload` (binary plane). The wire encoding
+  # is chosen per message and always ANNOUNCED in the payload (`enc: "bebop" |
+  # "json"`), so a receiver never has to guess — this is what lets the two
+  # planes coexist during migration and what a second consumer (gossamer)
+  # keys off.
+  #
+  # Enable with `config :burble, :signaling_wire_format, :bebop` (default
+  # `:json`). Encoding failures fall back to JSON rather than dropping the
+  # message: a signalling plane that loses an offer is worse than one that
+  # sends it in the older format.
+  @spec route_sdp(String.t(), String.t(), String.t(), map(), Phoenix.Socket.t()) ::
+          {:noreply, Phoenix.Socket.t()}
+  defp route_sdp(type, peer_id, sdp, params, socket) do
+    media_type = Map.get(params, "mediaType", "audio")
+
+    payload =
+      %{type: type, from: socket.assigns.user_id}
+      |> Map.merge(encode_sdp_body(sdp, media_type, type))
+
+    route_to_peer(peer_id, payload)
+    {:noreply, socket}
+  end
+
+  # Returns the encoding-specific half of the payload, plus telemetry.
+  @spec encode_sdp_body(String.t(), String.t(), String.t()) :: map()
+  defp encode_sdp_body(sdp, media_type, type) do
+    case wire_format() do
+      :bebop ->
+        try do
+          bin = Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: sdp, media_type: media_type})
+
+          :telemetry.execute(
+            [:burble, :signaling, :encode],
+            %{bytes: byte_size(bin)},
+            %{format: :bebop, type: type}
+          )
+
+          %{enc: "bebop", sdp_b64: Base.encode64(bin), mediaType: media_type}
+        rescue
+          error ->
+            Logger.warning(
+              "[SignalingChannel] Bebop encode failed (#{inspect(error)}); falling back to JSON"
+            )
+
+            :telemetry.execute(
+              [:burble, :signaling, :encode],
+              %{bytes: byte_size(sdp)},
+              %{format: :json_fallback, type: type}
+            )
+
+            %{enc: "json", sdp: sdp, mediaType: media_type}
+        end
+
+      _json ->
+        :telemetry.execute(
+          [:burble, :signaling, :encode],
+          %{bytes: byte_size(sdp)},
+          %{format: :json, type: type}
+        )
+
+        %{enc: "json", sdp: sdp, mediaType: media_type}
+    end
+  end
+
+  @doc """
+  The signalling wire format in force: `:json` (default) or `:bebop`.
+
+  Public so tests and operators can assert which plane is live without
+  reaching into application config directly.
+  """
+  @spec wire_format() :: :json | :bebop
+  def wire_format, do: Application.get_env(:burble, :signaling_wire_format, :json)
+
+  @doc """
+  Normalise a routed signalling payload back to a plain `:sdp` string.
+
+  Bebop-encoded payloads (`enc: "bebop"`) are decoded and the base64 field
+  dropped, so existing clients see the same shape they always have. This is
+  what keeps the binary plane transparent to the browser client while the
+  migration is in flight. Unknown or malformed encodings are passed through
+  untouched rather than raising — a signalling channel must not crash a call
+  over a payload it does not recognise.
+  """
+  @spec decode_sdp_body(map()) :: map()
+  def decode_sdp_body(%{enc: "bebop", sdp_b64: b64} = payload) do
+    with {:ok, bin} <- Base.decode64(b64),
+         {%{sdp: sdp} = decoded, <<>>} <- Burble.Protocol.VoiceSignal.decode_sdp_payload(bin),
+         true <- lossless?(decoded, bin) do
+      payload |> Map.drop([:sdp_b64]) |> Map.put(:sdp, sdp) |> Map.put(:enc, "json")
+    else
+      _ ->
+        Logger.warning("[SignalingChannel] Bebop decode failed; forwarding payload as-is")
+        payload
+    end
+  rescue
+    error ->
+      Logger.warning("[SignalingChannel] Bebop decode raised #{inspect(error)}; forwarding as-is")
+      payload
+  end
+
+  # Round-trip integrity check.
+  #
+  # The generated decoders do NOT detect truncation: a buffer declaring a
+  # uint32-LE string length far beyond its own size decodes to "" instead of
+  # failing (measured 2026-07-28 — a truncated frame would otherwise arrive as
+  # a valid-looking EMPTY SDP offer, which is worse than an obvious error).
+  # Re-encoding the decoded value must reproduce the original bytes exactly;
+  # anything lossy is rejected and the payload forwarded untouched.
+  @spec lossless?(map(), binary()) :: boolean()
+  defp lossless?(decoded, original_bin) do
+    Burble.Protocol.VoiceSignal.encode_sdp_payload(decoded) == original_bin
+  rescue
+    _ -> false
+  end
+
+  def decode_sdp_body(payload), do: payload
 
   # Build the PubSub topic for a specific peer.
   @spec peer_topic(String.t()) :: String.t()

@@ -100,6 +100,16 @@ jobs:
         # circuit-breaker test drift). A failing test turns this job red —
         # this is the CRG grade-C test-pass-evidence artefact (#35/#39).
         run: just test-server
+      - name: Bebop codegen gate (generator must run; drift reported)
+        working-directory: ${{ github.workspace }}
+        # Check A (ARMED): the generator must parse every .bop schema and
+        # emit output — this catches the 2026-07-28 finding that
+        # `mix bebop.generate` crashed and the codecs could not be reproduced
+        # from their own sources. Check B (REPORT ONLY): byte-identity vs the
+        # committed codecs, which cannot pass until the hand-enriched-docs
+        # question is settled — see the script header. Restores the committed
+        # files afterwards, so it never mutates the tree.
+        run: ./scripts/check-bebop-codegen.sh
   dialyzer:
     name: Dialyzer
     runs-on: ubuntu-latest
