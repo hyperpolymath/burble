@@ -51,7 +51,17 @@ ICON_SOURCE="/assets/icon-256.png"
 # produced this script. Consumed by the --integ / --disinteg arms when
 # the `launch-scaffolder` binary is on $PATH, so they can delegate to
 # the Rust implementation instead of running the shell fallback.
-CONFIG_FILE="/home/hyperpolymath/developer/meta-repos/burble/burble.launcher.a2ml"
+# Resolution: explicit override, then a config next to this script (any repo
+# checkout), then the canonical estate location (the installed copy's origin).
+CONFIG_FILE="${BURBLE_LAUNCHER_CONFIG:-}"
+if [ -z "$CONFIG_FILE" ]; then
+    _launcher_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_launcher_dir/burble.launcher.a2ml" ]; then
+        CONFIG_FILE="$_launcher_dir/burble.launcher.a2ml"
+    else
+        CONFIG_FILE="/home/hyperpolymath/developer/meta-repos/burble/burble.launcher.a2ml"
+    fi
+fi
 
 URL="http://localhost:6473"
 APP_PORT="6473"
