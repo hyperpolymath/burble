@@ -271,22 +271,34 @@ defmodule Mix.Tasks.Bebop.Generate do
           input
       end
 
-    # Count braces to find the matching close.
-    find_matching_close(after_brace, 1, 0)
+    # Count braces to find the matching close. `after_brace` is passed twice:
+    # once as the cursor that gets consumed, once as the immutable original the
+    # final slice is taken from.
+    find_matching_close(after_brace, after_brace, 1, 0)
   end
 
-  defp find_matching_close(<<>>, _depth, _pos), do: {"", ""}
+  # `pos` counts bytes from the START of the body, so the slice must be taken
+  # from the ORIGINAL body binary — not from `input`, which has already been
+  # consumed down to the tail. Slicing the tail either crashes (when the tail
+  # is shorter than `pos`) or silently returns the wrong text.
+  defp find_matching_close(<<>>, _orig, _depth, _pos), do: {"", ""}
 
-  defp find_matching_close(input, depth, pos) do
+  defp find_matching_close(input, orig, depth, pos) do
     case input do
       <<"{", rest::binary>> ->
-        find_matching_close(rest, depth + 1, pos + 1)
+        find_matching_close(rest, orig, depth + 1, pos + 1)
 
       <<"}", rest::binary>> when depth == 1 ->
-        {binary_part(input, 0, pos), rest}
+        {binary_part(orig, 0, pos), rest}
+
+      # A nested close must DECREMENT the depth. Without this clause it fell
+      # through to the catch-all as an ordinary character, so depth only ever
+      # rose and a nested block could never close.
+      <<"}", rest::binary>> ->
+        find_matching_close(rest, orig, depth - 1, pos + 1)
 
       <<char::utf8, rest::binary>> ->
-        find_matching_close(rest, depth, pos + byte_size(<<char::utf8>>))
+        find_matching_close(rest, orig, depth, pos + byte_size(<<char::utf8>>))
     end
   end
 
