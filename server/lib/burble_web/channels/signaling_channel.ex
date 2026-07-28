@@ -329,7 +329,8 @@ defmodule BurbleWeb.SignalingChannel do
   @spec decode_sdp_body(map()) :: map()
   def decode_sdp_body(%{enc: "bebop", sdp_b64: b64} = payload) do
     with {:ok, bin} <- Base.decode64(b64),
-         {%{sdp: sdp}, _rest} <- Burble.Protocol.VoiceSignal.decode_sdp_payload(bin) do
+         {%{sdp: sdp} = decoded, <<>>} <- Burble.Protocol.VoiceSignal.decode_sdp_payload(bin),
+         true <- lossless?(decoded, bin) do
       payload |> Map.drop([:sdp_b64]) |> Map.put(:sdp, sdp) |> Map.put(:enc, "json")
     else
       _ ->
@@ -340,6 +341,21 @@ defmodule BurbleWeb.SignalingChannel do
     error ->
       Logger.warning("[SignalingChannel] Bebop decode raised #{inspect(error)}; forwarding as-is")
       payload
+  end
+
+  # Round-trip integrity check.
+  #
+  # The generated decoders do NOT detect truncation: a buffer declaring a
+  # uint32-LE string length far beyond its own size decodes to "" instead of
+  # failing (measured 2026-07-28 — a truncated frame would otherwise arrive as
+  # a valid-looking EMPTY SDP offer, which is worse than an obvious error).
+  # Re-encoding the decoded value must reproduce the original bytes exactly;
+  # anything lossy is rejected and the payload forwarded untouched.
+  @spec lossless?(map(), binary()) :: boolean()
+  defp lossless?(decoded, original_bin) do
+    Burble.Protocol.VoiceSignal.encode_sdp_payload(decoded) == original_bin
+  rescue
+    _ -> false
   end
 
   def decode_sdp_body(payload), do: payload

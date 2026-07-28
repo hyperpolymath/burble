@@ -54,9 +54,28 @@ defmodule BurbleWeb.SignalingWireFormatTest do
       assert SignalingChannel.decode_sdp_body(bad) == bad
     end
 
-    test "truncated Bebop binary is forwarded as-is, never raises" do
+    test "truncated Bebop binary is forwarded as-is, NOT silently decoded to an empty SDP" do
+      # REGRESSION GUARD. The generated decoders do not detect truncation: this
+      # buffer declares a uint32-LE string length of 4_294_967_295 with one byte
+      # following, and decode_string returns "" rather than failing. Without the
+      # round-trip integrity check in decode_sdp_body/1 a truncated frame would
+      # arrive as a valid-looking EMPTY offer — worse than an obvious error.
+      # Caught by CI on the first run of this suite (2026-07-28).
       bad = %{type: "sdp:offer", from: "u1", enc: "bebop", sdp_b64: Base.encode64(<<255, 255, 255, 255, 1>>)}
       assert SignalingChannel.decode_sdp_body(bad) == bad
+    end
+
+    test "trailing garbage after a valid payload is forwarded as-is" do
+      good = Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: "v=0", media_type: "audio"})
+      bad = %{type: "sdp:offer", from: "u1", enc: "bebop", sdp_b64: Base.encode64(good <> "XX")}
+      assert SignalingChannel.decode_sdp_body(bad) == bad
+    end
+
+    test "a legitimately empty SDP still decodes (the guard is not over-eager)" do
+      bin = Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: "", media_type: ""})
+      out = SignalingChannel.decode_sdp_body(%{type: "sdp:offer", from: "u1", enc: "bebop", sdp_b64: Base.encode64(bin)})
+      assert out.sdp == ""
+      assert out.enc == "json"
     end
   end
 
