@@ -35,7 +35,7 @@ Resolve missing Perl `FindBin.pm` in the build environment, then re-run
 
 == Repository
 
-* `/var/mnt/eclipse/repos/developer-ecosystem/burble`
+* `burble` (this repo)
 
 == Branch
 
@@ -75,7 +75,7 @@ Resolve missing Perl `FindBin.pm` in the build environment, then re-run
 
 == Recommended next protocol
 
-`verify maintenance-sweep /var/mnt/eclipse/repos/developer-ecosystem/burble`
+`verify maintenance-sweep <path to this burble checkout>`
 
 == Commits made this session
 
