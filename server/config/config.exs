@@ -48,6 +48,18 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Signalling wire format (spline ADR-0005 criterion (a)).
+#
+# :json  — SDP bodies ride as plain strings (the historical plane). DEFAULT.
+# :bebop — SDP bodies ride as base64-wrapped Bebop `SdpPayload` binaries,
+#          announced per-message via the payload's `enc` field.
+#
+# Kept at :json until the binary plane is proven end-to-end with a second
+# consumer (criterion (b), gossamer). Criterion (a) requires the DEFAULT
+# transport path, so flipping this is a deliberate, reviewable change — not a
+# side effect of enabling something else.
+config :burble, :signaling_wire_format, :json
+
 # Email delivery
 config :burble, Burble.Mailer,
   adapter: Swoosh.Adapters.Local

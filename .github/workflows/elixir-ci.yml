@@ -100,6 +100,15 @@ jobs:
         # circuit-breaker test drift). A failing test turns this job red —
         # this is the CRG grade-C test-pass-evidence artefact (#35/#39).
         run: just test-server
+      - name: Bebop codegen drift gate
+        working-directory: ${{ github.workspace }}
+        # The codecs in server/lib/burble/protocol/ are GENERATED from
+        # server/priv/schemas/*.bop. Nothing re-ran the generator in CI, so a
+        # schema edit could silently desync the committed output — the schema
+        # and the bytes on the wire disagreeing with nothing to notice. This
+        # step regenerates and fails on any diff (it restores the committed
+        # files afterwards, so it never mutates the tree).
+        run: ./scripts/check-bebop-codegen.sh
   dialyzer:
     name: Dialyzer
     runs-on: ubuntu-latest
