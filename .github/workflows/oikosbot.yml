@@ -17,22 +17,23 @@ jobs:
     name: Sustainability Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container:
-      image: ghcr.io/hyperpolymath/oikos:v2.0.0
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # OikosBot's own composite action runs the published CLI container.
+      # It replaces a hand-rolled job that could never work: the image tag it
+      # pinned has never existed on the package, so the job died at container
+      # pull, and the failure was masked. Config comes from .oikos.yml.
       - name: Run OikosBot analysis
-        run: |
-          oikosbot report /github/workspace \
-            --format sarif \
-            --output /github/workspace/results.sarif \
-            --config /github/workspace/.oikos.yml \
-            --eco-threshold 50 || echo "OikosBot analysis completed"
+        uses: hyperpolymath/oikosbot@bb95ab5063ab9b43a948e21ed8b3fe35b1d1768b  # v0.1.0
+        with:
+          mode: report
+          path: .
+          output: results.sarif
 
       - name: Upload SARIF to GitHub Security
         if: always()
-        uses: github/codeql-action/upload-sarif@39a73d65469e0144129775918a2032174234c279 # v3
+        uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3
         with:
-          sarif_file: /github/workspace/results.sarif
+          sarif_file: results.sarif
           category: oikosbot
