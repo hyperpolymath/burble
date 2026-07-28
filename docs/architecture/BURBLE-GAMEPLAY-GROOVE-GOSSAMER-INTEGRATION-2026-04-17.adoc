@@ -67,18 +67,20 @@ Representative references:
 * `client/desktop/build.zig`
 * `k9iser.toml`
 
-The canonical Groove protocol/type proofs live in the Gossamer repo:
+The canonical Groove protocol/type proofs live in the Gossamer repo. Paths
+below are written `repo:in-repo/path` (layout-independent; they were
+machine-absolute `/var/mnt/eclipse/...` before the estate reorg):
 
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/interface/abi/Groove.idr`
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/core/Groove.eph`
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/interface/ffi/src/groove.zig`
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/schema/groove-manifest.schema.json`
+* `gossamer:src/interface/abi/Groove.idr`
+* `gossamer:src/core/Groove.eph`
+* `gossamer:src/interface/ffi/src/groove.zig`
+* `gossamer:schema/groove-manifest.schema.json`
 
 == Airborne Submarine Squadron Linkage
 
-The Airborne Submarine Squadron repo exists locally and is actively using Gossamer-path gameplay artifacts:
+The Airborne Submarine Squadron repo exists locally and is actively using Gossamer-path gameplay artifacts (paths relative to the `airborne-submarine-squadron` repo root):
 
-* `/var/mnt/eclipse/repos/games-ecosystem/airborne-submarine-squadron`
+* `airborne-submarine-squadron` (repo root)
 * `gossamer/index_gossamer.html`
 * `gossamer/app_gossamer.js`
 * `gossamer/net/signalling.js`
@@ -150,16 +152,16 @@ Burble:
 
 Gossamer:
 
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/interface/abi/Groove.idr`
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/core/Groove.eph`
-* `/var/mnt/eclipse/repos/games-ecosystem/gossamer/src/interface/ffi/src/groove.zig`
+* `gossamer:src/interface/abi/Groove.idr`
+* `gossamer:src/core/Groove.eph`
+* `gossamer:src/interface/ffi/src/groove.zig`
 
 Airborne Submarine Squadron:
 
-* `/var/mnt/eclipse/repos/games-ecosystem/airborne-submarine-squadron/README.adoc`
-* `/var/mnt/eclipse/repos/games-ecosystem/airborne-submarine-squadron/ROADMAP.adoc`
-* `/var/mnt/eclipse/repos/games-ecosystem/airborne-submarine-squadron/gossamer/index_gossamer.html`
-* `/var/mnt/eclipse/repos/games-ecosystem/airborne-submarine-squadron/.well-known/groove/manifest.json`
+* `airborne-submarine-squadron:README.adoc`
+* `airborne-submarine-squadron:ROADMAP.adoc`
+* `airborne-submarine-squadron:gossamer/index_gossamer.html`
+* `airborne-submarine-squadron:.well-known/groove/manifest.json`
 
 == Governance And Baseline Links (2026-04-17)
 

@@ -51,7 +51,17 @@ ICON_SOURCE="/assets/icon-256.png"
 # produced this script. Consumed by the --integ / --disinteg arms when
 # the `launch-scaffolder` binary is on $PATH, so they can delegate to
 # the Rust implementation instead of running the shell fallback.
-CONFIG_FILE="/home/hyperpolymath/developer/meta-repos/burble/burble.launcher.a2ml"
+# Resolution: explicit override, then a config next to this script (any repo
+# checkout), then the canonical estate location (the installed copy's origin).
+CONFIG_FILE="${BURBLE_LAUNCHER_CONFIG:-}"
+if [ -z "$CONFIG_FILE" ]; then
+    _launcher_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$_launcher_dir/burble.launcher.a2ml" ]; then
+        CONFIG_FILE="$_launcher_dir/burble.launcher.a2ml"
+    else
+        CONFIG_FILE="/home/hyperpolymath/developer/meta-repos/burble/burble.launcher.a2ml"
+    fi
+fi
 
 URL="http://localhost:6473"
 APP_PORT="6473"
@@ -59,6 +69,12 @@ WAIT_SECONDS="20"
 
 PID_FILE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/burble-server.pid"
 LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/burble/server.log"
+
+# Optional shared desktop-integration helpers (keepopen.sh, verify-desktop-
+# integrity.sh). Override with DESKTOP_TOOLS_DIR. Every use is guarded: if the
+# helpers are absent the launcher degrades gracefully rather than emitting a
+# .desktop file whose Exec= points at a missing script.
+DESKTOP_TOOLS_DIR="${DESKTOP_TOOLS_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/desktop-tools}"
 
 # Explicit argv from [runtime].command
 START_COMMAND=(env MIX_ENV=dev mix phx.server )
@@ -269,12 +285,22 @@ write_linux_desktop_file() {
 
     # keepopen.sh implements the standard fallback ladder: GUI → TUI →
     # bash-at-repo-root. See launcher-standard.adoc §Fallback Ladder.
-    local keepopen="/var/mnt/eclipse/repos/.desktop-tools/keepopen.sh"
+    local keepopen="$DESKTOP_TOOLS_DIR/keepopen.sh"
     local gui_cmd tui_cmd
 # server-url: GUI = start server + open browser + tail log (so terminal
     # stays open); TUI = start-only + follow log; Shell = repo root.
     gui_cmd="$LAUNCHER_TARGET --auto && tail -f $LOG_FILE"
     tui_cmd="$LAUNCHER_TARGET --start && tail -f $LOG_FILE"
+
+    # Fallback ladder needs keepopen.sh. Without it, exec the launcher directly
+    # so the .desktop entry still works (rather than pointing at a missing file).
+    local exec_line
+    if [ -x "$keepopen" ]; then
+        exec_line="$keepopen \"$APP_DISPLAY\" \"$REPO_DIR\" \"$gui_cmd\" \"$tui_cmd\" \"$LOG_FILE\""
+    else
+        log "  · keepopen.sh not found in $DESKTOP_TOOLS_DIR — .desktop Exec= will run the launcher directly (no GUI→TUI fallback ladder)"
+        exec_line="$LAUNCHER_TARGET --auto"
+    fi
 
     cat > "$target" <<EOF
 [Desktop Entry]
@@ -283,7 +309,7 @@ Version=1.0
 Name=$APP_DISPLAY
 GenericName=$APP_GENERIC_NAME
 Comment=$APP_DESC
-Exec=$keepopen "$APP_DISPLAY" "$REPO_DIR" "$gui_cmd" "$tui_cmd" "$LOG_FILE"
+Exec=$exec_line
 Icon=$icon_name
 Terminal=true
 Categories=$APP_CATEGORIES
@@ -327,10 +353,13 @@ do_integ_linux() {
         gio set "$DESKTOP_FILE_TARGET"     "metadata::trusted" true 2>/dev/null || true
         gio set "$DESKTOP_SHORTCUT_TARGET" "metadata::trusted" true 2>/dev/null || true
     fi
-    if [ -x "/var/mnt/eclipse/repos/.desktop-tools/verify-desktop-integrity.sh" ]; then
-        /var/mnt/eclipse/repos/.desktop-tools/verify-desktop-integrity.sh --generate 2>/dev/null \
+    local verify_integrity="$DESKTOP_TOOLS_DIR/verify-desktop-integrity.sh"
+    if [ -x "$verify_integrity" ]; then
+        "$verify_integrity" --generate 2>/dev/null \
             && log "  + integrity hashes generated" \
             || log "  · integrity hash generation failed (non-fatal)"
+    else
+        log "  · integrity hashes skipped — no verify-desktop-integrity.sh in $DESKTOP_TOOLS_DIR"
     fi
 }
 
