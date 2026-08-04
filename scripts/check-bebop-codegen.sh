@@ -7,28 +7,22 @@
 # in server/priv/schemas/ via `mix bebop.generate`. Nothing re-ran the generator
 # in CI, so nobody noticed it had stopped working at all.
 #
-# TWO CHECKS, deliberately different strengths — read this before "tightening"
-# the second one:
+# TWO CHECKS, both ARMED:
 #
 #   CHECK A (HARD FAIL) — the generator must parse every committed schema and
-#     emit output. Armed. This is what catches the failure found on 2026-07-28:
+#     emit output. This is what catches the failure found on 2026-07-28:
 #     `mix bebop.generate` crashed with `binary_part("}\n", 0, 173)` in
 #     find_matching_close/3 — the codecs could not be reproduced from their own
 #     sources at all.
 #
-#   CHECK B (REPORT ONLY — NOT ARMED) — byte-identity between regenerated
-#     output and the committed files. It CANNOT pass today, and not because of
-#     schema drift: the committed codecs were generated once and then ENRICHED
-#     BY HAND (wire-format table in the moduledoc, per-function @doc strings,
-#     banner comments, reordered clauses). Arming it as-is would force a
-#     regeneration that DELETES that hand-written documentation.
-#
-#     Resolving it is an owner decision, one of:
-#       (1) accept the loss — regenerate, commit the leaner output, arm Check B;
-#       (2) teach the generator to emit the richer docs, then arm Check B;
-#       (3) keep the codecs hand-maintained and retire the generator — then
-#           delete Check A too and say so in the schemas' README.
-#     Until then this prints the diff so drift stays visible, and exits 0.
+#   CHECK B (HARD FAIL — armed 2026-08-04 per owner ruling A7) — byte-identity
+#     between regenerated output and the committed files. The generator now
+#     emits the documentation that used to be hand-maintained (moduledoc
+#     wire-format tables derived from the schema's /// doc comments, banner
+#     sections, per-function @doc), so the committed codecs ARE the generator's
+#     output and any schema/codec desync fails the build. Edit the .bop or the
+#     generator, run `mix bebop.generate`, commit the result — never edit
+#     lib/burble/protocol/ by hand.
 #
 # Usage: scripts/check-bebop-codegen.sh
 set -uo pipefail
@@ -61,16 +55,17 @@ fi
 echo "PASS: generator parsed every schema and emitted output"
 
 echo
-echo "== CHECK B (report only, NOT armed — see header): byte-identity =="
+echo "== CHECK B (ARMED): regenerated output must be byte-identical =="
 if diff -ru "$SNAPSHOT" "$OUT_DIR"; then
   echo "PASS: regenerated output is byte-identical to the committed codecs."
-  echo "NOTE: Check B now passes. If that is expected, arm it by making this"
-  echo "      branch exit 1 on diff, and delete this notice."
 else
-  echo
-  echo "::warning::Regenerated output differs from the committed codecs (diff"
-  echo "above). Expected while the hand-enrichment question is open — this does"
-  echo "NOT fail the build. See the header of this script."
+  cat >&2 <<'MSG'
+::error::Committed codecs are NOT what `mix bebop.generate` produces (diff
+above). Either the schema or the generator changed without regenerating, or
+someone edited lib/burble/protocol/ by hand. Fix: run `mix bebop.generate`
+inside server/ and commit the result.
+MSG
+  exit 1
 fi
 
 exit 0
