@@ -85,7 +85,11 @@ if need_bin free; then
 fi
 
 if need_bin df; then
-  DISK_AVAIL_GB="$(df -BG --output=avail "$REPO_ROOT" 2>/dev/null | tail -1 | tr -dc '0-9')"
+  # `-BG --output=avail` is GNU-coreutils-only; busybox df (Alpine's default)
+  # doesn't support it. 2>/dev/null hides the error text but NOT the exit
+  # code, so under `set -e -o pipefail` a failing df here would abort the
+  # whole script this early — hence the explicit `|| true`.
+  DISK_AVAIL_GB="$(df -BG --output=avail "$REPO_ROOT" 2>/dev/null | tail -1 | tr -dc '0-9' || true)"
   [ -n "${DISK_AVAIL_GB:-}" ] && [ "$DISK_AVAIL_GB" -lt 10 ] && \
     warn "only ${DISK_AVAIL_GB}GiB free on this volume. Container image builds " \
          "(Elixir/Rust/OCaml toolchains in the build stage) can use several GiB " \
@@ -168,10 +172,20 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   if [ -n "$PKG_MGR" ] && confirm "Install ${MISSING[*]} via $PKG_MGR now?"; then
     pkg_install podman openssl curl python3-pip uidmap slirp4netns || \
       die "package install failed — install ${MISSING[*]} yourself, then re-run."
-    command -v podman-compose >/dev/null 2>&1 || \
-      pip install --break-system-packages --user podman-compose 2>/dev/null || \
-      pip install --user podman-compose || \
-      die "podman-compose install failed — 'pip install podman-compose' yourself, then re-run."
+    if ! command -v podman-compose >/dev/null 2>&1; then
+      # `python3 -m pip` rather than a bare `pip`/`pip3` binary: many distros
+      # only ship `python3` + the `pip` MODULE after installing python3-pip,
+      # with no `pip`/`pip3` executable on PATH at all, so a bare `pip
+      # install` call can fail with "command not found" even though the
+      # install would otherwise work fine.
+      python3 -m pip install --break-system-packages --user podman-compose 2>/dev/null || \
+        python3 -m pip install --user podman-compose || \
+        die "podman-compose install failed — 'python3 -m pip install --user podman-compose' yourself, then re-run."
+      # `pip install --user` places the binary in ~/.local/bin, which may not
+      # be on PATH yet in this shell — without this, the need_bin re-check
+      # just below can fail even though the install genuinely succeeded.
+      export PATH="$HOME/.local/bin:$PATH"
+    fi
     hash -r
   else
     die "install ${MISSING[*]} yourself, then re-run."
@@ -376,21 +390,34 @@ CADDYCFG
       "request — this needs port 80 AND 443 reachable from the public internet" \
       "(the ACME HTTP-01 challenge uses 80 even though the site serves on 443)."
 
+  # NOT optional in public mode: containers/selur-compose.toml publishes the
+  # web service on 0.0.0.0:6473 (needed so Tailscale-only mode can reach it
+  # over the tailnet interface — that mode has no Caddy in front of it at
+  # all). In public mode, Caddy fronts 6473 with TLS 1.3 + HSTS, but if
+  # 6473 itself stays reachable, anyone can skip Caddy entirely and hit the
+  # app in plaintext — silently defeating the whole point of this branch.
+  # Asking first and letting the answer be "no" would leave that door open
+  # on a fresh VPS by default, so this one rule is mandatory here, not a
+  # confirm() like everything else in this script.
   if ! need_bin ufw && [ "$PKG_MGR" = "apt" ]; then
-    confirm "ufw isn't installed. Install it now to firewall off everything except 80/443/SSH?" && \
-      { pkg_install ufw; hash -r; }
+    say "ufw isn't installed — installing it (mandatory in public mode:" \
+        "without it, port 6473 stays reachable in plaintext, bypassing Caddy/TLS entirely)."
+    pkg_install ufw
+    hash -r
   fi
   if need_bin ufw; then
-    if confirm "Restrict this box to only 80/443 (+ whatever already allows your SSH session) via ufw?"; then
-      sudo ufw allow 80/tcp comment 'caddy ACME + http redirect' || true
-      sudo ufw allow 443/tcp comment 'caddy https' || true
-      sudo ufw deny 6473/tcp comment 'burble web direct (deny — go through Caddy)' || true
-      say "ufw rules added for 80/443. Review 'sudo ufw status' and confirm SSH is" \
-          "allowed before 'sudo ufw enable' if it isn't already — this script will" \
-          "not enable ufw for you, to avoid locking you out."
-    fi
+    sudo ufw allow 80/tcp comment 'caddy ACME + http redirect' || true
+    sudo ufw allow 443/tcp comment 'caddy https' || true
+    sudo ufw deny 6473/tcp comment 'burble web direct (deny — go through Caddy)' || true
+    say "ufw rules added for 80/443, and 6473 is denied directly (Caddy is the only" \
+        "path in). Review 'sudo ufw status' and confirm SSH is allowed before" \
+        "'sudo ufw enable' if it isn't already — this script will not enable ufw" \
+        "for you, to avoid locking you out."
   else
-    warn "ufw not available — firewall this box yourself so only 80/443/SSH are reachable."
+    die "no firewall tool (ufw) available and none could be installed. Refusing to" \
+        "finish public-mode setup with port 6473 reachable in plaintext, bypassing" \
+        "Caddy/TLS entirely — firewall this box yourself (iptables/nftables: allow" \
+        "80/443, deny 6473 from anywhere but 127.0.0.1), then re-run."
   fi
 fi
 
