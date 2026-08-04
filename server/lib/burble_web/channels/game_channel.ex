@@ -102,6 +102,12 @@ defmodule BurbleWeb.GameChannel do
     {:reply, {:error, %{"reason" => "event payload must carry the \"event\" tag"}}, socket}
   end
 
+  # Anything else — refuse politely instead of crashing the channel (a stale
+  # or foreign client must not read as a peer loss to the other seat).
+  def handle_in(event, _payload, socket) do
+    {:reply, {:error, %{"reason" => "unknown message: #{inspect(event)}"}}, socket}
+  end
+
   @impl true
   def terminate(_reason, socket) do
     if socket.joined do

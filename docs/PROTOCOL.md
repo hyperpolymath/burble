@@ -160,19 +160,16 @@ apps (neurophone, idaptik, gossamer) discover this surface via
 for Burble points back to this document and to `mix.exs` for the
 versioned dependency pin.
 
-## Versioning
-
-This document tracks `@version` in `server/mix.exs`. Breaking changes
-to any surface above (route removed, schema field repurposed, channel
-topic renamed) require a major-version bump and a `CHANGELOG.md`
-entry under "Protocol".
-
 ## Game-session lane (`game:<session_id>`)
 
 The game-session fabric's relay lane (see
 `docs/superpowers/specs/2026-08-04-game-session-fabric-design.md`). One
 topic per session; the two seats exchange their game's typed wire enums
 verbatim. Burble reads only the routing tag and never interprets payloads.
+Until the lobby/session registry ships, seat occupancy and session
+existence are unenforced: any authenticated socket that knows a session
+id may join any declared role, so clients must not assume two-party
+confidentiality of a session topic.
 
 **Join** — params `{"role": <seat>, "game": <game_id>}`; both are
 validated against the registered game profile (`Burble.Games`). Reply:
@@ -196,6 +193,13 @@ engines produce events, seats do not author them).
 **`ping`** — replies `{"pong": true}`.
 
 First registered profile: `idaptik` (roles `infiltrator`/`hacker`).
+
+## Versioning
+
+This document tracks `@version` in `server/mix.exs`. Breaking changes
+to any surface above (route removed, schema field repurposed, channel
+topic renamed) require a major-version bump and a `CHANGELOG.md`
+entry under "Protocol".
 
 ## See also
 

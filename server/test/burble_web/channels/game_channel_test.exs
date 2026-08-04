@@ -124,6 +124,18 @@ defmodule BurbleWeb.Channels.GameChannelTest do
     end
   end
 
+  describe "unknown messages" do
+    test "an unrecognized push is refused, not a crash" do
+      {_reply, socket} = join!("u1", "hacker")
+      ref = push(socket, "intent", %{"move" => "left"})
+      assert_reply ref, :error, %{"reason" => reason}
+      assert reason =~ "unknown message"
+      # The channel survives: ping still answers.
+      ref = push(socket, "ping", %{})
+      assert_reply ref, :ok, %{"pong" => true}
+    end
+  end
+
   describe "command relay" do
     test "delivers a hacker Pivot to the infiltrator verbatim" do
       {_reply, _infil} = join!("c1", "infiltrator")
