@@ -1,3 +1,4 @@
+# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
@@ -44,7 +45,7 @@ jobs:
     continue-on-error: true # canary: surface failures, do not block merges
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
       - name: Detect .affine files
         id: detect
         run: |
@@ -57,13 +58,13 @@ jobs:
       - name: Cache affinescript build
         if: steps.detect.outputs.count > 0
         id: cache-affinescript
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: /usr/local/bin/affinescript
           key: affinescript-${{ env.AFFINESCRIPT_REF }}-${{ runner.os }}
       - name: Setup OCaml (cache miss only)
         if: steps.detect.outputs.count > 0 && steps.cache-affinescript.outputs.cache-hit != 'true'
-        uses: ocaml/setup-ocaml@15d660006c1d3110d77c34b7faa3bddefe8b82f0 # v3.7.0
+        uses: ocaml/setup-ocaml@v3.7.0
         with:
           ocaml-compiler: ${{ env.OCAML_COMPILER }}
       - name: Build affinescript from source (cache miss only)
@@ -143,7 +144,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
       - name: Audit .affine ↔ .res pairing
         run: |
           unpaired=0
