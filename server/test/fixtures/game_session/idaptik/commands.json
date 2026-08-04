@@ -1,0 +1,18 @@
+[
+  { "cmd": "SetButton", "button": "Right", "down": true },
+  { "cmd": "Jump" },
+  { "cmd": "Uplink", "kind": "Camera" },
+  { "cmd": "Pivot", "target": "GridJump" },
+  { "cmd": "Pivot", "target": "IspOps" },
+  { "cmd": "Pivot", "target": "Bridge" },
+  { "cmd": "Unpivot" },
+  { "cmd": "SetButton", "button": "Right", "down": false },
+  { "cmd": "Interact" },
+  { "cmd": "ThrowUsb" },
+  { "cmd": "Pause", "on": true },
+  { "cmd": "Pause", "on": false },
+  { "cmd": "ForceCrisis" },
+  { "cmd": "ForceFail", "reason": "Caught" },
+  { "cmd": "ForceExtract", "method": "ServiceExit" },
+  { "cmd": "Restart" }
+]
