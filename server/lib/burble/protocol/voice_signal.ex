@@ -204,7 +204,8 @@ defmodule Burble.Protocol.VoiceSignal do
   def decode_leave(data) do
     {room_id, rest1} = decode_string(data)
     {user_id, rest2} = decode_string(rest1)
-    {reason, rest3} = decode_string(rest2)
+    {reason_raw, rest3} = decode_uint8(rest2)
+    reason = leave_reason(reason_raw)
     {%{room_id: room_id, user_id: user_id, reason: reason}, rest3}
   end
 
