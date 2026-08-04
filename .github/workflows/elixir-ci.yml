@@ -1,3 +1,4 @@
+# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # Elixir CI — test-pass evidence for CRG grade C.
 name: Elixir CI
@@ -24,9 +25,9 @@ jobs:
         # submodule's pinned commit is currently unreachable upstream
         # ("upload-pack: not our ref"), which was hard-failing checkout
         # before any test could run.
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
       - name: Set up Beam (OTP 27 + Elixir 1.17)
-        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        uses: erlef/setup-beam@v1.24.1
         with:
           otp-version: '27'
           elixir-version: '1.17'
@@ -36,13 +37,13 @@ jobs:
         # ziglang.org/builds (nightlies) instead of /download/<ver>/, so it
         # 404s on every Zig >= 0.14 regardless of the version string. v2.x
         # uses the community-mirror list + modern download index.
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        uses: mlugg/setup-zig@v2.2.1
         with:
           # Exact published tag (not 'latest') for deterministic CI;
           # tracks ffi/zig/build.zig's declared "Zig 0.15".
           version: '0.15.2'
       - name: Install just
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        uses: taiki-e/install-action@v2.85.5
         with:
           # Pin an explicit modern just: the Justfile uses `import?`
           # (optional import, just >= 1.19.0). Unversioned `tool: just`
@@ -56,7 +57,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y cmake perl build-essential libssl-dev
       - name: Cache Mix dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: |
             server/deps
@@ -121,9 +122,9 @@ jobs:
     steps:
       - name: Checkout
         # No submodules — same rationale as the test job above.
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
       - name: Set up Beam (OTP 27 + Elixir 1.17)
-        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        uses: erlef/setup-beam@v1.24.1
         with:
           otp-version: '27'
           elixir-version: '1.17'
@@ -132,7 +133,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y cmake perl build-essential libssl-dev
       - name: Restore PLT cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         id: plt-cache
         with:
           path: server/priv/plts
@@ -141,7 +142,7 @@ jobs:
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-
       - name: Cache Mix dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: |
             server/deps
