@@ -105,6 +105,28 @@ defmodule BurbleWeb.Channels.GameChannelTest do
       assert reason =~ "game"
     end
 
+    test "rejects a non-binary role, naming the field" do
+      assert {:error, %{reason: reason}} =
+               game_socket()
+               |> subscribe_and_join(GameChannel, "game:j6b", %{
+                 "role" => 7,
+                 "game" => "idaptik"
+               })
+
+      assert reason =~ "role"
+    end
+
+    test "rejects a non-binary game, naming the field" do
+      assert {:error, %{reason: reason}} =
+               game_socket()
+               |> subscribe_and_join(GameChannel, "game:j6c", %{
+                 "role" => "hacker",
+                 "game" => 7
+               })
+
+      assert reason =~ "game"
+    end
+
     test "a leaving peer is announced" do
       {_reply, infil} = join!("j6", "infiltrator")
       {_reply, _hacker} = join!("j6", "hacker")
