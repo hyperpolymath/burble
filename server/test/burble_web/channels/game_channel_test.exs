@@ -47,6 +47,16 @@ defmodule BurbleWeb.Channels.GameChannelTest do
     {reply, socket}
   end
 
+  # The cross-language wire fixtures are vendored VERBATIM from the IDApTIK
+  # repo (fixtures/session_relay/*.json), where the Rust side round-trips
+  # the same files (crates/idaptik-core/tests/session_relay_fixture.rs).
+  # If they drift, slice 2's Rust-vs-burble parity run will say so.
+  @fixtures Path.expand("../../fixtures/game_session/idaptik", __DIR__)
+
+  defp fixture!(name) do
+    @fixtures |> Path.join(name) |> File.read!() |> Jason.decode!()
+  end
+
   describe "join" do
     test "accepts each role and announces it to the peer" do
       {reply, _infil} = join!("j1", "infiltrator")
@@ -267,6 +277,39 @@ defmodule BurbleWeb.Channels.GameChannelTest do
       assert_reply ref, :error, %{"reason" => reason}
       assert reason =~ "event"
       refute_broadcast "event", _
+    end
+  end
+
+  describe "cross-language fixture pass-through" do
+    test "every fixture Command relays byte-preserving from its allowed seat" do
+      {_reply, infil} = join!("f1", "infiltrator")
+      {_reply, hacker} = join!("f1", "hacker")
+      assert_broadcast "peer_joined", %{"role" => "hacker"}
+
+      for command <- fixture!("commands.json") do
+        sender =
+          case Burble.Games.sender_for(Burble.Games.Idaptik, command["cmd"]) do
+            "infiltrator" -> infil
+            "hacker" -> hacker
+            :either -> hacker
+          end
+
+        ref = push(sender, "command", command)
+        assert_reply ref, :ok, %{"relayed" => true}
+        assert_broadcast "command", ^command
+      end
+    end
+
+    test "every captured Event relays byte-preserving" do
+      {_reply, _infil} = join!("f2", "infiltrator")
+      {_reply, hacker} = join!("f2", "hacker")
+      assert_broadcast "peer_joined", %{"role" => "hacker"}
+
+      for event <- fixture!("events.json") do
+        ref = push(hacker, "event", event)
+        assert_reply ref, :ok, %{"relayed" => true}
+        assert_push "event", ^event
+      end
     end
   end
 end
