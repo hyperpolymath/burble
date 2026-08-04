@@ -7,4 +7,9 @@ Aspirational checklist:
 * [ ] Validate typed-WASM path where it materially improves interop/dependability.
 * [ ] Publish field-deployment evidence for nexus/plexus modes in gameplay contexts.
 
+NOTE: `scripts/vps-bootstrap.sh` (PR #186) is a real, working one-command
+bootstrap for a self-hosted Monarchic-topology instance — infrastructure
+toward eventually gathering this evidence, not the evidence itself. See
+the 2026-08-04 addendum in the linked sitrep. This item stays open.
+
 Reference: link:../../SITREP-2026-04-17-burble-baseline.adoc[2026-04-17 sitrep].
