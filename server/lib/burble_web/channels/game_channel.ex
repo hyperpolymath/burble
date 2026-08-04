@@ -90,6 +90,18 @@ defmodule BurbleWeb.GameChannel do
     {:reply, {:error, %{"reason" => "command payload must be a JSON object"}}, socket}
   end
 
+  # A typed game Event (tagged "event") -> the other seat, verbatim.
+  # Events are produced by the peers' deterministic engines, not authored
+  # by a seat, so both roles may publish them (lockstep cross-feed).
+  def handle_in("event", %{"event" => tag} = payload, socket) when is_binary(tag) do
+    broadcast_from!(socket, "event", payload)
+    {:reply, {:ok, %{"relayed" => true}}, socket}
+  end
+
+  def handle_in("event", _payload, socket) do
+    {:reply, {:error, %{"reason" => "event payload must carry the \"event\" tag"}}, socket}
+  end
+
   @impl true
   def terminate(_reason, socket) do
     if socket.joined do

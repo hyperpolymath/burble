@@ -248,4 +248,25 @@ defmodule BurbleWeb.Channels.GameChannelTest do
       assert_reply ref, :ok, %{"relayed" => true}
     end
   end
+
+  describe "event relay" do
+    test "delivers a typed Event to the other seat verbatim" do
+      {_reply, _infil} = join!("e1", "infiltrator")
+      {_reply, hacker} = join!("e1", "hacker")
+
+      payload = %{"event" => "PivotOpened", "host" => "ops.isp.net", "hops" => 1}
+      ref = push(hacker, "event", payload)
+      assert_reply ref, :ok, %{"relayed" => true}
+      assert_push "event", ^payload
+    end
+
+    test "an untagged event is refused" do
+      {_reply, hacker} = join!("e2", "hacker")
+
+      ref = push(hacker, "event", %{"hops" => 1})
+      assert_reply ref, :error, %{"reason" => reason}
+      assert reason =~ "event"
+      refute_broadcast "event", _
+    end
+  end
 end
