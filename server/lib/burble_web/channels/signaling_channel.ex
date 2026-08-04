@@ -343,11 +343,16 @@ defmodule BurbleWeb.SignalingChannel do
       payload
   end
 
-  # Round-trip integrity check.
+  # Round-trip integrity check — defense in depth.
   #
-  # The generated decoders do NOT detect truncation: a buffer declaring a
-  # uint32-LE string length far beyond its own size decodes to "" instead of
-  # failing (measured 2026-07-28 — a truncated frame would otherwise arrive as
+  # Since 2026-08-04 the generated decoders are STRICT (they raise
+  # Burble.BebopDecodeError on truncated/malformed input; the rescue above
+  # turns that into forward-as-is), so this re-encode comparison is a second,
+  # independent line. It stays because it also catches decode/encode asymmetry
+  # bugs the field-level checks cannot see. Historical context: before the
+  # strictness change, a buffer declaring a uint32-LE string length far beyond
+  # its own size decoded to "" instead of failing (measured 2026-07-28 — a
+  # truncated frame would otherwise arrive as
   # a valid-looking EMPTY SDP offer, which is worse than an obvious error).
   # Re-encoding the decoded value must reproduce the original bytes exactly;
   # anything lossy is rejected and the payload forwarded untouched.
