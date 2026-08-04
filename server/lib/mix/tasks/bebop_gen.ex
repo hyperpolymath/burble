@@ -74,9 +74,9 @@ defmodule Mix.Tasks.Bebop.Generate do
     Enum.each(targets, fn schema_path ->
       Mix.shell().info("Parsing #{schema_path}...")
       source = File.read!(schema_path)
-      ast = parse(source)
+      {ast, docs} = parse(source)
       module_name = module_name_from_path(schema_path)
-      code = generate_module(module_name, schema_path, ast)
+      code = generate_module(module_name, schema_path, ast, docs)
       out_file = Path.join(@output_dir, snake_case(Path.basename(schema_path, ".bop")) <> ".ex")
       File.write!(out_file, code)
       Mix.shell().info("  -> #{out_file}")
@@ -113,6 +113,10 @@ defmodule Mix.Tasks.Bebop.Generate do
   #   {:union, name, variants}
 
   defp parse(source) do
+    # Doc comments (///) are collected BEFORE stripping, keyed by the
+    # declaration they precede — they feed the emitted @moduledoc/@doc.
+    docs = collect_docs(source)
+
     # Strip comments (// to end of line) but preserve string content.
     lines =
       source
@@ -120,7 +124,56 @@ defmodule Mix.Tasks.Bebop.Generate do
       |> Enum.map(&strip_comment/1)
       |> Enum.join("\n")
 
-    parse_top_level(lines, [])
+    {parse_top_level(lines, []), docs}
+  end
+
+  # Collect /// doc-comment blocks, keyed by the name of the enum/struct/
+  # message/union declaration that immediately follows them. Any other
+  # non-doc line (including a blank) resets the pending block, so stray
+  # comments never attach to a distant declaration.
+  defp collect_docs(source) do
+    {map, _pending} =
+      source
+      |> String.split("\n")
+      |> Enum.reduce({%{}, []}, fn raw, {map, pending} ->
+        line = String.trim(raw)
+
+        if String.starts_with?(line, "///") do
+          text = line |> String.replace_prefix("///", "") |> String.trim()
+          {map, pending ++ [text]}
+        else
+          case Regex.run(~r/^(?:enum|struct|message|union)\s+(\w+)/, line) do
+            [_, name] -> {Map.put(map, name, pending), []}
+            nil -> {map, []}
+          end
+        end
+      end)
+
+    map
+  end
+
+  # Normalise a declaration's doc first-line into the wire-table Direction
+  # column ("Client -> Server" / "Server -> Client" / "Bidirectional").
+  defp direction_of(type_name, docs) do
+    case Map.get(docs, type_name) do
+      [first | _] ->
+        cond do
+          String.starts_with?(first, "Client") and String.contains?(first, "Server") ->
+            "Client -> Server"
+
+          String.starts_with?(first, "Server") and String.contains?(first, "Client") ->
+            "Server -> Client"
+
+          String.starts_with?(first, "Bidirectional") ->
+            "Bidirectional"
+
+          true ->
+            "-"
+        end
+
+      _ ->
+        "-"
+    end
   end
 
   # Strip a single-line comment, respecting that we don't have string literals
@@ -314,7 +367,7 @@ defmodule Mix.Tasks.Bebop.Generate do
   # Code generation
   # ---------------------------------------------------------------------------
 
-  defp generate_module(module_name, schema_path, ast) do
+  defp generate_module(module_name, schema_path, ast, docs) do
     # Separate AST nodes by type for organised code generation.
     enums = for {:enum, n, bt, vs} <- ast, do: {:enum, n, bt, vs}
     structs = for {:struct, n, fs} <- ast, do: {:struct, n, fs}
@@ -340,14 +393,25 @@ defmodule Mix.Tasks.Bebop.Generate do
       Bebop encoder/decoder for #{Path.basename(schema_path, ".bop")}.
 
       Auto-generated from `#{schema_path}`. Provides `encode/1` and `decode/1`
-      for the top-level union type(s), plus struct encode/decode helpers.
-      \"\"\"
+      for the top-level union type(s), plus struct/message codec helpers.
+
+      ## Wire format
+
+      - **Strings**: uint32-LE length prefix followed by UTF-8 bytes
+      - **Bool**: one byte, `0` or `1` — any other byte is malformed
+      - **uint8/uint16/uint32**: little-endian; **float32**: IEEE 754 LE
+      - **Union**: 1-byte discriminator tag, then the variant payload
+
+      Decoders are STRICT: truncated or malformed input raises
+      `Burble.BebopDecodeError`. A frame that declares more bytes than it
+      carries is rejected — never silently decoded to empty values.
+    #{gen_union_tables(unions, docs)}  \"\"\"
     """
 
-    enum_code = Enum.map(enums, &gen_enum/1) |> Enum.join("\n")
-    struct_code = Enum.map(structs, &gen_struct_codec(&1, type_map)) |> Enum.join("\n")
-    message_code = Enum.map(messages, &gen_message_codec(&1, type_map)) |> Enum.join("\n")
-    union_code = Enum.map(unions, &gen_union_codec(&1, type_map)) |> Enum.join("\n")
+    enum_code = Enum.map(enums, &gen_enum(&1, docs)) |> Enum.join("\n")
+    struct_code = Enum.map(structs, &gen_struct_codec(&1, type_map, docs)) |> Enum.join("\n")
+    message_code = Enum.map(messages, &gen_message_codec(&1, type_map, docs)) |> Enum.join("\n")
+    union_code = Enum.map(unions, &gen_union_codec(&1, type_map, docs)) |> Enum.join("\n")
 
     primitives = gen_primitives()
 
@@ -355,6 +419,40 @@ defmodule Mix.Tasks.Bebop.Generate do
 
     header <> enum_code <> "\n" <> struct_code <> "\n" <> message_code <> "\n" <>
       union_code <> "\n" <> primitives <> footer
+  end
+
+  # Render one "## <Union> tags" moduledoc table per union, with the Direction
+  # column derived from each variant type's /// doc first line in the schema.
+  # Built by concatenation (not heredoc) so the two-space moduledoc indent is
+  # explicit and the output stays byte-deterministic.
+  defp gen_union_tables([], _docs), do: ""
+
+  defp gen_union_tables(unions, docs) do
+    Enum.map_join(unions, "", fn {:union, name, variants} ->
+      sorted = Enum.sort_by(variants, fn {tag, _, _} -> tag end)
+
+      type_w =
+        sorted |> Enum.map(fn {_, t, _} -> String.length(t) end) |> Enum.max() |> max(7)
+
+      dir_w =
+        sorted
+        |> Enum.map(fn {_, t, _} -> String.length(direction_of(t, docs)) end)
+        |> Enum.max()
+        |> max(9)
+
+      head =
+        "\n  ## #{name} tags\n\n" <>
+          "  Each #{name} message is prefixed with a 1-byte discriminator tag:\n\n" <>
+          "  | Tag | #{String.pad_trailing("Variant", type_w)} | #{String.pad_trailing("Direction", dir_w)} |\n" <>
+          "  |-----|#{String.duplicate("-", type_w + 2)}|#{String.duplicate("-", dir_w + 2)}|\n"
+
+      rows =
+        Enum.map_join(sorted, "", fn {tag, type_name, _var} ->
+          "  | #{String.pad_leading(to_string(tag), 3)} | #{String.pad_trailing(type_name, type_w)} | #{String.pad_trailing(direction_of(type_name, docs), dir_w)} |\n"
+        end)
+
+      head <> rows
+    end)
   end
 
   # Build a map of type_name -> AST node for cross-referencing.
@@ -367,25 +465,52 @@ defmodule Mix.Tasks.Bebop.Generate do
     end)
   end
 
-  # Generate enum encode/decode functions.
-  defp gen_enum({:enum, name, _base_type, variants}) do
+  # Generate enum encode/decode functions: atom->int clauses, then int->atom,
+  # then a guarded catch-all so an unknown wire value is a structured decode
+  # error instead of a bare FunctionClauseError.
+  defp gen_enum({:enum, name, _base_type, variants}, docs) do
     func_name = snake_case(name)
 
-    clauses =
-      Enum.map(variants, fn {vname, val} ->
-        atom_name = snake_case(vname)
-        """
-          def #{func_name}(:#{atom_name}), do: #{val}
-          def #{func_name}(#{val}), do: :#{atom_name}
-        """
-      end)
-      |> Enum.join("")
+    summary =
+      Enum.map_join(variants, ", ", fn {vname, val} -> "#{vname} (#{val})" end)
 
-    "\n  # --- Enum: #{name} ---\n\n" <> clauses
+    to_int =
+      Enum.map_join(variants, "", fn {vname, val} ->
+        "  def #{func_name}(:#{snake_case(vname)}), do: #{val}\n"
+      end)
+
+    to_atom =
+      Enum.map_join(variants, "", fn {vname, val} ->
+        "  def #{func_name}(#{val}), do: :#{snake_case(vname)}\n"
+      end)
+
+    catch_all =
+      "\n  def #{func_name}(other) when is_integer(other) do\n" <>
+        "    raise Burble.BebopDecodeError, \"unknown #{name} value \#{other}\"\n" <>
+        "  end\n"
+
+    banner("Enum: #{name}", docs, name) <>
+      "  @doc \"#{name} enum — #{summary}.\"\n" <>
+      to_int <> to_atom <> catch_all
+  end
+
+  # Section banner in the committed style, carrying the schema's /// doc
+  # first line when one exists.
+  defp banner(title, docs, type_name) do
+    doc_line =
+      case Map.get(docs, type_name) do
+        [first | _] -> "  # #{first}\n"
+        _ -> ""
+      end
+
+    "\n  # " <> String.duplicate("-", 75) <> "\n" <>
+      "  # #{title}\n" <>
+      doc_line <>
+      "  # " <> String.duplicate("-", 75) <> "\n\n"
   end
 
   # Generate struct encode/decode.
-  defp gen_struct_codec({:struct, name, fields}, type_map) do
+  defp gen_struct_codec({:struct, name, fields}, type_map, docs) do
     enc_name = "encode_#{snake_case(name)}"
     dec_name = "decode_#{snake_case(name)}"
 
@@ -412,27 +537,25 @@ defmodule Mix.Tasks.Bebop.Generate do
       "#{sn}: #{sn}"
     end) |> Enum.join(", ")
 
-    """
+    banner("Struct: #{name}", docs, name) <>
+      """
+        @doc "Encode a #{name} struct to Bebop binary."
+        def #{enc_name}(%{#{map_keys}}) do
+          #{enc_parts}
+        end
 
-      # --- Struct: #{name} ---
-
-      @doc "Encode a #{name} struct to Bebop binary."
-      def #{enc_name}(%{#{map_keys}}) do
-        #{enc_parts}
-      end
-
-      @doc "Decode a #{name} struct from Bebop binary. Returns {struct_map, rest}."
-      def #{dec_name}(data) do
-    #{Enum.join(dec_bindings, "\n")}
-        {%{#{result_map}}, #{last_rest}}
-      end
-    """
+        @doc "Decode a #{name} struct from Bebop binary. Returns {struct_map, rest}."
+        def #{dec_name}(data) do
+      #{Enum.join(dec_bindings, "\n")}
+          {%{#{result_map}}, #{last_rest}}
+        end
+      """
   end
 
   # Generate message encode/decode (messages have indexed fields like structs
   # but we treat them identically for wire format since Bebop messages encode
   # fields in index order with no field tags on the wire).
-  defp gen_message_codec({:message, name, fields}, type_map) do
+  defp gen_message_codec({:message, name, fields}, type_map, docs) do
     enc_name = "encode_#{snake_case(name)}"
     dec_name = "decode_#{snake_case(name)}"
 
@@ -460,25 +583,23 @@ defmodule Mix.Tasks.Bebop.Generate do
       "#{sn}: #{sn}"
     end) |> Enum.join(", ")
 
-    """
+    banner("Message: #{name}", docs, name) <>
+      """
+        @doc "Encode a #{name} message to Bebop binary (no discriminator tag)."
+        def #{enc_name}(%{#{map_keys}}) do
+          #{enc_parts}
+        end
 
-      # --- Message: #{name} ---
-
-      @doc "Encode a #{name} message to Bebop binary (no discriminator tag)."
-      def #{enc_name}(%{#{map_keys}}) do
-        #{enc_parts}
-      end
-
-      @doc "Decode a #{name} message from Bebop binary. Returns {msg_map, rest}."
-      def #{dec_name}(data) do
-    #{Enum.join(dec_bindings, "\n")}
-        {%{#{result_map}}, #{last_rest}}
-      end
-    """
+        @doc "Decode a #{name} message from Bebop binary. Returns {msg_map, rest}."
+        def #{dec_name}(data) do
+      #{Enum.join(dec_bindings, "\n")}
+          {%{#{result_map}}, #{last_rest}}
+        end
+      """
   end
 
   # Generate union encode/decode — this is the top-level entry point.
-  defp gen_union_codec({:union, name, variants}, type_map) do
+  defp gen_union_codec({:union, name, variants}, type_map, docs) do
     enc_clauses = Enum.map(variants, fn {tag, type_name, var_name} ->
       atom_name = snake_case(var_name)
       enc_fn = "encode_#{snake_case(type_name)}"
@@ -501,25 +622,22 @@ defmodule Mix.Tasks.Bebop.Generate do
       """
     end) |> Enum.join("\n")
 
-    """
+    banner("Union: #{name} — top-level encode/decode on the discriminator tag", docs, name) <>
+      """
+      #{enc_clauses}
+        def encode({unknown_tag, _msg}) do
+          raise ArgumentError, "Unknown #{name} variant: \#{inspect(unknown_tag)}"
+        end
 
-      # --- Union: #{name} ---
-      # Top-level encode/decode dispatching on discriminator tag.
+      #{dec_clauses}
+        def decode(<<tag::8, _::binary>>) do
+          {:error, "Unknown #{name} discriminator tag: \#{tag}"}
+        end
 
-    #{enc_clauses}
-      def encode({unknown_tag, _msg}) do
-        raise ArgumentError, "Unknown #{name} variant: \#{inspect(unknown_tag)}"
-      end
-
-    #{dec_clauses}
-      def decode(<<tag::8, _::binary>>) do
-        {:error, "Unknown #{name} discriminator tag: \#{tag}"}
-      end
-
-      def decode(<<>>) do
-        {:error, "Empty input — no discriminator tag"}
-      end
-    """
+        def decode(<<>>) do
+          {:error, "Empty input — no discriminator tag"}
+        end
+      """
   end
 
   # ---------------------------------------------------------------------------
@@ -553,23 +671,28 @@ defmodule Mix.Tasks.Bebop.Generate do
   end
 
   # Generate an Elixir binding expression that decodes a single field from binary.
-  # Returns a string like "    {var, rest2} = decode_string(rest1)"
+  # Returns a string like "    {var, rest2} = decode_string(rest1)".
+  #
+  # Every fixed-width field goes through a decode_* helper rather than a bare
+  # binary pattern match: a bare match on truncated input raises MatchError
+  # with no context, while the helpers raise Burble.BebopDecodeError with the
+  # field width and the bytes actually available.
   defp decode_field_expr(type, var, rest_in, rest_out, type_map) do
     case type do
       "string" ->
         "    {#{var}, #{rest_out}} = decode_string(#{rest_in})"
 
       "float32" ->
-        "    <<#{var}::float-little-32, #{rest_out}::binary>> = #{rest_in}"
+        "    {#{var}, #{rest_out}} = decode_float32(#{rest_in})"
 
       "uint8" ->
-        "    <<#{var}::8, #{rest_out}::binary>> = #{rest_in}"
+        "    {#{var}, #{rest_out}} = decode_uint8(#{rest_in})"
 
       "uint16" ->
-        "    <<#{var}::16-little, #{rest_out}::binary>> = #{rest_in}"
+        "    {#{var}, #{rest_out}} = decode_uint16(#{rest_in})"
 
       "uint32" ->
-        "    <<#{var}::32-little, #{rest_out}::binary>> = #{rest_in}"
+        "    {#{var}, #{rest_out}} = decode_uint32(#{rest_in})"
 
       "bool" ->
         "    {#{var}, #{rest_out}} = decode_bool(#{rest_in})"
@@ -579,7 +702,7 @@ defmodule Mix.Tasks.Bebop.Generate do
           Map.has_key?(type_map, other) ->
             case Map.get(type_map, other) do
               {:enum, _, _, _} ->
-                "    <<#{var}_raw::8, #{rest_out}::binary>> = #{rest_in}\n" <>
+                "    {#{var}_raw, #{rest_out}} = decode_uint8(#{rest_in})\n" <>
                   "    #{var} = #{snake_case(other)}(#{var}_raw)"
 
               {:struct, _, _} ->
@@ -599,10 +722,19 @@ defmodule Mix.Tasks.Bebop.Generate do
   end
 
   # Generate the shared primitive encode/decode functions.
+  #
+  # STRICT decoders (A4): every length prefix is bounds-checked against the
+  # bytes actually present, and malformed input raises Burble.BebopDecodeError.
+  # The old lenient behaviour — a truncated string decoding to "" without
+  # consuming anything, a garbage bool byte decoding to false — let a
+  # truncated frame arrive as a valid-looking EMPTY message.
   defp gen_primitives do
     """
 
-      # --- Primitive codecs (Bebop wire format) ---
+      # ---------------------------------------------------------------------------
+      # Primitive codecs (Bebop wire format) — strict: malformed input raises
+      # Burble.BebopDecodeError instead of decoding to a default value.
+      # ---------------------------------------------------------------------------
 
       @doc "Encode a Bebop string: uint32-LE length prefix followed by UTF-8 bytes."
       def encode_string(str) when is_binary(str) do
@@ -610,21 +742,68 @@ defmodule Mix.Tasks.Bebop.Generate do
         <<len::32-little, str::binary>>
       end
 
-      @doc "Decode a Bebop string. Returns {string, remaining_binary}."
+      @doc "Decode a Bebop string. Returns {string, rest}; raises on truncation."
       def decode_string(<<len::32-little, str::binary-size(len), rest::binary>>) do
         {str, rest}
       end
 
-      def decode_string(data), do: {"", data}
+      def decode_string(<<len::32-little, rest::binary>>) do
+        raise Burble.BebopDecodeError,
+              "string length \#{len} exceeds the \#{byte_size(rest)} bytes remaining"
+      end
+
+      def decode_string(data) do
+        raise Burble.BebopDecodeError,
+              "truncated string length prefix: \#{byte_size(data)} of 4 bytes"
+      end
 
       @doc "Encode a boolean as a single byte (0 or 1)."
       def encode_bool(true), do: <<1::8>>
       def encode_bool(false), do: <<0::8>>
 
-      @doc "Decode a boolean from a single byte."
+      @doc "Decode a boolean byte. Only 0 and 1 are valid; anything else raises."
       def decode_bool(<<1::8, rest::binary>>), do: {true, rest}
       def decode_bool(<<0::8, rest::binary>>), do: {false, rest}
-      def decode_bool(<<_::8, rest::binary>>), do: {false, rest}
+
+      def decode_bool(<<other::8, _::binary>>) do
+        raise Burble.BebopDecodeError, "invalid bool byte \#{other} (want 0 or 1)"
+      end
+
+      def decode_bool(<<>>) do
+        raise Burble.BebopDecodeError, "truncated bool: 0 of 1 bytes"
+      end
+
+      @doc "Decode a uint8. Returns {value, rest}; raises on truncation."
+      def decode_uint8(<<v::8, rest::binary>>), do: {v, rest}
+
+      def decode_uint8(data) do
+        raise Burble.BebopDecodeError,
+              "truncated uint8: \#{byte_size(data)} of 1 bytes"
+      end
+
+      @doc "Decode a uint16 (little-endian). Returns {value, rest}; raises on truncation."
+      def decode_uint16(<<v::16-little, rest::binary>>), do: {v, rest}
+
+      def decode_uint16(data) do
+        raise Burble.BebopDecodeError,
+              "truncated uint16: \#{byte_size(data)} of 2 bytes"
+      end
+
+      @doc "Decode a uint32 (little-endian). Returns {value, rest}; raises on truncation."
+      def decode_uint32(<<v::32-little, rest::binary>>), do: {v, rest}
+
+      def decode_uint32(data) do
+        raise Burble.BebopDecodeError,
+              "truncated uint32: \#{byte_size(data)} of 4 bytes"
+      end
+
+      @doc "Decode a float32 (IEEE 754 LE). Returns {value, rest}; raises on truncation. NaN/Inf bit patterns do not match Elixir float segments and are rejected too."
+      def decode_float32(<<v::float-little-32, rest::binary>>), do: {v, rest}
+
+      def decode_float32(data) do
+        raise Burble.BebopDecodeError,
+              "truncated or non-finite float32 (\#{byte_size(data)} bytes available)"
+      end
     """
   end
 

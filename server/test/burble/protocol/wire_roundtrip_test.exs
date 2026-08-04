@@ -16,6 +16,19 @@ defmodule Burble.Protocol.WireRoundtripTest do
 
   alias Burble.Protocol.VoiceSignal
 
+  # A rejection is either a {:error, _} return (union-level contract) or a
+  # Burble.BebopDecodeError raise (field-level contract). Silent defaults —
+  # the old behaviour, where a truncated frame decoded to a valid-looking
+  # EMPTY message — are the bug class the strictness tests keep dead.
+  defp assert_rejected(fun) do
+    case fun.() do
+      {:error, _reason} -> :ok
+      other -> flunk("expected rejection, got: #{inspect(other)}")
+    end
+  rescue
+    Burble.BebopDecodeError -> :ok
+  end
+
   describe "SdpPayload" do
     test "round-trips an ordinary SDP body" do
       original = %{sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\n", media_type: "audio"}
@@ -105,6 +118,77 @@ defmodule Burble.Protocol.WireRoundtripTest do
       a = VoiceSignal.encode_sdp_payload(%{sdp: "offer", media_type: "audio"})
       b = VoiceSignal.encode_sdp_payload(%{sdp: "answer", media_type: "audio"})
       refute a == b
+    end
+  end
+
+  describe "strict decoding (A4 — truncated/malformed input must be REJECTED)" do
+    test "EVERY strict prefix of an encoded union frame is rejected" do
+      frame =
+        VoiceSignal.encode(
+          {:join,
+           %{
+             room_id: "room-abc123",
+             user_id: "user-42",
+             display_name: "Ada",
+             codec: :opus,
+             self_muted: false,
+             position: %{x: 1.5, y: -2.25, z: 0.0}
+           }}
+        )
+
+      full = byte_size(frame)
+      assert full > 10
+
+      for len <- 0..(full - 1) do
+        truncated = binary_part(frame, 0, len)
+        assert_rejected(fn -> VoiceSignal.decode(truncated) end)
+      end
+    end
+
+    test "a declared string length beyond the buffer is rejected (the 4-billion-byte hole)" do
+      # Join frame whose roomId declares 0xFFFFFFFF bytes but carries 3.
+      bogus = <<1::8, 0xFFFFFFFF::32-little, "abc">>
+      assert_rejected(fn -> VoiceSignal.decode(bogus) end)
+
+      assert_raise Burble.BebopDecodeError, ~r/exceeds/, fn ->
+        VoiceSignal.decode_string(<<5::32-little, "abc">>)
+      end
+
+      assert_raise Burble.BebopDecodeError, ~r/truncated string length prefix/, fn ->
+        VoiceSignal.decode_string(<<1, 2>>)
+      end
+    end
+
+    test "a bool byte that is neither 0 nor 1 is rejected, not coerced to false" do
+      assert_raise Burble.BebopDecodeError, ~r/invalid bool byte 7/, fn ->
+        VoiceSignal.decode_bool(<<7, 0>>)
+      end
+
+      assert_raise Burble.BebopDecodeError, ~r/truncated bool/, fn ->
+        VoiceSignal.decode_bool(<<>>)
+      end
+    end
+
+    test "an unknown enum wire value is a structured decode error" do
+      assert_raise Burble.BebopDecodeError, ~r/unknown AudioCodec value 99/, fn ->
+        VoiceSignal.audio_codec(99)
+      end
+
+      assert_raise Burble.BebopDecodeError, ~r/unknown MuteState value 9/, fn ->
+        VoiceSignal.mute_state(9)
+      end
+    end
+
+    test "an unknown union discriminator tag returns {:error, _} (pinned contract)" do
+      assert {:error, _} = VoiceSignal.decode(<<99, 1, 2, 3>>)
+      assert {:error, _} = VoiceSignal.decode(<<>>)
+    end
+
+    test "valid frames still decode after the strictness change (no over-rejection)" do
+      original = %{room_id: "r", user_id: "u", reason: "user"}
+      frame = VoiceSignal.encode({:leave, original})
+      assert {:leave, decoded, <<>>} = VoiceSignal.decode(frame)
+      assert decoded == original
     end
   end
 end
