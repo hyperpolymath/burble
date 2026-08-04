@@ -167,6 +167,36 @@ to any surface above (route removed, schema field repurposed, channel
 topic renamed) require a major-version bump and a `CHANGELOG.md`
 entry under "Protocol".
 
+## Game-session lane (`game:<session_id>`)
+
+The game-session fabric's relay lane (see
+`docs/superpowers/specs/2026-08-04-game-session-fabric-design.md`). One
+topic per session; the two seats exchange their game's typed wire enums
+verbatim. Burble reads only the routing tag and never interprets payloads.
+
+**Join** — params `{"role": <seat>, "game": <game_id>}`; both are
+validated against the registered game profile (`Burble.Games`). Reply:
+`{"role": ..., "game": ...}`. Broadcasts `peer_joined` / `peer_left`
+with `{"role": ...}`. Until the lobby ships, the client names its game
+here; afterwards the session registry is the authority and this param a
+cross-check.
+
+**`command`** — payload is the game's command JSON (tagged `"cmd"`),
+relayed byte-preserving to the other seat minus the optional integer
+`"seq"` envelope key. Authorization is the profile's tag→seat table.
+Replies: `{"relayed": true}` on relay; `{"relayed": false, "reason":
+"stale_or_duplicate"}` when `seq` is not strictly increasing for this
+seat (acknowledged, dropped, not relayed); `{"reason": ...}` errors for
+unknown/untagged/wrong-seat commands.
+
+**`event`** — payload is the game's event JSON (tagged `"event"`),
+relayed verbatim; either seat may publish (the peers' deterministic
+engines produce events, seats do not author them).
+
+**`ping`** — replies `{"pong": true}`.
+
+First registered profile: `idaptik` (roles `infiltrator`/`hacker`).
+
 ## See also
 
 - ADR-0001 — `docs/decisions/0001-adopt-rsr-standard.adoc`
