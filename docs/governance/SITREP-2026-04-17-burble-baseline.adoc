@@ -226,3 +226,26 @@ To challenge incumbents normatively:
 3. Triage `assail` 57 findings into high/medium/low corrective queue.
 4. Start IndieWeb phase-1 implementation from ADR 0002 behind opt-in flags.
 5. Add formal Groove/Gossamer contract conformance tests.
+
+== Addendum (2026-08-04)
+
+`scripts/vps-bootstrap.sh` (PR
+https://github.com/metadatastician/burble/pull/186[#186]) adds a real,
+working interactive bootstrap for a single self-hosted Monarchic-topology
+instance: OS/hardware detection, secrets generation traced to the exact
+`config/runtime.exs` reads, Caddy/Let's-Encrypt or Tailscale-only
+networking, container-stack start via `containers/selur-compose.toml`, and
+a health check before declaring success.
+
+This is a concrete step toward the "Should" item above ("Add deployment
+recipes for monarchic and oligarchic nexus modes" — monarchic now has a
+recipe; oligarchic does not) and toward the open nexus/plexus
+field-deployment-evidence items in this document and
+`docs/governance/planning/aspirational/README.adoc`.
+
+It is **not** that evidence. Per this document's own "Normative Competitive
+Challenge" section, the ask is to "demonstrate active gameplay deployment
+evidence (not only provisioning/configuration use)" — a working bootstrap
+script is provisioning tooling, not a record of an actual gameplay session
+run over it. The nexus/plexus field-deployment-evidence and gameplay
+deployment-evidence checklist items stay open.

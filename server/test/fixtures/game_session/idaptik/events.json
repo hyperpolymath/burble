@@ -1,0 +1,50 @@
+[
+  {
+    "event": "RunStarted",
+    "seed": 123456,
+    "difficulty": "Standard",
+    "reduced_motion": false
+  },
+  {
+    "event": "SeedAnnounced",
+    "seed": 123456
+  },
+  {
+    "event": "UplinkDenied",
+    "kind": "Camera",
+    "reason": "NoRoute"
+  },
+  {
+    "event": "PivotDenied",
+    "host": "jump.grid.local",
+    "reason": "NoRoute"
+  },
+  {
+    "event": "PivotOpened",
+    "host": "ops.isp.net",
+    "hops": 1
+  },
+  {
+    "event": "PivotOpened",
+    "host": "jump.grid.local",
+    "hops": 2
+  },
+  {
+    "event": "PivotClosed",
+    "hops": 1
+  },
+  {
+    "event": "Extracted",
+    "method": "ServiceExit"
+  },
+  {
+    "event": "PhaseChanged",
+    "from": "Quiet",
+    "to": "Result",
+    "reason": null
+  },
+  {
+    "event": "RunEnded",
+    "outcome": "Extracted"
+  }
+]

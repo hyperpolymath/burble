@@ -249,10 +249,11 @@ defmodule BurbleWeb.SignalingChannel do
   # planes coexist during migration and what a second consumer (gossamer)
   # keys off.
   #
-  # Enable with `config :burble, :signaling_wire_format, :bebop` (default
-  # `:json`). Encoding failures fall back to JSON rather than dropping the
-  # message: a signalling plane that loses an offer is worse than one that
-  # sends it in the older format.
+  # `:bebop` is the DEFAULT since 2026-08-04 (criterion (a); its gate,
+  # criterion (b), is satisfied by gossamer's decoder). Opt out with
+  # `config :burble, :signaling_wire_format, :json`. Encoding failures fall
+  # back to JSON rather than dropping the message: a signalling plane that
+  # loses an offer is worse than one that sends it in the older format.
   @spec route_sdp(String.t(), String.t(), String.t(), map(), Phoenix.Socket.t()) ::
           {:noreply, Phoenix.Socket.t()}
   defp route_sdp(type, peer_id, sdp, params, socket) do
@@ -314,7 +315,7 @@ defmodule BurbleWeb.SignalingChannel do
   reaching into application config directly.
   """
   @spec wire_format() :: :json | :bebop
-  def wire_format, do: Application.get_env(:burble, :signaling_wire_format, :json)
+  def wire_format, do: Application.get_env(:burble, :signaling_wire_format, :bebop)
 
   @doc """
   Normalise a routed signalling payload back to a plain `:sdp` string.

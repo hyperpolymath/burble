@@ -18,6 +18,8 @@
 *.scm   text eol=lf
 *.ncl   text eol=lf
 *.nix   text eol=lf
+*.idr   text eol=lf
+*.affine text eol=lf
 
 # Docs
 *.md    text eol=lf diff=markdown
