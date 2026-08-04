@@ -46,12 +46,13 @@ defmodule BurbleWeb.GameChannel do
   end
 
   def join("game:" <> _session_id, params, _socket) do
-    missing =
+    reason =
       ["role", "game"]
-      |> Enum.reject(&Map.has_key?(params, &1))
+      |> Enum.map(&field_problem(params, &1))
+      |> Enum.reject(&is_nil/1)
       |> Enum.join(" and ")
 
-    {:error, %{reason: "join requires #{missing}"}}
+    {:error, %{reason: "join requires #{reason}"}}
   end
 
   @impl true
@@ -129,6 +130,17 @@ defmodule BurbleWeb.GameChannel do
 
   defp command_tag(_payload, _profile),
     do: {:error, "command payload must carry the \"cmd\" tag"}
+
+  # Names what's wrong with a join param: absent, or present but not the
+  # required string type. Returns nil when the field is fine, so the caller
+  # can build a reason listing only the actual offenders.
+  defp field_problem(params, key) do
+    case Map.fetch(params, key) do
+      :error -> key
+      {:ok, value} when is_binary(value) -> nil
+      {:ok, _value} -> "#{key} (must be a string)"
+    end
+  end
 
   defp authorize(tag, socket) do
     role = socket.assigns.role
