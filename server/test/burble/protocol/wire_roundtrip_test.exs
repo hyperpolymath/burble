@@ -101,15 +101,24 @@ defmodule Burble.Protocol.WireRoundtripTest do
       assert_in_delta decoded.position.z, original.position.z, 0.0001
     end
 
-    test "Leave round-trips (reason is a STRING in the schema, not the LeaveReason enum)" do
-      # NOTE: voice_signal.bop declares `3 -> string reason` even though a
-      # LeaveReason enum exists in room_event.bop, and the field comment lists
-      # values ("user"/"kicked"/"timeout") that do not match that enum's
-      # variants. Flagged for the schema owner; this test pins CURRENT
-      # behaviour so a later schema fix is a visible, deliberate wire change.
-      original = %{room_id: "room-abc123", user_id: "user-42", reason: "user"}
-      {decoded, <<>>} = original |> VoiceSignal.encode_leave() |> VoiceSignal.decode_leave()
-      assert decoded == original
+    test "Leave round-trips with the LeaveReason enum (owner ruling A3, 2026-08-04)" do
+      # reason was `string` with free-text values matching nothing; it is now
+      # the LeaveReason enum, value-aligned with room_event.bop. One byte on
+      # the wire instead of a length-prefixed string.
+      for reason <- [:voluntary, :kicked, :banned, :timeout, :server_shutdown] do
+        original = %{room_id: "room-abc123", user_id: "user-42", reason: reason}
+        {decoded, <<>>} = original |> VoiceSignal.encode_leave() |> VoiceSignal.decode_leave()
+        assert decoded == original
+      end
+    end
+
+    test "Leave.reason is one byte on the wire and unknown values are rejected" do
+      bin = VoiceSignal.encode_leave(%{room_id: "r", user_id: "u", reason: :kicked})
+      assert <<1::32-little, "r", 1::32-little, "u", 1::8>> == bin
+
+      assert_raise Burble.BebopDecodeError, ~r/unknown LeaveReason value 9/, fn ->
+        VoiceSignal.decode_leave(<<1::32-little, "r", 1::32-little, "u", 9::8>>)
+      end
     end
   end
 

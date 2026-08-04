@@ -18,10 +18,21 @@ defmodule BurbleWeb.SignalingWireFormatTest do
   end
 
   describe "default plane (criterion (a) requires the DEFAULT path)" do
-    test "the shipped default is :json" do
+    test "the shipped default is :bebop (flipped 2026-08-04, gated on criterion (b))" do
       # config/config.exs pins this. If someone flips the default, this test
-      # fails and forces the change to be deliberate.
+      # fails and forces the change to be deliberate — exactly as it did for
+      # the :json -> :bebop flip itself.
+      assert Application.get_env(:burble, :signaling_wire_format) == :bebop
+      assert SignalingChannel.wire_format() == :bebop
+    end
+
+    test "the code-level fallback matches the shipped default" do
       Application.delete_env(:burble, :signaling_wire_format)
+      assert SignalingChannel.wire_format() == :bebop
+    end
+
+    test "JSON remains an explicit opt-out" do
+      Application.put_env(:burble, :signaling_wire_format, :json)
       assert SignalingChannel.wire_format() == :json
     end
   end
@@ -55,12 +66,13 @@ defmodule BurbleWeb.SignalingWireFormatTest do
     end
 
     test "truncated Bebop binary is forwarded as-is, NOT silently decoded to an empty SDP" do
-      # REGRESSION GUARD. The generated decoders do not detect truncation: this
-      # buffer declares a uint32-LE string length of 4_294_967_295 with one byte
-      # following, and decode_string returns "" rather than failing. Without the
-      # round-trip integrity check in decode_sdp_body/1 a truncated frame would
-      # arrive as a valid-looking EMPTY offer — worse than an obvious error.
-      # Caught by CI on the first run of this suite (2026-07-28).
+      # REGRESSION GUARD, two layers deep since 2026-08-04: the generated
+      # decoders now RAISE Burble.BebopDecodeError on this buffer (it declares
+      # a uint32-LE string length of 4_294_967_295 with one byte following),
+      # and decode_sdp_body's rescue turns that into forward-as-is. Before the
+      # strictness change, decode_string returned "" and only the round-trip
+      # integrity check stood between a truncated frame and a valid-looking
+      # EMPTY offer (caught by CI on this suite's first run, 2026-07-28).
       bad = %{type: "sdp:offer", from: "u1", enc: "bebop", sdp_b64: Base.encode64(<<255, 255, 255, 255, 1>>)}
       assert SignalingChannel.decode_sdp_body(bad) == bad
     end

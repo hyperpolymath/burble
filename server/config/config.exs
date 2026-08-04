@@ -50,15 +50,20 @@ config :phoenix, :json_library, Jason
 
 # Signalling wire format (spline ADR-0005 criterion (a)).
 #
-# :json  — SDP bodies ride as plain strings (the historical plane). DEFAULT.
 # :bebop — SDP bodies ride as base64-wrapped Bebop `SdpPayload` binaries,
-#          announced per-message via the payload's `enc` field.
+#          announced per-message via the payload's `enc` field. DEFAULT.
+# :json  — SDP bodies ride as plain strings (the historical plane; explicit
+#          opt-out, and the automatic fallback when a Bebop encode fails).
 #
-# Kept at :json until the binary plane is proven end-to-end with a second
-# consumer (criterion (b), gossamer). Criterion (a) requires the DEFAULT
-# transport path, so flipping this is a deliberate, reviewable change — not a
-# side effect of enabling something else.
-config :burble, :signaling_wire_format, :json
+# Flipped :json -> :bebop on 2026-08-04 — the deliberate, reviewable change
+# this comment always demanded. Its gate, criterion (b), is satisfied: a
+# second consumer (gossamer, PR #145) parses this plane, validated against
+# the bytes THESE codecs produce; the codecs themselves are strict
+# (truncation rejected, PR #178) and drift-gated byte-identically to the
+# schema (Check B, armed). Decode of either plane is always accepted
+# regardless of this setting, and encode falls back to JSON on error, so the
+# flip is degrade-not-break.
+config :burble, :signaling_wire_format, :bebop
 
 # Email delivery
 config :burble, Burble.Mailer,

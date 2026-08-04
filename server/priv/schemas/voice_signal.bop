@@ -44,6 +44,22 @@ enum DeafenState : uint8 {
   ServerDeafened = 2;
 }
 
+/// Reason a participant left the room. MUST stay value-aligned with the
+/// LeaveReason enum in room_event.bop — the room-event plane reports the same
+/// departure this signal initiates (spline alignment doc tracks the pairing).
+enum LeaveReason : uint8 {
+  /// Voluntary disconnect (user clicked "Leave").
+  Voluntary = 0;
+  /// Kicked by a moderator.
+  Kicked = 1;
+  /// Banned from the room (persisted in VeriSimDB).
+  Banned = 2;
+  /// Connection timeout — no heartbeat for >30 seconds.
+  Timeout = 3;
+  /// Server shutdown — graceful drain.
+  ServerShutdown = 4;
+}
+
 // ---------------------------------------------------------------------------
 // Core data structures
 // ---------------------------------------------------------------------------
@@ -110,8 +126,11 @@ message Join {
 message Leave {
   1 -> string roomId;
   2 -> string userId;
-  /// Reason code — "user" for voluntary, "kicked" for moderation, "timeout".
-  3 -> string reason;
+  /// Why the participant is leaving. Was `string` with free-text values
+  /// ("user"/"kicked"/"timeout") that matched neither this plane nor
+  /// room_event's enum — retyped 2026-08-04 (owner ruling A3) while the
+  /// Bebop plane is default-off and nothing consumes these bytes.
+  3 -> LeaveReason reason;
 }
 
 /// Client → Server: toggle microphone mute.
