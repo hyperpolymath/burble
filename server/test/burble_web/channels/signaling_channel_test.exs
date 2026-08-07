@@ -166,7 +166,18 @@ defmodule BurbleWeb.Channels.SignalingChannelTest do
       sdp = "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\n"
       push(chan, "sdp:offer", %{"to" => peer_id, "sdp" => sdp})
 
-      assert_receive {:signaling_msg, %{type: "sdp:offer", from: ^user_id, sdp: ^sdp}}, 500
+      # The inter-process hop carries BEBOP since the default flip (#180,
+      # spline ADR-0005 criterion (a) — the plane must be the default path,
+      # not an opt-in). This assertion pins that intent: before the flip the
+      # hop carried a plain `sdp` string.
+      assert_receive {:signaling_msg, %{type: "sdp:offer", from: ^user_id} = payload}, 500
+      assert payload.enc == "bebop"
+      assert Map.has_key?(payload, :sdp_b64)
+      refute Map.has_key?(payload, :sdp)
+
+      # ...and the bytes on that hop must still round-trip to the original
+      # SDP. Encoding the plane is only safe if it is lossless.
+      assert %{sdp: ^sdp} = BurbleWeb.SignalingChannel.decode_sdp_body(payload)
 
       leave(chan)
     end
@@ -195,7 +206,11 @@ defmodule BurbleWeb.Channels.SignalingChannelTest do
       sdp = "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\n"
       push(chan, "sdp:answer", %{"to" => peer_id, "sdp" => sdp})
 
-      assert_receive {:signaling_msg, %{type: "sdp:answer", from: ^user_id, sdp: ^sdp}}, 500
+      # Same contract as sdp:offer above — Bebop on the hop since #180, and
+      # the hop's bytes must round-trip losslessly back to the original SDP.
+      assert_receive {:signaling_msg, %{type: "sdp:answer", from: ^user_id} = payload}, 500
+      assert payload.enc == "bebop"
+      assert %{sdp: ^sdp} = BurbleWeb.SignalingChannel.decode_sdp_body(payload)
 
       leave(chan)
     end
@@ -269,6 +284,40 @@ defmodule BurbleWeb.Channels.SignalingChannelTest do
       Phoenix.PubSub.broadcast!(Burble.PubSub, "signaling_peer:#{user_id}", {:signaling_msg, payload})
 
       assert_push "msg", ^payload, 500
+
+      leave(chan)
+    end
+
+    test "a BEBOP payload arriving via PubSub reaches the client DECODED",
+         %{socket: socket, room_id: room_id, user_id: user_id} do
+      # The contract that makes the default flip to :bebop (#180) safe: the
+      # binary plane is an inter-process detail, and the client keeps seeing
+      # a plain `sdp` string. Nothing covered this end-to-end — the sibling
+      # test above sends a JSON payload, which passes through untouched — so
+      # the two hop-level tests could break without anything proving the
+      # client-visible contract still held.
+      {:ok, _reply, chan} = join_signaling(socket, room_id)
+
+      sdp = "v=0\r\no=- 7 7 IN IP4 127.0.0.1\r\n"
+      bin = Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: sdp, media_type: "audio"})
+
+      Phoenix.PubSub.broadcast!(
+        Burble.PubSub,
+        "signaling_peer:#{user_id}",
+        {:signaling_msg,
+         %{
+           type: "sdp:offer",
+           from: "remote-peer",
+           enc: "bebop",
+           sdp_b64: Base.encode64(bin),
+           mediaType: "audio"
+         }}
+      )
+
+      assert_push "msg", pushed, 500
+      assert pushed.sdp == sdp
+      assert pushed.enc == "json", "payloads are normalised for existing clients"
+      refute Map.has_key?(pushed, :sdp_b64)
 
       leave(chan)
     end
