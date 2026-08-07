@@ -277,3 +277,108 @@ dependencies:
         commit: 'sha1-6a1bd70eaac3c8bdf093356838d7ee09fda951cf'
         owner_id: 43724913
         repo_id: 442947557
+    'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae':
+        ref: 'v5.0.5'
+        commit: 'sha1-27d5ce7f107fe9357f9df03efb73ab90386fccae'
+        owner_id: 44036562
+        repo_id: 215566462
+    'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0':
+        ref: 'v7.0.0'
+        commit: 'sha1-9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0'
+        owner_id: 44036562
+        repo_id: 197814629
+    'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd':
+        ref: 'v6.0.2'
+        commit: 'sha1-de0fac2e4500dabe0009e67214ff5f5447ce83dd'
+        owner_id: 44036562
+        repo_id: 197814629
+    'actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd':
+        ref: 'v8.0.0'
+        commit: 'sha1-ed597411d8f924073f98dfc5c65a23a2325f34cd'
+        owner_id: 44036562
+        repo_id: 205262760
+    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a':
+        ref: 'v7.0.1'
+        commit: 'sha1-043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+        owner_id: 44036562
+        repo_id: 192625955
+    'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02':
+        ref: 'v4.6.2'
+        commit: 'sha1-ea165f8d65b6e75b540449e92b4886f43607fa02'
+        owner_id: 44036562
+        repo_id: 192625955
+    'denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282':
+        ref: 'v2.0.4'
+        commit: 'sha1-667a34cdef165d8d2b2e98dde39547c9daac7282'
+        owner_id: 42048915
+        repo_id: 356423100
+    'dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537':
+        ref: 'master'
+        commit: 'sha1-67ef31d5b988238dd797d409d6f9574278e20537'
+        owner_id: 1940490
+        repo_id: 260749683
+    'dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9':
+        ref: 'master'
+        commit: 'sha1-efa25f7f19611383d5b0ccf2d1c8914531636bf9'
+        owner_id: 1940490
+        repo_id: 260749683
+    'editorconfig-checker/action-editorconfig-checker@4b6cd6190d435e7e084fb35e36a096e98506f7b9':
+        ref: 'v2.1.0'
+        commit: 'sha1-4b6cd6190d435e7e084fb35e36a096e98506f7b9'
+        owner_id: 26415196
+        repo_id: 297874902
+    'editorconfig-checker/action-editorconfig-checker@840e866d93b8e032123c23bac69dece044d4d84c':
+        ref: 'v2.2.0'
+        commit: 'sha1-840e866d93b8e032123c23bac69dece044d4d84c'
+        owner_id: 26415196
+        repo_id: 297874902
+    'erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93':
+        ref: 'v1.24.0'
+        commit: 'sha1-fc68ffb90438ef2936bbb3251622353b3dcb2f93'
+        owner_id: 47606891
+        repo_id: 331103973
+    'github/codeql-action@0d579ffd059c29b07949a3cce3983f0780820c98':
+        ref: 'v4.32.6'
+        commit: 'sha1-0d579ffd059c29b07949a3cce3983f0780820c98'
+        owner_id: 9919
+        repo_id: 259445878
+    'github/codeql-action@c6f931105cb2c34c8f901cc885ba1e2e259cf745':
+        ref: 'v4.34.0'
+        commit: 'sha1-c6f931105cb2c34c8f901cc885ba1e2e259cf745'
+        owner_id: 9919
+        repo_id: 259445878
+    'gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e':
+        ref: 'v3.0.0'
+        commit: 'sha1-e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e'
+        owner_id: 90395851
+        repo_id: 242854909
+    'gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7':
+        ref: 'v2.3.9'
+        commit: 'sha1-ff98106e4c7b2bc287b24eaf42907196329070c7'
+        owner_id: 90395851
+        repo_id: 242854909
+    'hyperpolymath/standards@861b5e911d9e5dcfb3c0ab3dd2a9a3c8fd0a1613':
+        ref: 'main'
+        commit: 'sha1-861b5e911d9e5dcfb3c0ab3dd2a9a3c8fd0a1613'
+        owner_id: 6759885
+        repo_id: 1116521501
+    'ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a':
+        ref: 'v2.4.3'
+        commit: 'sha1-4eaacf0543bb3f2c246792bd56e8cdeffafb205a'
+        owner_id: 67707773
+        repo_id: 421101922
+    'trufflesecurity/trufflehog@6c05c4a00b91aa542267d8e32a8254774799d68d':
+        ref: 'v3.93.8'
+        commit: 'sha1-6c05c4a00b91aa542267d8e32a8254774799d68d'
+        owner_id: 79229934
+        repo_id: 77726177
+    'trufflesecurity/trufflehog@d411fff7b8879a62509f3fa98c07f247ac089a51':
+        ref: 'v3.95.5'
+        commit: 'sha1-d411fff7b8879a62509f3fa98c07f247ac089a51'
+        owner_id: 79229934
+        repo_id: 77726177
+    'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555':
+        ref: 'v0.10.0'
+        commit: 'sha1-e83874834305fe9a4a2997156cb26c5de65a8555'
+        owner_id: 135788
+        repo_id: 208510314
