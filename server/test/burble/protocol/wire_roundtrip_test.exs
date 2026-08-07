@@ -194,7 +194,7 @@ defmodule Burble.Protocol.WireRoundtripTest do
     end
 
     test "valid frames still decode after the strictness change (no over-rejection)" do
-      original = %{room_id: "r", user_id: "u", reason: "user"}
+      original = %{room_id: "r", user_id: "u", reason: :voluntary}
       frame = VoiceSignal.encode({:leave, original})
       assert {:leave, decoded, <<>>} = VoiceSignal.decode(frame)
       assert decoded == original
