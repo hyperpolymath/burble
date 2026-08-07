@@ -98,6 +98,28 @@ defmodule Burble.Protocol.VoiceSignal do
 
 
   # ---------------------------------------------------------------------------
+  # Enum: LeaveReason
+  # Reason a participant left the room. MUST stay value-aligned with the
+  # ---------------------------------------------------------------------------
+
+  @doc "LeaveReason enum — Voluntary (0), Kicked (1), Banned (2), Timeout (3), ServerShutdown (4)."
+  def leave_reason(:voluntary), do: 0
+  def leave_reason(:kicked), do: 1
+  def leave_reason(:banned), do: 2
+  def leave_reason(:timeout), do: 3
+  def leave_reason(:server_shutdown), do: 4
+  def leave_reason(0), do: :voluntary
+  def leave_reason(1), do: :kicked
+  def leave_reason(2), do: :banned
+  def leave_reason(3), do: :timeout
+  def leave_reason(4), do: :server_shutdown
+
+  def leave_reason(other) when is_integer(other) do
+    raise Burble.BebopDecodeError, "unknown LeaveReason value #{other}"
+  end
+
+
+  # ---------------------------------------------------------------------------
   # Struct: Vec3
   # Spatial position for 3D positional audio (used by BurbleSpatial extension
   # ---------------------------------------------------------------------------
@@ -197,7 +219,7 @@ defmodule Burble.Protocol.VoiceSignal do
   def encode_leave(%{room_id: room_id, user_id: user_id, reason: reason}) do
     encode_string(room_id) <>
       encode_string(user_id) <>
-      encode_string(reason)
+      <<leave_reason(reason)::8>>
   end
 
   @doc "Decode a Leave message from Bebop binary. Returns {msg_map, rest}."
