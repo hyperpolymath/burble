@@ -27,7 +27,7 @@ Severity is about **consequence if left alone**, not effort.
 
 | Domain | Items | HIGH |
 |---|---|---|
-| Build | 1 | 1 |
+| Build | 1 | 0 (resolved) |
 | Supply chain | 4 | 3 |
 | CI/CD | 5 | 3 |
 | Licence | 4 | 3 |
@@ -35,13 +35,13 @@ Severity is about **consequence if left alone**, not effort.
 | Code | 4 | 3 |
 | Proof | 4 | 2 |
 | Test | 3 | 1 |
-| **Total** | **31** | **19** |
+| **Total** | **31** | **18 open + 1 resolved** |
 
 ---
 
 ## Build
 
-### B-1 — `main` did not compile for three days · HIGH · FIX OPEN (#189)
+### B-1 — `main` did not compile for three days · HIGH · RESOLVED 2026-08-07 (#189)
 
 `server/lib/burble/protocol/voice_signal.ex` calls `leave_reason/1` at line 208;
 the function is not defined in the module. The whole Elixir suite dies at
@@ -59,8 +59,11 @@ byte-reading `decode_leave/1`. #179 merged twelve seconds later, before CI
 could report. The module is the *default* signalling plane since #180, so the
 default wire path pointed at code that would not load.
 
-**Next move:** merge #189. The schema and generator were untouched, so
-regeneration reproduces the lost file byte-identically.
+**Resolved.** #189 merged 2026-08-07; the schema and generator were untouched,
+so regeneration reproduced the lost file byte-identically (sha `4d4f5ca7`).
+Verified on `main`: Elixir CI green at `89dde83`, and the armed Check B
+drift gate passes — so the committed codecs are once again exactly what
+`mix bebop.generate` produces.
 
 **Lesson worth keeping:** generated files are the worst possible merge
 conflicts — the resolution *looks* plausible and no human reads 400 lines of
