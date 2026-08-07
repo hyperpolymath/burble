@@ -10,6 +10,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Wire format — Bebop signalling plane (2026-08-04)
+
+- **Bebop is now the DEFAULT signalling wire format** (#180). SDP bodies ride
+  base64-wrapped Bebop `SdpPayload` binaries, announced per-message via the
+  payload's `enc` field. `config :burble, :signaling_wire_format, :json` is the
+  explicit opt-out and remains the automatic fallback when a Bebop encode
+  fails; **decode of both planes is always accepted**, so mixed-version peers
+  keep working, and clients still receive a plain `sdp` string — the binary
+  plane is an inter-process detail. Closes spline ADR-0005 criterion (a).
+- **Generated decoders are now STRICT** (#178). Truncated or malformed input
+  raises `Burble.BebopDecodeError` instead of decoding to a default. The
+  previous behaviour let a truncated frame arrive as a valid-looking *empty*
+  SDP offer: `decode_string`'s catch-all returned `{"", data}` without
+  consuming anything, and a garbage bool byte coerced to `false`. Every length
+  prefix is now bounds-checked.
+- **The codegen drift gate is ARMED** (#178). `mix bebop.generate` emits the
+  documentation that used to be added by hand after generation, so the
+  committed codecs are reproducible output again and
+  `scripts/check-bebop-codegen.sh` Check B enforces byte-identity. Hand-edits
+  to `server/lib/burble/protocol/` now fail the build.
+- **`Leave.reason` is a `LeaveReason` enum, not a free string** (#179).
+  BREAKING on the wire: one byte instead of a uint32-length-prefixed string.
+  Values are aligned with `room_event.bop`'s `LeaveReason`
+  (Voluntary=0, Kicked=1, Banned=2, Timeout=3, ServerShutdown=4); the schema
+  now records that alignment as an obligation. Done while the plane was still
+  default-off and nothing consumed the bytes.
+- **Fixed: `main` did not compile 2026-08-04 → 2026-08-07** (#189). Merge
+  `d865529` resolved a conflict in the *generated* `voice_signal.ex` by mixing
+  both sides, deleting `leave_reason/1` while keeping its call site.
+  Regeneration reproduces the lost file byte-identically. See `DEBT.md` B-1.
+
+### Documentation
+
+- **Added `DEBT.md`** — a measured, root-level debt register across build,
+  supply chain, CI/CD, licence, documentation, code, proof and test. Every item
+  carries the command that produced its evidence; it indexes the existing
+  registers rather than duplicating them.
+- **Removed four unbacked README badges** — "SOC 3 Compliant", "ISO 27001
+  Compliant" and "CIAQ Compliant" linked to a GitHub org *admin* page that
+  404s for non-owners, with no report, auditor or attestation anywhere in the
+  repo; "OpenSSF Best Practices" was a hardcoded green image pointing at the
+  project-creation form under the wrong org. Reasoning retained as a comment
+  in `README.adoc` so they are not silently reinstated. See `DEBT.md` LIC-4.
+
 ### Protocol
 - **BLE presence wire format v1 — FROZEN (ADR-0015).** Three legacy-advertising
   frames (knock `0x11`, presence `0x12`, response `0x13`), one 24-byte payload,
