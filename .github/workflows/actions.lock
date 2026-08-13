@@ -40,7 +40,7 @@ workflows:
     '.github/workflows/instant-sync.yml':
         - 'peter-evans/repository-dispatch@v4.0.1'
     '.github/workflows/mirror.yml':
-        - 'hyperpolymath/standards@d135b05bfc647d0c0fbfedc7e80f37ea50f49236'
+        - 'hyperpolymath/standards@7fdc2705df74b4e352d2a1cde3e87a5923fdf329'
     '.github/workflows/no-js-scan.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/oikosbot.yml':
@@ -72,7 +72,7 @@ workflows:
     '.github/workflows/scorecard.yml':
         - 'hyperpolymath/standards@d7c22711e830e1f383846472f6e9b99debdb201e'
     '.github/workflows/secret-scanner.yml':
-        - 'hyperpolymath/standards@d135b05bfc647d0c0fbfedc7e80f37ea50f49236'
+        - 'hyperpolymath/standards@7fdc2705df74b4e352d2a1cde3e87a5923fdf329'
     '.github/workflows/spark-theatre-gate.yml':
         - 'hyperpolymath/standards@fc7abf589b93f9a33b8af74dbfe98ba22707156f'
     '.github/workflows/static-analysis-gate.yml':
@@ -198,9 +198,9 @@ dependencies:
         commit: 'sha1-bb95ab5063ab9b43a948e21ed8b3fe35b1d1768b'
         owner_id: 6759885
         repo_id: 1274526902
-    'hyperpolymath/standards@d135b05bfc647d0c0fbfedc7e80f37ea50f49236':
-        ref: 'd135b05bfc647d0c0fbfedc7e80f37ea50f49236'
-        commit: 'sha1-d135b05bfc647d0c0fbfedc7e80f37ea50f49236'
+    'hyperpolymath/standards@7fdc2705df74b4e352d2a1cde3e87a5923fdf329':
+        ref: '7fdc2705df74b4e352d2a1cde3e87a5923fdf329'
+        commit: 'sha1-7fdc2705df74b4e352d2a1cde3e87a5923fdf329'
         owner_id: 6759885
         repo_id: 1116521501
         uses:
