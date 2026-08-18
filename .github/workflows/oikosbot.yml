@@ -26,7 +26,7 @@ jobs:
       # pinned has never existed on the package, so the job died at container
       # pull, and the failure was masked. Config comes from .oikos.yml.
       - name: Run OikosBot analysis
-        uses: hyperpolymath/oikosbot@v0.1.0
+        uses: hyperpolymath/oikosbot@v0.1.1
         with:
           mode: report
           path: .
