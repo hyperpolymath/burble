@@ -16,7 +16,7 @@ defmodule BurbleWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]]
 
   socket "/voice", BurbleWeb.UserSocket,
-    websocket: [timeout: :infinity],
+    websocket: [timeout: 300_000, max_frame_size: 16_384],
     longpoll: false
 
   plug Plug.Static,
