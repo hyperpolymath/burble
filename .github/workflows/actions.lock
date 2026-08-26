@@ -6,7 +6,7 @@ workflows:
     '.github/workflows/affinescript-canary.yml':
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
-        - 'ocaml/setup-ocaml@v3.7.1'
+        - 'ocaml/setup-ocaml@v3.7.2'
     '.github/workflows/boj-build.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/casket-pages.yml':
@@ -18,7 +18,7 @@ workflows:
         - 'haskell-actions/setup@v2.12.0'
     '.github/workflows/codeql.yml':
         - 'actions/checkout@v7.0.1'
-        - 'github/codeql-action@v4.37.7'
+        - 'github/codeql-action@v4.37.8'
     '.github/workflows/dogfood-gate.yml':
         - 'actions/checkout@v7.0.1'
         - 'hyperpolymath/a2ml-ecosystem@main'
@@ -28,7 +28,7 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'erlef/setup-beam@v1.24.1'
         - 'mlugg/setup-zig@v2.2.1'
-        - 'taiki-e/install-action@v2.85.13'
+        - 'taiki-e/install-action@v2.86.5'
     '.github/workflows/governance.yml':
         - 'hyperpolymath/standards@d7c22711e830e1f383846472f6e9b99debdb201e'
     '.github/workflows/hypatia-scan.yml':
@@ -45,7 +45,7 @@ workflows:
         - 'actions/checkout@v7.0.1'
     '.github/workflows/oikosbot.yml':
         - 'actions/checkout@v7.0.1'
-        - 'github/codeql-action@v4.37.7'
+        - 'github/codeql-action@v4.37.8'
         - 'hyperpolymath/oikosbot@v0.1.1'
     '.github/workflows/pages.yml':
         - 'actions/checkout@v7.0.1'
@@ -57,7 +57,7 @@ workflows:
         - 'docker/build-push-action@v7.3.0'
         - 'docker/login-action@v4.6.0'
         - 'docker/metadata-action@v6.2.0'
-        - 'docker/setup-buildx-action@v4.2.0'
+        - 'docker/setup-buildx-action@v4.3.0'
     '.github/workflows/push-email-notify.yml':
         - 'dawidd6/action-send-mail@v3.12.0'
     '.github/workflows/release.yml':
@@ -170,7 +170,7 @@ dependencies:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
     'dawidd6/action-send-mail@v3.12.0':
         ref: 'v3.12.0'
-        commit: 'sha1-2e600f3776677e493bf0da7aaec39a586d19a5ed'
+        commit: 'sha1-94de994a9f6fffee200243214e17002e2920bb59'
         owner_id: 9713907
         repo_id: 222439721
     'denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282':
@@ -198,9 +198,9 @@ dependencies:
         commit: 'sha1-dc802804100637a589fabce1cb79ff13a1411302'
         owner_id: 5429470
         repo_id: 306769011
-    'docker/setup-buildx-action@v4.2.0':
-        ref: 'v4.2.0'
-        commit: 'sha1-bb05f3f5519dd87d3ba754cc423b652a5edd6d2c'
+    'docker/setup-buildx-action@v4.3.0':
+        ref: 'v4.3.0'
+        commit: 'sha1-37fe631027851001ddb9b187196cc803df7f5f0e'
         owner_id: 5429470
         repo_id: 288485773
     'dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537':
@@ -243,9 +243,9 @@ dependencies:
         commit: 'sha1-c6f931105cb2c34c8f901cc885ba1e2e259cf745'
         owner_id: 9919
         repo_id: 259445878
-    'github/codeql-action@v4.37.7':
-        ref: 'v4.37.7'
-        commit: 'sha1-ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd'
+    'github/codeql-action@v4.37.8':
+        ref: 'v4.37.8'
+        commit: 'sha1-db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28'
         owner_id: 9919
         repo_id: 259445878
     'gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e':
@@ -342,9 +342,9 @@ dependencies:
         commit: 'sha1-d1434d08867e3ee9daa34448df10607b98908d29'
         owner_id: 7289241
         repo_id: 812112570
-    'ocaml/setup-ocaml@v3.7.1':
-        ref: 'v3.7.1'
-        commit: 'sha1-605a7e998e76e035b82c14d618a6e1010732c4ce'
+    'ocaml/setup-ocaml@v3.7.2':
+        ref: 'v3.7.2'
+        commit: 'sha1-f92e0606b7ae4873dd1238465ea4bf6f8e40d85c'
         owner_id: 1841483
         repo_id: 220799100
     'ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a':
@@ -362,9 +362,9 @@ dependencies:
         commit: 'sha1-3d0d9888cb7fd7b750713d6e236d1fcb99157228'
         owner_id: 2242
         repo_id: 204253808
-    'taiki-e/install-action@v2.85.13':
-        ref: 'v2.85.13'
-        commit: 'sha1-82cd3e7658a6f96c86c0234aeeda1748937cb0a1'
+    'taiki-e/install-action@v2.86.5':
+        ref: 'v2.86.5'
+        commit: 'sha1-ba47c86ac325773530516bb756137ac718732518'
         owner_id: 43724913
         repo_id: 442947557
     'trufflesecurity/trufflehog@6c05c4a00b91aa542267d8e32a8254774799d68d':
