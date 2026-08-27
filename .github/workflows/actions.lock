@@ -39,6 +39,8 @@ workflows:
         - 'actions/checkout@v7.0.1'
     '.github/workflows/instant-sync.yml':
         - 'peter-evans/repository-dispatch@v4.0.1'
+    '.github/workflows/label-triage.yml': []
+    '.github/workflows/labels.yml': []
     '.github/workflows/mirror.yml':
         - 'hyperpolymath/standards@d135b05bfc647d0c0fbfedc7e80f37ea50f49236'
     '.github/workflows/no-js-scan.yml':
