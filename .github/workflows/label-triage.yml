@@ -103,7 +103,14 @@ jobs:
           fi
 
           printf 'applying: %s\n' "${apply[*]}"
-          gh issue edit "$NUM" -R "$GITHUB_REPOSITORY" \
-            $(printf -- '--add-label %q ' "${apply[@]}") \
+          # Build the arguments as an ARRAY. The previous form was an unquoted
+          # command substitution, so the shell re-split its output on spaces and
+          # a label name containing whitespace would arrive as several broken
+          # arguments. No canonical label contains a space today, which is
+          # exactly why this would have failed quietly the first time one did.
+          # (Also clears actionlint SC2046.)
+          edit_args=()
+          for lab in "${apply[@]}"; do edit_args+=(--add-label "$lab"); done
+          gh issue edit "$NUM" -R "$GITHUB_REPOSITORY" "${edit_args[@]}" \
             || echo "label apply failed - not failing the run"
           exit 0

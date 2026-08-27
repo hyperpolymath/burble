@@ -36,6 +36,13 @@ jobs:
       - name: Apply canonical labels
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ⚠ LOAD-BEARING. This workflow deliberately does not check the repo
+          # out (no `uses:`, so no actions.lock entry can drift), which means
+          # `gh label create` / `gh label edit` have no git remote to infer a
+          # target from. Without GH_REPO every mutation fails, and because the
+          # errors used to be discarded the step still exited 0 reporting
+          # "created=0 updated=0" -- a silent, estate-wide no-op.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
           work=$(mktemp -d); PAYLOAD=$work/labels.json
@@ -46,7 +53,7 @@ jobs:
           [ -s "$PAYLOAD" ] || { echo "no .github/labels.json - nothing to do"; exit 0; }
 
           mapfile -t FROZEN < <(jq -r '.frozen[]' "$PAYLOAD")
-          created=0; updated=0; skipped=0
+          created=0; updated=0; skipped=0; failed=0
 
           existing=$(gh api "repos/$GITHUB_REPOSITORY/labels" --paginate \
                        --jq '.[] | [.name, .color, (.description // "")] | @tsv')
@@ -55,20 +62,44 @@ jobs:
             [ -z "$name" ] && continue
             frozen=0
             for f in "${FROZEN[@]}"; do [ "$f" = "$name" ] && frozen=1 && break; done
-            if [ "$frozen" -eq 1 ]; then skipped=$((skipped+1)); continue; fi
 
             cur=$(printf '%s\n' "$existing" | awk -F'\t' -v n="$name" '$1==n{print;exit}')
             if [ -z "$cur" ]; then
-              gh label create "$name" --color "$color" --description "$desc" >/dev/null 2>&1 \
-                && created=$((created+1))
+              # A MISSING label is created even when frozen. "Frozen" protects a
+              # label's DEFINITION from being renamed or recoloured -- it was
+              # never meant to stop the label existing. Skipping creation broke
+              # `security`, the one canonical label that is also frozen: it was
+              # absent from 10 of 12 sampled repos, and label-triage drops any
+              # label the repo does not define, so every `security` finding was
+              # silently discarded estate-wide.
+              if err=$(gh label create "$name" --color "$color" \
+                         --description "$desc" 2>&1 >/dev/null); then
+                created=$((created+1)); sleep 0.4
+              else
+                echo "  create failed: $name -- ${err:-unknown}"; failed=$((failed+1))
+              fi
             else
+              # Present AND frozen: leave it exactly as it is.
+              if [ "$frozen" -eq 1 ]; then skipped=$((skipped+1)); continue; fi
               ccol=$(cut -f2 <<<"$cur"); cdesc=$(cut -f3- <<<"$cur")
               if [ "${ccol,,}" != "${color,,}" ] || [ "$cdesc" != "$desc" ]; then
-                gh label edit "$name" --color "$color" --description "$desc" >/dev/null 2>&1 \
-                  && updated=$((updated+1))
+                if err=$(gh label edit "$name" --color "$color" \
+                           --description "$desc" 2>&1 >/dev/null); then
+                  updated=$((updated+1)); sleep 0.4
+                else
+                  echo "  edit failed: $name -- ${err:-unknown}"; failed=$((failed+1))
+                fi
               fi
             fi
-            sleep 0.4
           done < <(jq -r '.labels[] | [.name, .color, .description] | @tsv' "$PAYLOAD")
 
-          echo "created=$created updated=$updated frozen-skipped=$skipped"
+          echo "created=$created updated=$updated frozen-skipped=$skipped failed=$failed"
+
+          # Fail ONLY on the misconfiguration shape: work was attempted, every
+          # attempt failed. That is the silent-no-op signature. A single flaky
+          # label must not turn the whole estate's CI red.
+          if [ "$failed" -gt 0 ] && [ "$((created + updated))" -eq 0 ]; then
+            echo "every label mutation failed - the sync did nothing. Check GH_REPO and token scope."
+            exit 1
+          fi
+          exit 0
