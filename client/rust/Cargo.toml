@@ -1,0 +1,24 @@
+[package]
+name = "burble-client"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MPL-2.0"
+description = "Embeddable Rust client for Burble game-session channels"
+repository = "https://github.com/hyperpolymath/burble"
+readme = "README.md"
+keywords = ["burble", "phoenix", "websocket", "multiplayer"]
+categories = ["game-development", "network-programming", "web-programming::websocket"]
+
+[dependencies]
+futures-util = "0.3"
+serde_json = "1"
+tokio = { version = "1", features = ["net", "rt", "time"] }
+tokio-tungstenite = "0.30"
+url = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+
+[[example]]
+name = "idaptik_roundtrip"

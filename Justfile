@@ -287,7 +287,11 @@ smoke-deploy:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Run all tests
-test: test-server test-ffi
+test: test-server test-ffi test-rust-client
+
+# Test the embeddable Rust game-session client
+test-rust-client:
+    cargo test --manifest-path client/rust/Cargo.toml
 
 # Run E2E tests (server + client + FFI integration)
 e2e:

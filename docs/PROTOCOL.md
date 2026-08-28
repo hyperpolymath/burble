@@ -24,6 +24,7 @@ Burble exposes three integration surfaces:
 | Wire schemas  | Bebop binary     | Voice signal + room event frames | `server/lib/burble/protocol/`                   |
 | Media plane   | WebRTC SRTP      | E2EE audio frames (SFU-blind)    | `server/lib/burble/media/`                      |
 | BLE presence  | BLE advertising  | Knock/rendezvous + presence beacon (v1 FROZEN) | `server/lib/burble/presence/ble_spa.ex` |
+| Rust client   | Phoenix/WebSocket | Embeddable game-session client   | `client/rust/`                                  |
 
 The SFU **does not decrypt** media: voice frames pass through the media
 plane uninterpreted. The Mumble control-plane bridge (experimental) transcodes
@@ -193,6 +194,12 @@ engines produce events, seats do not author them).
 **`ping`** — replies `{"pong": true}`.
 
 First registered profile: `idaptik` (roles `infiltrator`/`hacker`).
+
+Rust applications can consume this lane through the versioned
+`burble-client` crate in `client/rust/`. `GameClient::join` handles socket
+authentication, Phoenix framing, channel join, reply/broadcast ordering, and
+heartbeats. The low-level text transport is injectable for applications that
+already own their networking runtime.
 
 ## Versioning
 

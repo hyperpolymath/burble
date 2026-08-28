@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requires a superseding ADR + major `@version` bump + a new Protocol entry.
 
 ### Added
+- `burble-client` 1.0.0 (`client/rust/`) — an embeddable Rust client for the
+  non-voice game-session lane. It provides guest/JWT socket authentication,
+  Phoenix V2 framing, typed game broadcasts, command relay outcomes,
+  broadcast buffering, heartbeats, and an injectable text transport. The
+  `idaptik_roundtrip` example proves two real WebSocket seats, role-authorised
+  command relay, sequence-envelope stripping, and duplicate suppression.
 - Real install→activate→stop→uninstall round-trip tests for all three
   service managers (complements the lint-only tests):
   - `tests/install/roundtrip-linux.sh` — `systemctl --user` round-trip.
@@ -105,6 +111,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Triggered on changes to install machinery only.
 
 ### Fixed
+- Elixir CI now installs Mix dependencies before building and testing, so a
+  cold or partial dependency cache cannot fail the job before the suite runs.
+  The same job now executes the `burble-client` tests explicitly.
 - `render_unit` in `scripts/install-service.sh` left `@USER@` in user-mode
   output when the token appeared in comments — caught by
   `tests/install/run.sh`. Now substituted in both modes (the `User=`
