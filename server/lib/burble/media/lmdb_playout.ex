@@ -59,6 +59,8 @@ defmodule Burble.Media.LMDBPlayout do
 
   use GenServer
 
+  alias Burble.Media.LMDBFrameCodec
+
   require Logger
 
   # Module atoms for optional LMDB dependencies — referenced via apply/3
@@ -507,7 +509,7 @@ defmodule Burble.Media.LMDBPlayout do
 
     case result do
       {:ok, value_bin} ->
-        decode_frame(value_bin)
+        LMDBFrameCodec.decode(value_bin)
 
       :not_found ->
         :not_found
@@ -519,24 +521,6 @@ defmodule Burble.Media.LMDBPlayout do
       [{^slot, frame_data}] -> {:ok, frame_data}
       [] -> :not_found
     end
-  end
-
-  # LMDB files are local, but they are persistent input and can be corrupted or
-  # replaced independently of the running BEAM. `:safe` prevents encoded
-  # funs/references/PIDs from being materialised, while the shape check keeps a
-  # malformed term from entering the real-time playout path.
-  defp decode_frame(value_bin) do
-    case :erlang.binary_to_term(value_bin, [:safe]) do
-      {seq, timestamp_us, payload} = frame
-      when is_integer(seq) and seq >= 0 and is_integer(timestamp_us) and timestamp_us >= 0 and
-             is_binary(payload) ->
-        {:ok, frame}
-
-      _other ->
-        :not_found
-    end
-  rescue
-    ArgumentError -> :not_found
   end
 
   # Check if a slot is occupied in the backend.

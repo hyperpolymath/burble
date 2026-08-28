@@ -78,6 +78,8 @@ defmodule Burble.Bridges.Mumble do
   """
 
   use GenServer
+
+  alias Burble.Bridges.MumbleVarint
   require Logger
   import Bitwise
 
@@ -356,7 +358,9 @@ defmodule Burble.Bridges.Mumble do
     host = String.to_charlist(config.mumble_host)
     port = config.mumble_port
 
-    tcp_opts = [:binary, active: true, packet: :raw]
+    # Keep the TCP socket passive until TLS has consumed the handshake bytes;
+    # otherwise they can race into this process's mailbox as {:tcp, ...}.
+    tcp_opts = [:binary, active: false, packet: :raw]
 
     case :gen_tcp.connect(host, port, tcp_opts, 10_000) do
       {:ok, tcp_socket} ->
@@ -378,8 +382,19 @@ defmodule Burble.Bridges.Mumble do
           ] ++ trust_store
 
         case :ssl.connect(tcp_socket, tls_opts, 10_000) do
-          {:ok, ssl_socket} -> {:ok, ssl_socket}
-          {:error, reason} -> {:error, {:tls_upgrade_failed, reason}}
+          {:ok, ssl_socket} ->
+            case :ssl.setopts(ssl_socket, active: true) do
+              :ok ->
+                {:ok, ssl_socket}
+
+              {:error, reason} ->
+                :ssl.close(ssl_socket)
+                {:error, {:tls_activation_failed, reason}}
+            end
+
+          {:error, reason} ->
+            :gen_tcp.close(tcp_socket)
+            {:error, {:tls_upgrade_failed, reason}}
         end
 
       {:error, reason} ->
@@ -442,9 +457,9 @@ defmodule Burble.Bridges.Mumble do
     # sequence number — simplified; production should increment
     base =
       <<type_target::8>> <>
-        encode_varint(session_id || 0) <>
-        encode_varint(0) <>
-        encode_varint(opus_len) <>
+        MumbleVarint.encode(session_id || 0) <>
+        MumbleVarint.encode(0) <>
+        MumbleVarint.encode(opus_len) <>
         opus_frame
 
     case position do
@@ -596,9 +611,9 @@ defmodule Burble.Bridges.Mumble do
     codec_type = type_target >>> 5
 
     if codec_type == @opus_type do
-      {session_id, rest} = decode_varint_value(rest)
-      {_seq, rest} = decode_varint_value(rest)
-      {len_flags, rest} = decode_varint_value(rest)
+      {session_id, rest} = MumbleVarint.decode(rest)
+      {_seq, rest} = MumbleVarint.decode(rest)
+      {len_flags, rest} = MumbleVarint.decode(rest)
       # mask off the last-frame flag bit
       opus_len = len_flags &&& 0x1FFF
 
