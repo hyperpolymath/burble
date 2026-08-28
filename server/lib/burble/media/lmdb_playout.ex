@@ -69,7 +69,8 @@ defmodule Burble.Media.LMDBPlayout do
   # ── Types ──
 
   @typedoc "Audio frame as stored in the ring buffer."
-  @type frame :: {seq :: non_neg_integer(), timestamp_us :: non_neg_integer(), payload :: binary()}
+  @type frame ::
+          {seq :: non_neg_integer(), timestamp_us :: non_neg_integer(), payload :: binary()}
 
   @typedoc "Backend implementation: :lmdb (preferred) or :ets (fallback)."
   @type backend :: :lmdb | :ets
@@ -414,20 +415,22 @@ defmodule Burble.Media.LMDBPlayout do
       cond do
         Code.ensure_loaded?(@exlmdb) ->
           {:ok, env} =
-            apply(@exlmdb, :open, [String.to_charlist(room_dir),
-              [mapsize: map_size,
-              maxdbs: 1,
-              flags: [:nosubdir]]
+            apply(@exlmdb, :open, [
+              String.to_charlist(room_dir),
+              [mapsize: map_size, maxdbs: 1, flags: [:nosubdir]]
             ])
 
           env
 
         Code.ensure_loaded?(@lmdb) ->
           {:ok, env} =
-            apply(@lmdb, :env_open, [String.to_charlist(room_dir), [
-              {:mapsize, map_size},
-              {:maxdbs, 1}
-            ]])
+            apply(@lmdb, :env_open, [
+              String.to_charlist(room_dir),
+              [
+                {:mapsize, map_size},
+                {:maxdbs, 1}
+              ]
+            ])
 
           env
 
@@ -504,8 +507,7 @@ defmodule Burble.Media.LMDBPlayout do
 
     case result do
       {:ok, value_bin} ->
-        frame_data = :erlang.binary_to_term(value_bin)
-        {:ok, frame_data}
+        decode_frame(value_bin)
 
       :not_found ->
         :not_found
@@ -517,6 +519,24 @@ defmodule Burble.Media.LMDBPlayout do
       [{^slot, frame_data}] -> {:ok, frame_data}
       [] -> :not_found
     end
+  end
+
+  # LMDB files are local, but they are persistent input and can be corrupted or
+  # replaced independently of the running BEAM. `:safe` prevents encoded
+  # funs/references/PIDs from being materialised, while the shape check keeps a
+  # malformed term from entering the real-time playout path.
+  defp decode_frame(value_bin) do
+    case :erlang.binary_to_term(value_bin, [:safe]) do
+      {seq, timestamp_us, payload} = frame
+      when is_integer(seq) and seq >= 0 and is_integer(timestamp_us) and timestamp_us >= 0 and
+             is_binary(payload) ->
+        {:ok, frame}
+
+      _other ->
+        :not_found
+    end
+  rescue
+    ArgumentError -> :not_found
   end
 
   # Check if a slot is occupied in the backend.

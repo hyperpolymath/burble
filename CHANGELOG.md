@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Upgraded the vulnerable Hex dependency closure, including Bandit, Phoenix,
+  Plug, Guardian, ex_webrtc, Mint, Req, Protobuf, and Swoosh. Hex now resolves
+  the server without vulnerability or retirement advisories.
+- Mumble bridge TLS now verifies the peer certificate and hostname against the
+  system trust store, with `:tls_ca_certfile` support for private deployments.
+- LMDB audio frames are decoded with Erlang's safe term mode and validated
+  before entering the playout path.
+
 ### Wire format — Bebop signalling plane (2026-08-04)
 
 - **Bebop is now the DEFAULT signalling wire format** (#180). SDP bodies ride
