@@ -67,6 +67,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mix-msquic-v2.3.8-
             ${{ runner.os }}-mix-
+      - name: Install dependencies
+        run: mix deps.get
       - name: Build Zig FFI
         working-directory: ${{ github.workspace }}
         # Re-armed as part of #39 follow-up: the Zig 0.15 / setup-beam
@@ -102,6 +104,9 @@ jobs:
         # circuit-breaker test drift). A failing test turns this job red —
         # this is the CRG grade-C test-pass-evidence artefact (#35/#39).
         run: just test-server
+      - name: Run Rust client tests
+        working-directory: ${{ github.workspace }}
+        run: cargo test --manifest-path client/rust/Cargo.toml
       - name: Bebop codegen gate (generator must run; drift reported)
         working-directory: ${{ github.workspace }}
         # Check A (ARMED): the generator must parse every .bop schema and
