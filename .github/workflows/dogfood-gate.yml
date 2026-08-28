@@ -153,12 +153,40 @@ jobs:
           echo "exit_code=$EL_EXIT" >> "$GITHUB_OUTPUT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
+          # Blocking subset: C0 controls and NUL only (owner ruling 2026-08-28).
+          # Invisible Unicode (NBSP/BOM/zero-width) stays ADVISORY - about 2,100
+          # estate files carry it as legitimate typography in prose.
+          blocking=0
+          while IFS= read -r bf; do
+            [ -z "$bf" ] && continue
+            if grep -qaP '\x00|[\x01-\x08\x0B\x0C\x0E-\x1F]' "$bf"; then
+              blocking=$((blocking+1))
+              echo "::error file=${bf#$GITHUB_WORKSPACE/}::C0 control characters or NUL bytes - file corruption, blocks the gate"
+            fi
+          done < /tmp/empty-lint-results.txt
+          echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
+
           # Emit annotations for each file with invisible chars
           while IFS= read -r filepath; do
             [ -z "$filepath" ] && continue
             REL_PATH="${filepath#$GITHUB_WORKSPACE/}"
             echo "::warning file=${REL_PATH}::Invisible Unicode characters detected (zero-width space, BOM, NBSP, etc.)"
           done < /tmp/empty-lint-results.txt
+
+          # Enforce (owner ruling 2026-08-28): C0/NUL corruption BLOCKS; other
+          # invisible Unicode stays advisory. Enforcement lives inside this step
+          # so a crash above fails the job directly - counts can never arrive
+          # empty into a separate check that then passes silently.
+          if [ "$EL_EXIT" -ne 0 ]; then
+            echo "::warning::invisible-character scan exited $EL_EXIT - results may be incomplete"
+          fi
+          if [ "${blocking:-0}" -gt 0 ]; then
+            echo "## Empty-linter: BLOCKED - $blocking file(s) with C0/NUL corruption" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::$blocking file(s) contain C0 control characters or NUL bytes - corruption, not typography. See file annotations."
+            exit 1
+          elif [ "${FINDINGS:-0}" -gt 0 ]; then
+            echo "::notice::$FINDINGS file(s) carry invisible Unicode (NBSP/BOM/zero-width) - advisory only"
+          fi
 
       - name: Write summary
         run: |
