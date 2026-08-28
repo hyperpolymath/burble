@@ -437,14 +437,6 @@
       "dispatch",
       "self-heal"
     ],
-    "testing": [
-      "fuzz",
-      "bench",
-      "property-based",
-      "coverage",
-      "test suite",
-      "proptest"
-    ],
     "performance": [
       "latency",
       "throughput",
@@ -452,17 +444,6 @@
       "memory",
       "hot path",
       "regression"
-    ],
-    "documentation": [
-      "readme",
-      "adoc",
-      "docs/",
-      "changelog",
-      "explainme",
-      "quickstart",
-      "wiki",
-      "docstring",
-      "doc tree"
     ]
   },
   "keyword_type": {
@@ -491,7 +472,14 @@
       "docs",
       "readme",
       "adoc",
-      "prose"
+      "prose",
+      "docs/",
+      "changelog",
+      "explainme",
+      "quickstart",
+      "wiki",
+      "docstring",
+      "doc tree"
     ],
     "testing": [
       "test",
@@ -502,7 +490,10 @@
       "crash-consistency",
       "linearizability",
       "equivalence",
-      "property-correspondence"
+      "property-correspondence",
+      "property-based",
+      "test suite",
+      "proptest"
     ],
     "bug": [
       "broken",
