@@ -37,6 +37,15 @@ defmodule Burble.Rooms.RoomManagerTest do
     end
   end
 
+  describe "create_adhoc_room/2" do
+    test "uses the canonical room-name generator and starts the room" do
+      assert {:ok, %{id: room_id}} = RoomManager.create_adhoc_room("creator-1", "Tester")
+      assert Burble.RoomNamer.valid_room_name?(room_id)
+      assert [{pid, _}] = Registry.lookup(Burble.RoomRegistry, room_id)
+      assert Process.alive?(pid)
+    end
+  end
+
   describe "list_active_rooms/0" do
     test "includes recently created rooms" do
       room_id = "mgr-list-" <> Base.encode16(:crypto.strong_rand_bytes(4), case: :lower)

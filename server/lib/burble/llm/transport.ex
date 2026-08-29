@@ -4,7 +4,7 @@
 defmodule Burble.LLM.Transport do
   @moduledoc """
   QUIC-based transport for LLM communication with TCP+TLS fallback.
-  
+
   Features:
   - Primary: QUIC (UDP) + TLS 1.3 on port 8503
   - Fallback: TCP + TLS 1.3 on port 8085
@@ -12,7 +12,7 @@ defmodule Burble.LLM.Transport do
   - ALPN protocol negotiation
   - Automatic protocol detection
   """
-  
+
   require Logger
   use GenServer
 
@@ -32,7 +32,7 @@ defmodule Burble.LLM.Transport do
 
   @doc """
   Start the LLM transport manager with redundancy.
-  
+
   Manages a pool of LLM endpoints and automatically fails over
   between them based on health checks and priority.
   """
@@ -87,11 +87,13 @@ defmodule Burble.LLM.Transport do
 
   def handle_cast({:report_failure, host, port}, state) do
     Logger.warning("LLM Endpoint failure reported: #{host}:#{port}")
-    new_endpoints = Enum.map(state.endpoints, fn
-      e when e.host == host and e.port == port -> %{e | status: :offline}
-      e -> e
-    end)
-    
+
+    new_endpoints =
+      Enum.map(state.endpoints, fn
+        e when e.host == host and e.port == port -> %{e | status: :offline}
+        e -> e
+      end)
+
     # Trigger immediate failover
     new_active = select_best_endpoint(new_endpoints)
     {:noreply, %{state | endpoints: new_endpoints, active: new_active}}
@@ -108,9 +110,27 @@ defmodule Burble.LLM.Transport do
 
   defp default_endpoints do
     [
-      %{host: "llm-primary.burble.local", port: @primary_port, priority: 1, protocol: :quic, status: :online},
-      %{host: "llm-backup.burble.local", port: @primary_port, priority: 2, protocol: :quic, status: :online},
-      %{host: "llm-fallback.burble.local", port: @fallback_port, priority: 3, protocol: :tcp, status: :online}
+      %{
+        host: "llm-primary.burble.local",
+        port: @primary_port,
+        priority: 1,
+        protocol: :quic,
+        status: :online
+      },
+      %{
+        host: "llm-backup.burble.local",
+        port: @primary_port,
+        priority: 2,
+        protocol: :quic,
+        status: :online
+      },
+      %{
+        host: "llm-fallback.burble.local",
+        port: @fallback_port,
+        priority: 3,
+        protocol: :tcp,
+        status: :online
+      }
     ]
   end
 
@@ -123,8 +143,12 @@ defmodule Burble.LLM.Transport do
 
   defp check_endpoint_health(endpoint) do
     case :gen_tcp.connect(String.to_charlist(endpoint.host), endpoint.port, [], 2_000) do
-      {:ok, socket} -> :gen_tcp.close(socket); %{endpoint | status: :online}
-      {:error, _} -> %{endpoint | status: :offline}
+      {:ok, socket} ->
+        :gen_tcp.close(socket)
+        %{endpoint | status: :online}
+
+      {:error, _} ->
+        %{endpoint | status: :offline}
     end
   rescue
     _ -> %{endpoint | status: :offline}
@@ -142,7 +166,7 @@ defmodule Burble.LLM.Transport do
   rescue
     _ -> :unavailable
   end
-  
+
   @doc """
   Start QUIC listener with TLS 1.3.
   """
@@ -156,67 +180,72 @@ defmodule Burble.LLM.Transport do
       ipv6: true,
       ipv4: true
     ]
-    
-    case :quicer.listen(port, quic_opts) do
+
+    case apply(:quicer, :listen, [port, quic_opts]) do
       {:ok, listener} ->
         Logger.info("LLM service listening on QUIC port #{port}")
         {:ok, %{protocol: :quic, port: port, listener: listener}}
+
       {:error, reason} ->
         Logger.error("Failed to start QUIC listener: #{inspect(reason)}")
         {:error, reason}
     end
   end
-  
+
   @doc """
   Start TCP+TLS listener as fallback.
   """
   def start_tcp_listener(port) when is_integer(port) do
-    tls_opts = [
+    with :ok <- validate_tls_files(),
+         {:ok, listener} <- :ssl.listen(port, ssl_options()) do
+      Logger.info("LLM service listening on TCP+TLS port #{port}")
+      {:ok, %{protocol: :tcp, port: port, listener: listener}}
+    else
+      {:error, reason} = error ->
+        Logger.error("Failed to start TCP+TLS listener: #{inspect(reason)}")
+        error
+    end
+  end
+
+  @doc false
+  def ssl_options do
+    [
       :binary,
       packet: :raw,
       active: false,
       reuseaddr: true,
-      ipv6: true,
-      ipv4: true,
-      ssl_opts: ssl_options()
-    ]
-    
-    case :gen_tcp.listen(port, tls_opts) do
-      {:ok, listener} ->
-        Logger.info("LLM service listening on TCP+TLS port #{port}")
-        {:ok, %{protocol: :tcp, port: port, listener: listener}}
-      {:error, reason} ->
-        Logger.error("Failed to start TCP listener: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-  
-  defp ssl_options do
-    [
       versions: [:"tlsv1.3"],
-      cacerts: cacert_path(),
+      cacertfile: cacert_path(),
       certfile: cert_path(),
       keyfile: key_path(),
       verify: :verify_peer,
+      fail_if_no_peer_cert: true,
       depth: 3,
-      server_name_indication: :disable,
       alpn_preferred_protocols: @alpn_protocols
     ]
   end
-  
+
   defp cert_path, do: Path.expand("#{:code.priv_dir(:burble)}/ssl/cert.pem")
   defp key_path, do: Path.expand("#{:code.priv_dir(:burble)}/ssl/key.pem")
   defp cacert_path, do: Path.expand("#{:code.priv_dir(:burble)}/ssl/cacert.pem")
-  
+
+  defp validate_tls_files do
+    Enum.find_value([cert_path(), key_path(), cacert_path()], :ok, fn path ->
+      if File.regular?(path), do: false, else: {:error, {:missing_tls_file, path}}
+    end)
+  end
+
   @doc """
   Handle incoming connection.
   """
   def handle_connection(listener, accept_fn) do
-    case :gen_tcp.accept(listener) do
-      {:ok, socket} ->
-        accept_fn.(socket)
+    with {:ok, transport_socket} <- :ssl.transport_accept(listener),
+         {:ok, tls_socket} <- :ssl.handshake(transport_socket) do
+      accept_fn.(tls_socket)
+    else
       {:error, reason} ->
-        Logger.warning("Connection failed: #{inspect(reason)}")
+        Logger.warning("TLS connection failed: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 end

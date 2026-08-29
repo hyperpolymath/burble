@@ -64,9 +64,13 @@ defmodule Burble.Rooms.RoomManager do
   Returns `{:ok, %{id: room_id}}` or `{:error, reason}`.
   """
   def create_adhoc_room(creator_id, creator_name) do
-    room_id = Burble.RoomNamer.generate()
+    room_id = Burble.RoomNamer.generate_room_name()
 
-    case start_room(room_id, server_id: "default", name: "#{creator_name}'s Room", creator_id: creator_id) do
+    case start_room(room_id,
+           server_id: "default",
+           name: "#{creator_name}'s Room",
+           creator_id: creator_id
+         ) do
       {:ok, _pid} -> {:ok, %{id: room_id}}
       {:error, reason} -> {:error, reason}
     end

@@ -28,10 +28,11 @@ defmodule Burble.BoltTest do
       {:ok, target_mac} = Packet.parse_mac("aa:bb:cc:dd:ee:ff")
       {:ok, sender_mac} = Packet.parse_mac("11:22:33:44:55:66")
 
-      binary = Packet.encode(%{"hello" => "world"},
-        target_mac: target_mac,
-        sender_mac: sender_mac
-      )
+      binary =
+        Packet.encode(%{"hello" => "world"},
+          target_mac: target_mac,
+          sender_mac: sender_mac
+        )
 
       assert {:ok, packet} = Packet.decode(binary)
       assert packet.target_mac == target_mac
@@ -158,11 +159,11 @@ defmodule Burble.BoltTest do
     test "sends to loopback without error" do
       # Opens a UDP socket on a random port to receive the bolt
       {:ok, sock} = :gen_udp.open(0, [:binary, active: false])
-      {:ok, port} = :inet.port(sock)
+      {:ok, _port} = :inet.port(sock)
 
       # Send bolt to 127.0.0.1 at the ephemeral port (bypass normal port 7373)
       {:ok, target} = Sender.parse_target("127.0.0.1")
-      result = Sender.send(target, [wol_compat: false, payload: %{"test" => true}])
+      result = Sender.send(target, wol_compat: false, payload: %{"test" => true})
       # We can't easily control the destination port in Sender (it's fixed to 7373),
       # but we verify Sender returns :ok without crashing.
       assert result == :ok or match?({:error, _}, result)
@@ -221,6 +222,22 @@ defmodule Burble.BoltTest do
     end
   end
 
+  describe "Burble.Bolt.Quic.client_connection_options/1" do
+    test "always verifies the peer, even if a caller requests an insecure override" do
+      opts = Quic.client_connection_options(verify: :verify_none)
+
+      assert opts[:verify] == :verify_peer
+      refute opts[:verify] == :verify_none
+    end
+
+    test "passes an explicit trust bundle to quicer" do
+      opts = Quic.client_connection_options(cacertfile: "/run/secrets/bolt-ca.pem")
+
+      assert opts[:cacertfile] == "/run/secrets/bolt-ca.pem"
+      assert opts[:verify] == :verify_peer
+    end
+  end
+
   describe "Burble.Bolt.Sender.send/2 :transport option" do
     test ":udp explicitly forces raw UDP (default behavior, no fallback)" do
       {:ok, target} = Sender.parse_target("127.0.0.1")
@@ -236,6 +253,7 @@ defmodule Burble.BoltTest do
     test ":quic without quicer returns :quicer_not_available, never crashes" do
       unless Quic.available?() do
         {:ok, target} = Sender.parse_target("127.0.0.1")
+
         assert {:error, :quicer_not_available} =
                  Sender.send(target, transport: :quic, wol_compat: false)
       end
