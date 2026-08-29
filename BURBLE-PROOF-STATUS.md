@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Burble Proof Status
 
-**Short version (verified 2026-08-29, Idris2 0.7.0).** **All 9 package
-modules compile and type-check**: `Types`, `Foreign`, `NearbyPresence`,
+**Short version (verified 2026-08-29, Idris2 0.7.0).** **All 10 package
+modules compile and type-check**: the `Burble.ABI` aggregate plus `Types`,
+`Foreign`, `NearbyPresence`,
 `BleSpa`, `WebRTCSignaling`, `MediaPipeline`, `Vext`, `Permissions`, and
 `Avow`. The `BleSpa` constant references were qualified so Idris2 does not
 implicitly rebind their lowercase names. `just build-proofs` succeeds. Per
@@ -13,6 +14,7 @@ Zig/SNIF implementation remains an open proof obligation.
 
 | Module | File |
 |---|---|
+| Aggregate | `src/Burble/ABI.idr` |
 | Types | `src/Burble/ABI/Types.idr` |
 | Foreign | `src/Burble/ABI/Foreign.idr` |
 | NearbyPresence | `src/Burble/ABI/NearbyPresence.idr` |
