@@ -1,11 +1,11 @@
 [package]
 name = "burble-client"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MPL-2.0"
 description = "Embeddable Rust client for Burble game-session channels"
-repository = "https://github.com/hyperpolymath/burble"
+repository = "https://github.com/metadatastician/burble"
 readme = "README.md"
 keywords = ["burble", "phoenix", "websocket", "multiplayer"]
 categories = ["game-development", "network-programming", "web-programming::websocket"]
