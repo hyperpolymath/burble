@@ -72,7 +72,15 @@ defmodule Burble.Security.SDP do
 
   @impl true
   def init(_opts) do
-    Logger.warning("[SDP] Host firewall adapter unavailable; access grants will fail closed")
+    case Burble.Coprocessor.ZigBackend.sdp_firewall_init() do
+      :ok ->
+        Logger.info("[SDP] Isolated host firewall adapter ready")
+
+      {:error, reason} ->
+        Logger.warning(
+          "[SDP] Host firewall adapter unavailable (#{inspect(reason)}); access grants will fail closed"
+        )
+    end
 
     {:ok,
      %{
@@ -134,21 +142,37 @@ defmodule Burble.Security.SDP do
     end
   end
 
-  defp check_policy(_user_id, _port, _state) do
-    # Local check only: allows all ports. VeriSimDB policy lookup not wired.
-    {:ok, :local_check_only}
+  defp check_policy(user_id, port, state) do
+    # Local fallback while VeriSimDB policy lookup is not wired. If a policy is
+    # supplied in state, enforce it rather than silently broadening access.
+    case Map.fetch(state.policies, user_id) do
+      :error ->
+        {:ok, :local_check_only}
+
+      {:ok, %{allowed_ports: allowed_ports}} when is_list(allowed_ports) ->
+        if port in allowed_ports, do: {:ok, :policy_match}, else: {:error, :port_not_allowed}
+
+      {:ok, _invalid_policy} ->
+        {:error, :invalid_policy}
+    end
   end
 
   defp open_firewall_port(ip, port) do
-    _ = {ip, port}
-    {:error, :no_isolated_firewall_adapter}
+    Burble.Coprocessor.ZigBackend.sdp_firewall_authorize(ip, port)
   end
 
   defp close_firewall_ports(ip) do
-    # No rule can have been opened while the adapter is unavailable.
-    _ = ip
-    Logger.debug("[SDP] Closing firewall for #{inspect(ip)}")
-    :ok
+    case Burble.Coprocessor.ZigBackend.sdp_firewall_revoke(ip) do
+      :ok ->
+        :ok
+
+      {:error, :no_isolated_io_adapter} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[SDP] Firewall revocation failed for #{inspect(ip)}: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   defp record_session(state, ip, user_id, port) do
