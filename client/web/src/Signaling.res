@@ -4,31 +4,41 @@
 
 open WebRTC
 
+type response
+type requestInit = {
+  method: string,
+  body: string,
+}
+
+@val external fetch: string => promise<response> = "fetch"
+@val external fetchWithInit: (string, requestInit) => promise<response> = "fetch"
+@send external json: response => promise<'value> = "json"
+
 module Relay = {
   let putOffer = (relay_url, room_id, sdp) => {
     let url = relay_url ++ "/room/" ++ room_id ++ "/offer"
-    %raw(`fetch(url, {
+    fetchWithInit(url, {
       method: "PUT",
-      body: JSON.stringify(sdp)
-    })`)
+      body: JSON.stringifyAny(sdp)->Option.getWithDefault(""),
+    })
   }
 
   let getOffer = (relay_url, room_id) => {
     let url = relay_url ++ "/room/" ++ room_id ++ "/offer"
-    %raw(`fetch(url).then(res => res.json())`)
+    fetch(url)->Promise.then(json)
   }
 
   let putAnswer = (relay_url, room_id, sdp) => {
     let url = relay_url ++ "/room/" ++ room_id ++ "/answer"
-    %raw(`fetch(url, {
+    fetchWithInit(url, {
       method: "PUT",
-      body: JSON.stringify(sdp)
-    })`)
+      body: JSON.stringifyAny(sdp)->Option.getWithDefault(""),
+    })
   }
 
   let getAnswer = (relay_url, room_id) => {
     let url = relay_url ++ "/room/" ++ room_id ++ "/answer"
-    %raw(`fetch(url).then(res => res.json())`)
+    fetch(url)->Promise.then(json)
   }
 }
 

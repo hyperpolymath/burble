@@ -87,7 +87,6 @@ jobs:
             opam switch list || true
             exit 50
           fi
-          opam switch set "$OPAM_SWITCH"
           eval "$(opam env --switch="$OPAM_SWITCH" --set-switch)"
           opam install --yes . --deps-only
           opam exec --switch="$OPAM_SWITCH" -- dune build bin/main.exe

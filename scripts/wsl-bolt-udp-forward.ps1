@@ -25,7 +25,7 @@
 #   .\wsl-bolt-udp-forward.ps1 -Run          # run the relay (foreground, console)
 #   .\wsl-bolt-udp-forward.ps1 -Install      # install as a true Windows Service
 #                                            # (sc.exe + a generated C# host).
-#                                            # Prompts for your password — the
+#                                            # Prompts for your password - the
 #                                            # service runs under YOUR account
 #                                            # so it can see your WSL distro.
 #                                            # MUST run from an elevated shell.
@@ -277,7 +277,7 @@ namespace BurbleBoltForward {
 '@
 
 function Compile-ServiceHost {
-    # Use the .NET Framework 4 in-box C# compiler — it's always at this
+    # Use the .NET Framework 4 in-box C# compiler - it's always at this
     # path on a stock Windows install, no extra tooling needed.
     $cscPaths = @(
         "$env:windir\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
@@ -317,7 +317,7 @@ function Install-Service {
     # If an old install exists (either the scheduled-task variant from a
     # prior version, or a previous service install), remove it first.
     if (Get-Service -Name $script:ServiceName -ErrorAction SilentlyContinue) {
-        Write-Host "[bolt-fwd] existing service found — removing before reinstall."
+        Write-Host "[bolt-fwd] existing service found - removing before reinstall."
         Uninstall-Service -Quiet
     }
     Unregister-ScheduledTask -TaskName $script:ServiceName -Confirm:$false -ErrorAction SilentlyContinue
@@ -342,13 +342,13 @@ function Install-Service {
     } else {
         Write-Host "[bolt-fwd] WSL distros are per-user. The service needs to run under YOUR account"
         Write-Host "           so it can launch wsl.exe and see your distro. New-Service stores the"
-        Write-Host "           password securely via LSA Secrets — you only enter it once."
+        Write-Host "           password securely via LSA Secrets - you only enter it once."
         $cred = Get-Credential -UserName "$env:USERDOMAIN\$env:USERNAME" `
             -Message "Password for $env:USERDOMAIN\$env:USERNAME (so the service can launch wsl.exe as you)"
-        if (-not $cred) { Write-Error "Cancelled — no credential supplied."; exit 1 }
+        if (-not $cred) { Write-Error "Cancelled - no credential supplied."; exit 1 }
     }
 
-    # Grant the service user Modify on the install dir — it lives under
+    # Grant the service user Modify on the install dir - it lives under
     # %ProgramData% which is admin-only by default, but the service runs
     # as a normal user and needs to append to relay.log.
     try {

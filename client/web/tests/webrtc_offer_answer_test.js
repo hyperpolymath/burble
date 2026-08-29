@@ -153,17 +153,17 @@ Deno.test("WebRTC.waitForIceGathering resolves when state transitions to 'comple
 // Data-channel + add-track sanity (the surfaces media negotiation depends on)
 // ---------------------------------------------------------------------------
 
-Deno.test("WebRTC.RTC.createDataChannel records the channel on the peer", () => {
+Deno.test("RTCPeerConnection.createDataChannel records the channel on the peer", () => {
   stubInstances.length = 0;
   const pc = WebRTC.createPC();
-  const dc = WebRTC.RTC.createDataChannel(pc, "control", {});
+  const dc = pc.createDataChannel("control", {});
   assert.strictEqual(dc.label, "control");
   assert.strictEqual(pc._dataChannels.length, 1);
 });
 
-Deno.test("WebRTC.RTC.addTrack is callable without throw", () => {
+Deno.test("RTCPeerConnection.addTrack is callable without throw", () => {
   stubInstances.length = 0;
   const pc = WebRTC.createPC();
   // Track + stream are opaque types in ReScript; pass plain objects.
-  assert.doesNotThrow(() => WebRTC.RTC.addTrack(pc, { kind: "audio" }, { id: "stream-1" }));
+  assert.doesNotThrow(() => pc.addTrack({ kind: "audio" }, { id: "stream-1" }));
 });
