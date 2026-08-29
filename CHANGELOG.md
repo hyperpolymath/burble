@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `burble-client` is now version 2.0.0: caller-supplied `TextTransport`
+  failures retain their typed source in `Error::Transport`. This adds a public
+  error variant and is therefore a deliberate major-version change from 1.0.0.
+
 ### Security
 
 - Upgraded the vulnerable Hex dependency closure, including Bandit, Phoenix,
