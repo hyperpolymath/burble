@@ -137,12 +137,34 @@ defmodule Burble.Coprocessor.ZigBackend do
   @impl true
   def decompress_zstd(compressed), do: ElixirBackend.decompress_zstd(compressed)
 
-  @doc "SNIF cannot perform host firewall I/O; no direct-NIF fallback exists."
-  def sdp_firewall_init, do: {:error, :snif_io_out_of_scope}
+  @doc "Initialise firewall state through the configured isolated I/O adapter."
+  def sdp_firewall_init, do: call_io_adapter(:firewall_init, [])
 
-  @doc "SNIF cannot perform host firewall I/O; no direct-NIF fallback exists."
-  def sdp_firewall_authorize(_ip_tuple, _port), do: {:error, :snif_io_out_of_scope}
+  @doc "Authorise an address through the configured isolated I/O adapter."
+  def sdp_firewall_authorize(ip_tuple, port),
+    do: call_io_adapter(:firewall_authorize, [ip_tuple, port])
 
-  @doc "SNIF cannot perform device I/O; callers must use an isolated OS service."
-  def ptp_read_clock, do: {:error, :snif_io_out_of_scope}
+  @doc "Revoke an address through the configured isolated I/O adapter."
+  def sdp_firewall_revoke(ip_tuple), do: call_io_adapter(:firewall_revoke, [ip_tuple])
+
+  @doc "Read PTP time through the configured isolated I/O adapter."
+  def ptp_read_clock, do: call_io_adapter(:ptp_read_clock, [])
+
+  defp call_io_adapter(function, arguments) do
+    case Application.get_env(:burble, :isolated_io_adapter) do
+      module when is_atom(module) and not is_nil(module) ->
+        if Code.ensure_loaded?(module) and function_exported?(module, function, length(arguments)) do
+          apply(module, function, arguments)
+        else
+          {:error, :invalid_isolated_io_adapter}
+        end
+
+      _ ->
+        {:error, :no_isolated_io_adapter}
+    end
+  rescue
+    exception -> {:error, {:isolated_io_adapter_exception, Exception.message(exception)}}
+  catch
+    kind, reason -> {:error, {:isolated_io_adapter_failure, kind, reason}}
+  end
 end

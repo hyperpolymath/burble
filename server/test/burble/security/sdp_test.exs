@@ -8,11 +8,38 @@
 # installing a rule.
 
 defmodule Burble.Security.SDPTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
+  defmodule TestIOAdapter do
+    @behaviour Burble.Coprocessor.IOAdapter
+
+    @impl true
+    def firewall_init, do: :ok
+
+    @impl true
+    def firewall_authorize(_ip, _port), do: :ok
+
+    @impl true
+    def firewall_revoke(_ip), do: :ok
+
+    @impl true
+    def ptp_read_clock, do: {:ok, 42}
+  end
 
   # Start a fresh, isolated SDP GenServer for each test so tests don't share
   # state and can run concurrently.
   setup do
+    previous_adapter = Application.get_env(:burble, :isolated_io_adapter)
+    Application.delete_env(:burble, :isolated_io_adapter)
+
+    on_exit(fn ->
+      if previous_adapter do
+        Application.put_env(:burble, :isolated_io_adapter, previous_adapter)
+      else
+        Application.delete_env(:burble, :isolated_io_adapter)
+      end
+    end)
+
     # The SDP GenServer is normally registered under its module name globally.
     # We start an unnamed instance to avoid conflicts between async tests.
     {:ok, pid} = GenServer.start_link(Burble.Security.SDP, [])
@@ -64,6 +91,14 @@ defmodule Burble.Security.SDPTest do
 
       assert {:error, :firewall_unavailable} =
                GenServer.call(pid, {:process_spa, "second-packet", ip})
+    end
+
+    test "configured isolated adapter enables a real grant and records its session", %{sdp: pid} do
+      Application.put_env(:burble, :isolated_io_adapter, TestIOAdapter)
+      ip = {10, 0, 0, 43}
+
+      assert :ok = GenServer.call(pid, {:process_spa, "valid-spa-token", ip})
+      assert %{^ip => %{opened_ports: [6473]}} = :sys.get_state(pid).sessions
     end
   end
 
@@ -122,13 +157,18 @@ defmodule Burble.Security.SDPTest do
     end
 
     test "compatibility facade rejects firewall initialisation" do
-      assert {:error, :snif_io_out_of_scope} =
+      assert {:error, :no_isolated_io_adapter} =
                Burble.Coprocessor.ZigBackend.sdp_firewall_init()
     end
 
     test "compatibility facade rejects firewall authorisation" do
-      assert {:error, :snif_io_out_of_scope} =
+      assert {:error, :no_isolated_io_adapter} =
                Burble.Coprocessor.ZigBackend.sdp_firewall_authorize({127, 0, 0, 1}, 6473)
+    end
+
+    test "configured adapter supplies PTP without native code in the BEAM" do
+      Application.put_env(:burble, :isolated_io_adapter, TestIOAdapter)
+      assert {:ok, 42} = Burble.Coprocessor.ZigBackend.ptp_read_clock()
     end
   end
 
@@ -149,7 +189,7 @@ defmodule Burble.Security.SDPTest do
 
     test "module names the isolated firewall-adapter boundary" do
       sdp_source = File.read!(Path.join(__DIR__, "../../../lib/burble/security/sdp.ex"))
-      assert sdp_source =~ "no_isolated_firewall_adapter"
+      assert sdp_source =~ "isolated_io_adapter"
     end
   end
 end
