@@ -46,13 +46,6 @@ defmodule Burble.Coprocessor.ZigBackend do
           [reason, detail]
         )
         :ok
-
-      {:error, reason} ->
-        :logger.warning(
-          ~c"[Coprocessor] Zig NIF unavailable (~p) — falling back to Elixir for all audio",
-          [reason]
-        )
-        :ok
     end
   rescue
     # App not started yet during compilation — skip.

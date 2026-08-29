@@ -74,6 +74,10 @@ defmodule Burble.Coprocessor.ElixirBackendTest do
       {:ok, {ct, iv, tag}} = B.crypto_encrypt_frame("data", key, "aad")
       assert {:error, :decrypt_failed} = B.crypto_decrypt_frame(ct, wrong_key, iv, tag, "aad")
     end
+
+    test "returns an error for an invalid encryption key" do
+      assert {:error, :encrypt_failed} = B.crypto_encrypt_frame("data", <<0>>, "aad")
+    end
   end
 
   describe "crypto_hash_chain/2" do

@@ -724,11 +724,9 @@ defmodule Burble.Bridges.Mumble do
         value
 
       {_field, wire_type, rest} ->
-        skip_field(rest, wire_type)
-        |> case do
-          rest when is_binary(rest) -> decode_varint_field(rest, target_field)
-          _ -> nil
-        end
+        rest
+        |> skip_field(wire_type)
+        |> decode_varint_field(target_field)
     end
   rescue
     _ -> nil
@@ -745,10 +743,9 @@ defmodule Burble.Bridges.Mumble do
         string
 
       {_field, wire_type, rest} ->
-        case skip_field(rest, wire_type) do
-          rest when is_binary(rest) -> decode_string_field(rest, target_field)
-          _ -> nil
-        end
+        rest
+        |> skip_field(wire_type)
+        |> decode_string_field(target_field)
     end
   rescue
     _ -> nil

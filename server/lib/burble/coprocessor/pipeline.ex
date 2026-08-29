@@ -184,25 +184,31 @@ defmodule Burble.Coprocessor.Pipeline do
     case Backend.audio_encode(pcm, config.sample_rate, config.channels, state.current_bitrate) do
       {:ok, encoded} ->
         # Step 5: Encrypt (if E2EE).
-        frame =
+        encrypted =
           if state.e2ee_key do
             aad = state.peer_id
 
             case Backend.crypto_encrypt_frame(encoded, state.e2ee_key, aad) do
-              {:ok, {ct, iv, tag}} -> iv <> tag <> ct
-              {:error, _} -> encoded
+              {:ok, {ct, iv, tag}} -> {:ok, iv <> tag <> ct}
+              {:error, reason} -> {:error, reason}
             end
           else
-            encoded
+            {:ok, encoded}
           end
 
-        new_state = %{
-          state
-          | neural_state: neural_state,
-            frames_processed: state.frames_processed + 1
-        }
+        case encrypted do
+          {:ok, frame} ->
+            new_state = %{
+              state
+              | neural_state: neural_state,
+                frames_processed: state.frames_processed + 1
+            }
 
-        {:reply, {:ok, frame}, new_state}
+            {:reply, {:ok, frame}, new_state}
+
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}

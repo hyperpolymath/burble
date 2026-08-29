@@ -592,7 +592,7 @@ defmodule Burble.Media.LMDBPlayout do
   # ── Private: Naming helpers ──
 
   # Generate a Registry-based via tuple for process naming.
-  @spec via_name(String.t()) :: {:via, Registry, {atom(), String.t()}}
+  @spec via_name(String.t()) :: GenServer.name()
   defp via_name(room_id) do
     {:via, Registry, {Burble.RoomRegistry, {:lmdb_playout, room_id}}}
   end
