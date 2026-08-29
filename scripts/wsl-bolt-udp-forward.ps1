@@ -228,6 +228,112 @@ function Assert-Elevated {
     }
 }
 
+# Windows requires every non-built-in service account to hold
+# SeServiceLogonRight. New-Service records the credential but does not grant
+# that local policy right. Add only that one right through the documented LSA
+# API; do not rewrite the machine's complete user-rights policy.
+$script:ServiceLogonRightsSource = @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+
+public static class BurbleServiceLogonRights {
+    private const uint POLICY_CREATE_ACCOUNT = 0x00000010;
+    private const uint POLICY_LOOKUP_NAMES = 0x00000800;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LSA_OBJECT_ATTRIBUTES {
+        public int Length;
+        public IntPtr RootDirectory;
+        public IntPtr ObjectName;
+        public uint Attributes;
+        public IntPtr SecurityDescriptor;
+        public IntPtr SecurityQualityOfService;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LSA_UNICODE_STRING {
+        public ushort Length;
+        public ushort MaximumLength;
+        public IntPtr Buffer;
+    }
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaOpenPolicy(
+        IntPtr systemName,
+        ref LSA_OBJECT_ATTRIBUTES objectAttributes,
+        uint desiredAccess,
+        out IntPtr policyHandle);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaAddAccountRights(
+        IntPtr policyHandle,
+        IntPtr accountSid,
+        LSA_UNICODE_STRING[] userRights,
+        uint countOfRights);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaNtStatusToWinError(uint status);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaClose(IntPtr policyHandle);
+
+    public static void Grant(string accountName) {
+        var account = new NTAccount(accountName);
+        var sid = (SecurityIdentifier)account.Translate(typeof(SecurityIdentifier));
+        var sidBytes = new byte[sid.BinaryLength];
+        sid.GetBinaryForm(sidBytes, 0);
+
+        var attributes = new LSA_OBJECT_ATTRIBUTES();
+        attributes.Length = Marshal.SizeOf(typeof(LSA_OBJECT_ATTRIBUTES));
+        IntPtr policy;
+        uint status = LsaOpenPolicy(
+            IntPtr.Zero,
+            ref attributes,
+            POLICY_CREATE_ACCOUNT | POLICY_LOOKUP_NAMES,
+            out policy);
+        ThrowIfFailed(status, "LsaOpenPolicy");
+
+        var pinnedSid = GCHandle.Alloc(sidBytes, GCHandleType.Pinned);
+        IntPtr rightBuffer = IntPtr.Zero;
+        try {
+            const string rightName = "SeServiceLogonRight";
+            rightBuffer = Marshal.StringToHGlobalUni(rightName);
+            var right = new LSA_UNICODE_STRING {
+                Length = (ushort)(rightName.Length * 2),
+                MaximumLength = (ushort)((rightName.Length + 1) * 2),
+                Buffer = rightBuffer
+            };
+            status = LsaAddAccountRights(
+                policy,
+                pinnedSid.AddrOfPinnedObject(),
+                new[] { right },
+                1);
+            ThrowIfFailed(status, "LsaAddAccountRights");
+        } finally {
+            if (rightBuffer != IntPtr.Zero) Marshal.FreeHGlobal(rightBuffer);
+            if (pinnedSid.IsAllocated) pinnedSid.Free();
+            LsaClose(policy);
+        }
+    }
+
+    private static void ThrowIfFailed(uint status, string operation) {
+        if (status == 0) return;
+        int error = unchecked((int)LsaNtStatusToWinError(status));
+        throw new Win32Exception(error, operation + " failed");
+    }
+}
+'@
+
+function Grant-ServiceLogonRight {
+    param([Parameter(Mandatory = $true)][string]$AccountName)
+    if (-not ('BurbleServiceLogonRights' -as [type])) {
+        Add-Type -TypeDefinition $script:ServiceLogonRightsSource -Language CSharp
+    }
+    [BurbleServiceLogonRights]::Grant($AccountName)
+}
+
 # C# source for a minimal Windows Service host. Compiled on demand by
 # Compile-ServiceHost using the in-box .NET Framework csc.exe (always
 # present on every Windows 10/11). The service has no .NET Core / Roslyn /
@@ -368,9 +474,9 @@ function Install-Service {
         Write-Warning "Could not adjust ACL on $($script:InstallDir): $($_.Exception.Message)"
     }
 
-    # Grant the account 'Log on as a service' right; New-Service does this
-    # automatically when -Credential is provided on recent Windows, but be
-    # explicit so older builds don't choke.
+    Grant-ServiceLogonRight -AccountName $aclIdentity
+    Write-Host "[bolt-fwd] granted SeServiceLogonRight to $aclIdentity."
+
     New-Service -Name $script:ServiceName `
                 -BinaryPathName "`"$($script:ServiceExe)`"" `
                 -DisplayName $script:ServiceDisp `
