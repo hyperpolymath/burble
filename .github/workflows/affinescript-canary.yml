@@ -43,7 +43,6 @@ jobs:
     name: Compile .affine files (canary)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true # canary: surface failures, do not block merges
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -96,6 +95,7 @@ jobs:
       - name: Compile every .affine file
         if: steps.detect.outputs.count > 0
         id: compile
+        continue-on-error: true # source-parity canary: retain annotations without failing the job
         run: |
           set +e
           failed=0
