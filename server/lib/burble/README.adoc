@@ -7,7 +7,7 @@
 The Burble application's domain logic. Everything that isn't the
 Phoenix web layer (`burble_web/`) lives here: supervision tree,
 business rules, transport, media, persistence, observability, and
-the bridges to NIFs and external services.
+the bridges to SNIF guests and external services.
 
 Boots via `Burble.Application.start/2`. See `application.ex` for the
 top-level supervision tree.
@@ -93,8 +93,9 @@ top-level supervision tree.
   Multi-node clustering glue.
 
 `coprocessor/`::
-  NIF backend dispatch: `ZigBackend` (SIMD), `SNIFBackend`
-  (WASM/wasmex when present), pure-Elixir fallback. `Pipeline`
+  Kernel dispatch: `SNIFBackend` (WASM/wasmex when proved guests are
+  present), pure-Elixir fallback, and a retired-NIF `ZigBackend`
+  compatibility facade. `Pipeline`
   starts a per-peer coprocessor under the
   `Burble.CoprocessorSupervisor`.
 

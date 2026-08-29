@@ -3,7 +3,7 @@
 # SNIF kernel coverage
 # ====================
 #
-# Kernels with SNIF (WASM) coverage — crash-isolated execution:
+# Intended SNIF (WASM) guest coverage; artifacts and buffer ABI proofs remain open:
 #   - dsp_fft          (burble_fft.wasm — "fft" export)
 #   - dsp_ifft         (burble_fft.wasm — "ifft" export)
 #   - audio_noise_gate (burble_noise_gate.wasm — "noise_gate" export)
@@ -21,29 +21,28 @@ defmodule Burble.Coprocessor.SNIFBackend do
   @moduledoc """
   SNIF (Safe Native Implemented Function) backend using WebAssembly for crash-isolated DSP operations.
 
-  This backend provides the same interface as ZigBackend but uses WASM-compiled
-  Zig code via wasmex for memory safety and crash isolation.
+  This backend provides the coprocessor interface through WASM-compiled Zig
+  guests when proved guest artifacts are present. Until then, pure operations
+  use the BEAM reference implementation.
 
   ## Overview
 
-  SNIFs (Safe NIFs) use WebAssembly sandboxing to provide genuine crash isolation
-  for BEAM NIFs. Any crash in a NIF normally kills the entire BEAM VM. SNIFs convert
-  all guest faults into `{:error, reason}` tuples — the BEAM process survives unconditionally.
+  SNIFs (Safe Native Implemented Functions) place pure numeric/buffer kernels
+  behind a WebAssembly boundary. Guest faults are reported as errors instead of
+  executing application-owned native code inside the BEAM.
 
   ## Key Benefits
 
   - **Crash Isolation:** WASM execution errors become `{:error, reason}` tuples
   - **Memory Safety:** Automatic bounds checking prevents memory corruption
-  - **BEAM Survival:** The BEAM process survives all WASM crashes
-  - **Graceful Degradation:** Automatic fallback to Zig NIFs on errors
-  - **Performance:** ~10-15% overhead vs traditional NIFs
+  - **BEAM Survival:** WASM guest faults do not execute in the BEAM address space
+  - **Graceful Degradation:** Pure operations fall back to the BEAM reference
+  - **Explicit readiness:** availability requires both a guest artifact and runtime
 
   ## Architecture
 
   ```
   Elixir → SNIFBackend → WASM → CPU
-          ↓ (fallback)
-       ZigBackend → NIF → CPU
           ↓ (fallback)
        ElixirBackend → BEAM
   ```
@@ -71,12 +70,9 @@ defmodule Burble.Coprocessor.SNIFBackend do
   zig build -Dtarget=wasm32-freestanding -Doptimize=ReleaseSafe
   ```
 
-  ## Performance
-
-  - FFT 256pt: ~25-27µs (vs 22µs NIF) - ~10-15% overhead
-  - FFT 1024pt: ~95-100µs (vs 85µs NIF) - ~10-15% overhead
-  - Memory: ~1MB per WASM instance
-  - Load time: <1ms (cached)
+  The source kernels compile and test in `ReleaseSafe`, but the repository does
+  not yet contain the proved Burble guest artifacts. No production performance
+  claim is made until those artifacts and their benchmark provenance exist.
 
   ## Safety
 
@@ -90,7 +86,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
 
   require Logger
 
-  alias Burble.Coprocessor.ZigBackend
+  alias Burble.Coprocessor.ElixirBackend
 
   # Configuration - paths to WASM modules.
   # Each kernel has its own WASM module so that a missing or corrupt module for
@@ -145,7 +141,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   Burble.Coprocessor.SNIFBackend.available?()
   #=> true (if WASM module exists)
 
-  # Disable SNIF (fallback to Zig NIFs)
+  # Disable SNIF (fallback to the BEAM reference)
   System.put_env("BURBLE_SNIF_PATH", "")
   Burble.Coprocessor.SNIFBackend.available?()
   #=> false
@@ -162,7 +158,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   # Optional WASM runtime. Referenced via apply/3 (see call_snif_module/3)
   # so the compiler does not warn when :wasmex is absent at build time —
   # mirrors the Burble.Bolt.Quic / :quicer pattern (ADR-0004). When absent,
-  # available?/0 is false so every kernel transparently uses ZigBackend.
+  # available?/0 is false so every kernel uses the BEAM reference.
   @wasmex Wasmex
 
   @impl true
@@ -179,8 +175,8 @@ defmodule Burble.Coprocessor.SNIFBackend do
   @doc """
   Computes the Fast Fourier Transform (FFT) using WebAssembly for crash isolation.
 
-  This function first attempts to use the SNIF (WASM) implementation for safety,
-  and automatically falls back to the traditional Zig NIF if the WASM execution fails.
+  This function first attempts the SNIF guest and falls back to the BEAM
+  reference if the guest is unavailable or returns an error.
 
   ## Parameters
 
@@ -190,20 +186,14 @@ defmodule Burble.Coprocessor.SNIFBackend do
   ## Returns
 
   - `{[{real, imag}, ...]}` - List of complex tuples representing frequency bins
-  - Falls back to `ZigBackend.dsp_fft/2` on WASM errors
-
-  ## Performance
-
-  - **SNIF (WASM):** ~25-27µs for 256-point FFT (~10-15% overhead vs NIF)
-  - **Fallback (Zig NIF):** ~22µs for 256-point FFT
-  - **Memory:** ~1MB WASM instance + signal data
+  - Falls back to `ElixirBackend.dsp_fft/2` on WASM errors
 
   ## Safety
 
   - **Crash Isolation:** WASM execution errors become `{:error, reason}` tuples
   - **Memory Safety:** Automatic bounds checking in WASM
   - **BEAM Survival:** BEAM process continues even if WASM crashes
-  - **Graceful Degradation:** Automatic fallback to Zig NIF on errors
+  - **Graceful Degradation:** Automatic fallback to the BEAM reference
 
   ## Examples
 
@@ -219,7 +209,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   #=> [{magnitude, phase}, ...]
 
   # Automatic fallback on WASM errors
-  # If WASM crashes, automatically uses Zig NIF and logs warning
+  # If WASM execution fails, automatically uses the BEAM reference and logs a warning
   ```
 
   ## Implementation Notes
@@ -229,7 +219,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   1. **Input:** Real-valued signal as flat list `[s0, s1, s2, ...]`
   2. **WASM Processing:** In-place FFT on interleaved complex data
   3. **Output:** Complex spectrum as `[{re0, im0}, {re1, im1}, ...]`
-  4. **Fallback:** Zig NIF implementation if WASM fails
+  4. **Fallback:** BEAM reference implementation if WASM fails
 
   ## Error Handling
 
@@ -240,7 +230,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   - `:wasm_load_failed` - WASM module file not found or corrupt
   - `:snif_exception` - Unexpected Elixir-side error
 
-  All errors trigger automatic fallback to ZigBackend with warning logs.
+  All errors trigger automatic fallback to `ElixirBackend` with warning logs.
   """
   @impl true
   def dsp_fft(signal, size) do
@@ -250,8 +240,8 @@ defmodule Burble.Coprocessor.SNIFBackend do
         parse_fft_result(result, size)
 
       {:error, reason} ->
-        Logger.warning("SNIF FFT failed: #{inspect(reason)}, falling back to Zig NIF")
-        ZigBackend.dsp_fft(signal, size)
+        Logger.warning("SNIF FFT failed: #{inspect(reason)}, falling back to the BEAM reference")
+        ElixirBackend.dsp_fft(signal, size)
     end
   end
 
@@ -269,13 +259,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   ## Returns
 
   - `[float()]` - List of real-valued time-domain samples
-  - Falls back to `ZigBackend.dsp_ifft/2` on WASM errors
-
-  ## Performance
-
-  - **SNIF (WASM):** ~25-27µs for 256-point IFFT
-  - **Fallback (Zig NIF):** ~22µs for 256-point IFFT
-  - **Accuracy:** Typically <1e-5 error vs original signal
+  - Falls back to `ElixirBackend.dsp_ifft/2` on WASM errors
 
   ## Examples
 
@@ -300,7 +284,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
   2. **Conversion:** Flatten to `[re0, im0, re1, im1, ...]` for WASM
   3. **WASM Processing:** Conjugate → FFT → Conjugate → Scale
   4. **Output:** Real-valued samples (imaginary parts near zero)
-  5. **Fallback:** Zig NIF implementation if WASM fails
+  5. **Fallback:** BEAM reference implementation if WASM fails
 
   ## Error Handling
 
@@ -314,23 +298,24 @@ defmodule Burble.Coprocessor.SNIFBackend do
         parse_ifft_result(result)
 
       {:error, reason} ->
-        Logger.warning("SNIF IFFT failed: #{inspect(reason)}, falling back to Zig NIF")
-        ZigBackend.dsp_ifft(spectrum, size)
+        Logger.warning("SNIF IFFT failed: #{inspect(reason)}, falling back to the BEAM reference")
+        ElixirBackend.dsp_ifft(spectrum, size)
     end
   end
 
-  # Fallback to ZigBackend for other operations (not yet SNIF-implemented)
+  # Operations without a proved SNIF guest stay on the BEAM reference. They
+  # never fall back to an application-owned in-VM NIF.
   @impl true
   def audio_encode(pcm, sample_rate, channels, bitrate),
-    do: ZigBackend.audio_encode(pcm, sample_rate, channels, bitrate)
+    do: ElixirBackend.audio_encode(pcm, sample_rate, channels, bitrate)
 
   @impl true
   def audio_decode(pcm_frame, sample_rate, channels),
-    do: ZigBackend.audio_decode(pcm_frame, sample_rate, channels)
+    do: ElixirBackend.audio_decode(pcm_frame, sample_rate, channels)
 
   @impl true
   def opus_transcode(pcm_or_opus, sample_rate, channels, bitrate),
-    do: ZigBackend.opus_transcode(pcm_or_opus, sample_rate, channels, bitrate)
+    do: ElixirBackend.opus_transcode(pcm_or_opus, sample_rate, channels, bitrate)
 
   @impl true
   def opus_available?, do: false
@@ -340,7 +325,7 @@ defmodule Burble.Coprocessor.SNIFBackend do
     if available?() do
       snif_noise_gate(pcm, threshold_db)
     else
-      ZigBackend.audio_noise_gate(pcm, threshold_db)
+      ElixirBackend.audio_noise_gate(pcm, threshold_db)
     end
   end
 
@@ -349,95 +334,93 @@ defmodule Burble.Coprocessor.SNIFBackend do
     if available?() do
       snif_echo_cancel(capture, reference, filter_length)
     else
-      ZigBackend.audio_echo_cancel(capture, reference, filter_length)
+      ElixirBackend.audio_echo_cancel(capture, reference, filter_length)
     end
   end
 
   # Operations without a dedicated WASM guest preserve the full Backend
-  # contract by following the documented fallback chain. ZigBackend already
-  # falls through to the pure Elixir reference implementation when its NIF is
-  # absent, so these delegates remain available in every build profile.
+  # contract via the pure Elixir reference implementation.
   @impl true
   def audio_agc(pcm, target_rms_db, attack_ms, release_ms, state),
-    do: ZigBackend.audio_agc(pcm, target_rms_db, attack_ms, release_ms, state)
+    do: ElixirBackend.audio_agc(pcm, target_rms_db, attack_ms, release_ms, state)
 
   @impl true
   def audio_comfort_noise(frame_length, level_db, noise_profile),
-    do: ZigBackend.audio_comfort_noise(frame_length, level_db, noise_profile)
+    do: ElixirBackend.audio_comfort_noise(frame_length, level_db, noise_profile)
 
   @impl true
   def audio_spectral_vad(pcm, sample_rate, state),
-    do: ZigBackend.audio_spectral_vad(pcm, sample_rate, state)
+    do: ElixirBackend.audio_spectral_vad(pcm, sample_rate, state)
 
   @impl true
   def audio_perceptual_weight(magnitudes, sample_rate),
-    do: ZigBackend.audio_perceptual_weight(magnitudes, sample_rate)
+    do: ElixirBackend.audio_perceptual_weight(magnitudes, sample_rate)
 
   @impl true
   def compress_audio_archive(frames, sample_rate, channels),
-    do: ZigBackend.compress_audio_archive(frames, sample_rate, channels)
+    do: ElixirBackend.compress_audio_archive(frames, sample_rate, channels)
 
   @impl true
   def decompress_audio_frame(archive, frame_index),
-    do: ZigBackend.decompress_audio_frame(archive, frame_index)
+    do: ElixirBackend.decompress_audio_frame(archive, frame_index)
 
   @impl true
   def crypto_encrypt_frame(plaintext, key, aad),
-    do: ZigBackend.crypto_encrypt_frame(plaintext, key, aad)
+    do: ElixirBackend.crypto_encrypt_frame(plaintext, key, aad)
 
   @impl true
   def crypto_decrypt_frame(ciphertext, key, iv, tag, aad),
-    do: ZigBackend.crypto_decrypt_frame(ciphertext, key, iv, tag, aad)
+    do: ElixirBackend.crypto_decrypt_frame(ciphertext, key, iv, tag, aad)
 
   @impl true
   def crypto_hash_chain(previous_hash, payload),
-    do: ZigBackend.crypto_hash_chain(previous_hash, payload)
+    do: ElixirBackend.crypto_hash_chain(previous_hash, payload)
 
   @impl true
   def crypto_derive_frame_key(shared_secret, salt, info),
-    do: ZigBackend.crypto_derive_frame_key(shared_secret, salt, info)
+    do: ElixirBackend.crypto_derive_frame_key(shared_secret, salt, info)
 
   @impl true
   def io_jitter_buffer_push(buffer_state, packet, sequence, timestamp),
-    do: ZigBackend.io_jitter_buffer_push(buffer_state, packet, sequence, timestamp)
+    do: ElixirBackend.io_jitter_buffer_push(buffer_state, packet, sequence, timestamp)
 
   @impl true
   def io_conceal_loss(previous_frames, frame_size),
-    do: ZigBackend.io_conceal_loss(previous_frames, frame_size)
+    do: ElixirBackend.io_conceal_loss(previous_frames, frame_size)
 
   @impl true
   def io_adaptive_bitrate(loss_ratio, rtt_ms, current_bitrate),
-    do: ZigBackend.io_adaptive_bitrate(loss_ratio, rtt_ms, current_bitrate)
+    do: ElixirBackend.io_adaptive_bitrate(loss_ratio, rtt_ms, current_bitrate)
 
   @impl true
-  def dsp_convolve(a, b), do: ZigBackend.dsp_convolve(a, b)
+  def dsp_convolve(a, b), do: ElixirBackend.dsp_convolve(a, b)
 
   @impl true
-  def dsp_mix(streams, matrix), do: ZigBackend.dsp_mix(streams, matrix)
+  def dsp_mix(streams, matrix), do: ElixirBackend.dsp_mix(streams, matrix)
 
   @impl true
-  def neural_init_model(sample_rate), do: ZigBackend.neural_init_model(sample_rate)
+  def neural_init_model(sample_rate), do: ElixirBackend.neural_init_model(sample_rate)
 
   @impl true
   def neural_denoise(pcm, sample_rate, model_state),
-    do: ZigBackend.neural_denoise(pcm, sample_rate, model_state)
+    do: ElixirBackend.neural_denoise(pcm, sample_rate, model_state)
 
   @impl true
   def neural_classify_noise(pcm, sample_rate),
-    do: ZigBackend.neural_classify_noise(pcm, sample_rate)
+    do: ElixirBackend.neural_classify_noise(pcm, sample_rate)
 
   @impl true
-  def compress_lz4(data), do: ZigBackend.compress_lz4(data)
+  def compress_lz4(data), do: ElixirBackend.compress_lz4(data)
 
   @impl true
   def decompress_lz4(compressed, original_size),
-    do: ZigBackend.decompress_lz4(compressed, original_size)
+    do: ElixirBackend.decompress_lz4(compressed, original_size)
 
   @impl true
-  def compress_zstd(data, level), do: ZigBackend.compress_zstd(data, level)
+  def compress_zstd(data, level), do: ElixirBackend.compress_zstd(data, level)
 
   @impl true
-  def decompress_zstd(compressed), do: ZigBackend.decompress_zstd(compressed)
+  def decompress_zstd(compressed), do: ElixirBackend.decompress_zstd(compressed)
 
   # ---------------------------------------------------------------------------
   # DSP kernel - noise gate with SNIF
@@ -478,8 +461,11 @@ defmodule Burble.Coprocessor.SNIFBackend do
         result
 
       {:error, reason} ->
-        Logger.warning("SNIF noise_gate failed: #{inspect(reason)}, falling back to Zig NIF")
-        ZigBackend.audio_noise_gate(pcm, threshold_db)
+        Logger.warning(
+          "SNIF noise_gate failed: #{inspect(reason)}, falling back to the BEAM reference"
+        )
+
+        ElixirBackend.audio_noise_gate(pcm, threshold_db)
     end
   end
 
@@ -527,8 +513,11 @@ defmodule Burble.Coprocessor.SNIFBackend do
         result
 
       {:error, reason} ->
-        Logger.warning("SNIF echo_cancel failed: #{inspect(reason)}, falling back to Zig NIF")
-        ZigBackend.audio_echo_cancel(capture, reference, filter_length)
+        Logger.warning(
+          "SNIF echo_cancel failed: #{inspect(reason)}, falling back to the BEAM reference"
+        )
+
+        ElixirBackend.audio_echo_cancel(capture, reference, filter_length)
     end
   end
 

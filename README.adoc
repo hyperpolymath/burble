@@ -130,17 +130,18 @@ to NTP (~1ms) and the PTP hardware path remains **unvalidated**.
 
 == Key Features
 
-**Audio performance** — Zig SIMD coprocessor NIFs deliver 26,350x speedup over
-pure Elixir for LZ4 compression, 62x for echo cancellation, 37x for FFT —
-*as library microbenchmarks*. The live call path forwards opaque Opus and does
-not currently traverse these kernels (they serve self-test and archive paths);
-end-to-end numbers are tracked in issue #52.
+**Audio kernels** — Zig remains the estate-policy implementation language.
+Historical direct-NIF microbenchmarks are retained below as provenance only;
+the direct loader has been retired. Production acceleration now requires proved
+ReleaseSafe WASM guests through SNIF, which are not yet shipped. The live call
+path forwards opaque Opus and does not currently traverse these kernels.
 
 **Precision Time Protocol** — IEEE 1588 PTP clock source detection with
 graceful fallback (PTP hardware → phc2sys → NTP → system). Sub-microsecond
 accuracy when a PTP hardware clock is available; ~1ms via NTP on typical
 deployments. Jitter measurement, telemetry, and multi-node alignment data
-export built in. Hardware clock NIF is a Phase 4 target.
+export built in. Direct in-VM device access is forbidden; a PTP hardware path
+requires an isolated OS service and real-hardware validation.
 
 **Four topology modes** — From single-server (monarchic) to fully distributed
 mesh (serverless with mandatory E2EE). Set `BURBLE_TOPOLOGY` and go.
@@ -195,18 +196,17 @@ for the full package list and per-distro install commands.
 
 [source,bash]
 ----
-# Prerequisites: Elixir 1.17+, Zig 0.15+, Deno
+# Prerequisites: Elixir 1.17+, Zig 0.15+, Bun
 # (plus system packages — see CONTRIBUTING.md)
 
-# Build Zig coprocessor
-cd ffi/zig && zig build -Doptimize=ReleaseFast
-cp zig-out/lib/libburble_coprocessor.so ../../server/priv/
+# Test Zig kernel sources in the estate-required safety mode
+cd ffi/zig && zig build test -Doptimize=ReleaseSafe
 
 # Start server
 cd server && mix deps.get && mix phx.server
 
 # Start web client (separate terminal)
-cd client/web && deno task dev
+cd client/web && bun run dev
 ----
 
 === Run tests
@@ -221,14 +221,15 @@ just bench         # Elixir vs Zig benchmarks
 
 == Coprocessor Benchmarks
 
-SIMD-accelerated audio processing via Zig NIFs. *Honest framing (ADR-0007):
-these are library microbenchmarks of the kernels in isolation — the live SFU
-path forwards opaque Opus RTP and does not execute them. End-to-end
-mic-to-speaker latency is not yet benchmarked (issue #52).*
+The table below is historical direct-NIF benchmark provenance, not a current
+production claim. The direct NIF has been retired; equivalent measurements must
+be reproduced against proved SNIF guests before acceleration is described as
+available. The live SFU path forwards opaque Opus RTP and does not execute these
+kernels. End-to-end latency remains unbenchmarked (ADR-0007; issue #52).
 
 [cols="1,1,1,1"]
 |===
-| Operation | Elixir | Zig NIF | Speedup
+| Operation | Elixir | Retired direct-NIF result | Historical speedup
 
 | LZ4 compress | 83ms | 3.1us | 26,350x
 | Echo cancel | 19.4ms | 310us | 62x

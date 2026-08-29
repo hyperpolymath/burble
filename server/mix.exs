@@ -51,7 +51,8 @@ defmodule Burble.MixProject do
     """
     Voice-first communications server. Self-hostable, E2EE-capable,
     formally verified. WebRTC SFU with SIMD-accelerated coprocessor
-    kernels (Zig NIFs), Vext hash chain integrity, Avow consent
+    kernels (Zig sources, with SNIF guest integration in progress), Vext hash
+    chain integrity, Avow consent
     attestations, and four deployment topologies.
     """
   end
@@ -81,45 +82,45 @@ defmodule Burble.MixProject do
       source_url: @source_url,
       extras: ["../README.adoc", "../SECURITY.md"],
       groups_for_modules: [
-        "Core": [
+        Core: [
           Burble.Application,
           Burble.Store,
           Burble.Topology
         ],
-        "Auth": [
+        Auth: [
           Burble.Auth,
           Burble.Auth.User,
           Burble.Auth.Guardian,
           Burble.Auth.GuardianPipeline,
           Burble.Auth.GuardianErrorHandler
         ],
-        "Media": [
+        Media: [
           Burble.Media.Engine,
           Burble.Media.Peer,
           Burble.Media.Privacy,
           Burble.Media.Recorder
         ],
-        "Coprocessor": [
+        Coprocessor: [
           Burble.Coprocessor.Backend,
           Burble.Coprocessor.ElixirBackend,
           Burble.Coprocessor.ZigBackend,
           Burble.Coprocessor.SmartBackend,
           Burble.Coprocessor.Pipeline
         ],
-        "Verification": [
+        Verification: [
           Burble.Verification.Avow,
           Burble.Verification.Vext
         ],
-        "Text": [
+        Text: [
           Burble.Text.NNTPSBackend
         ],
-        "Bridges": [
+        Bridges: [
           Burble.Bridges.Mumble
         ],
-        "Safety": [
+        Safety: [
           Burble.Safety.ProvenBridge
         ],
-        "Web": [
+        Web: [
           BurbleWeb.Router,
           BurbleWeb.RoomChannel,
           BurbleWeb.UserSocket
@@ -178,8 +179,8 @@ defmodule Burble.MixProject do
       # Persistent store — VeriSimDB client SDK.
       # For Hex: {:verisim_client, "~> 0.1"}
       # For development: path dep to local checkout.
-      {:verisim_client, git: "https://github.com/hyperpolymath/verisimdb.git",
-       sparse: "connectors/clients/elixir"},
+      {:verisim_client,
+       git: "https://github.com/hyperpolymath/verisimdb.git", sparse: "connectors/clients/elixir"},
 
       # Formally verified safety functions (optional — falls back to stdlib).
       # For Hex: {:proven, "~> 0.10", optional: true}
@@ -195,7 +196,7 @@ defmodule Burble.MixProject do
       # Rate limiting
       {:hammer, "~> 6.2"},
 
-      # Optional NIF-backed dependencies — disabled in this build because
+      # Optional native dependencies — disabled in this build because
       # Mix's :optional flag is a parent-application hint, not a skip-if-
       # missing-system-deps flag, and our current host doesn't satisfy
       # their build requirements. Re-enable individually once prerequisites
@@ -204,9 +205,8 @@ defmodule Burble.MixProject do
       #   quicer  — needs msquic (Microsoft QUIC C library)
       #   elmdb   — links liberl_interface which was dropped in OTP 23+
       #   ex_lmdb — depends on elmdb
-      #   wasmex  — Rust NIF (wasmtime); needs a Rust toolchain. SNIF
-      #             (Burble.Coprocessor.SNIFBackend) transparently degrades
-      #             to ZigBackend when absent — available?/0 gates on it.
+      #   wasmex  — SNIF's runtime bridge; needs a Rust toolchain. Burble's
+      #             pure kernels fall back to the BEAM reference when absent.
       #
       # {:quicer, github: "emqx/quic", tag: "0.2.15", submodules: true, optional: true},
       # {:elmdb, "~> 0.4", optional: true},

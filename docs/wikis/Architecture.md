@@ -8,7 +8,9 @@ This is the wiki-level signpost. The canonical, deep architecture doc is [`docs/
 Burble is a self-hostable voice-first platform with three planes:
 
 1. **Control plane** — Elixir / Phoenix (`server/`). Owns rooms, presence, signaling, auth, persistent state.
-2. **Media plane** — Membrane SFU over WebRTC (`server/lib/burble/media/`), with a Zig SIMD NIF for the hot path (`ffi/zig/`).
+2. **Media plane** — WebRTC SFU (`server/lib/burble/media/`). Zig kernel
+   sources live under `ffi/zig/`; eligible acceleration requires proved
+   ReleaseSafe guests through SNIF and currently falls back to the BEAM.
 3. **Discovery plane** — Bolt (UDP 7373 + 9 WoL-poke) for cold "incoming call" notifications, plus the `.well-known/groove` mesh for sibling-service discovery.
 
 The web client (`client/web/`, ReScript → AffineScript migration) joins via signaling and runs entirely in the browser — no native install. A separate **P2P mode** (`p2p-voice.html`) skips the server entirely for two-party calls.
@@ -53,12 +55,9 @@ Strategy: `:one_for_one`. Children that depend on external resources (`Store`, `
                          per-peer pipeline
     raw RTP            ┌──────────────────────────────┐
    ──────────►         │                              │
-                       │  ZigBackend (SIMD NIF)       │
-                       │    ↳ VAD, AGC, denoise,      │
-                       │      resample, mix           │
-                       │                              │
-                       │  fallback: SNIFBackend       │
-                       │    (WASM, crash-isolated)    │
+                       │  SNIFBackend                 │
+                       │    ↳ proved ReleaseSafe      │
+                       │      Zig/WASM guests         │
                        │                              │
                        │  fallback: pure Elixir       │
                        │                              │
@@ -68,7 +67,10 @@ Strategy: `:one_for_one`. Children that depend on external resources (`Store`, `
                               SFU forward
 ```
 
-ABI proofs in `src/Burble/ABI/` document invariants the NIF must preserve. Type-check level today (per [ADR-0008 Option C](https://github.com/hyperpolymath/burble/blob/main/docs/decisions/0008-formal-proof-enforcement-vs-scope.adoc)); runtime enforcement on roadmap.
+ABI proofs in `src/Burble/ABI/` document invariants the Zig/SNIF boundary must
+preserve. They provide type-check-level design assurance today (per
+[ADR-0008 Option C](https://github.com/hyperpolymath/burble/blob/main/docs/decisions/0008-formal-proof-enforcement-vs-scope.adoc)); model-to-runtime conformance is
+still an open obligation.
 
 ## Threat model
 

@@ -93,7 +93,7 @@ pub fn revoke_peer(ip: [4]u8) FirewallError!void {
     return;
 }
 
-/// Verify an SPA (Single Packet Authorisation) *signature* at the NIF level.
+/// Verify an SPA (Single Packet Authorisation) signature in the Zig kernel.
 ///
 /// NOTE: this is the Ed25519 *signature*-based SDP-gateway stub (network layer,
 /// `security/sdp.ex`). It is UNRELATED to `ble_spa_verify` below, which is the

@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
-= ffi/zig — Zig SIMD Coprocessor
+= ffi/zig — Zig Coprocessor Kernels for SNIF
 :toc: preamble
 
 == Purpose
 
-SIMD-accelerated audio processing kernels compiled as Erlang NIFs. The shared library (`libburble_coprocessor.so`) is loaded by `Burble.Coprocessor.ZigBackend` at runtime, providing 6–26 000× speedups over pure Elixir for the hot audio path.
+SIMD-friendly audio processing kernels intended for ReleaseSafe WebAssembly
+guests executed through SNIF. Burble does not build or load an
+application-owned Erlang NIF shared library.
 
 == Key files
 
-`build.zig`:: Zig 0.15 build script. Compiles `src/coprocessor/nif.zig` as a shared library with Erlang NIF headers. The Erlang include path defaults to `/usr/lib/erlang/usr/include` and can be overridden with `-Derl-include=…`. Also wires up the test suite (`zig build test`).
+`build.zig`:: Zig 0.15 kernel test build. It deliberately has no Erlang NIF
+header or shared-library target.
 
 `src/abi.zig`:: Zig mirror of the Idris2 formal proofs in `verification/`. Defines `Result`, `Role`, `SignalingState` enums whose integer values MUST match the proofs in `Burble.ABI.Types` and `Burble.ABI.Permissions`. Includes runtime enforcement functions (`canEscalate`, `isValidTransition`).
 
-`src/ffi.zig`:: Elixir ↔ Zig bridge utilities: term decoding/encoding helpers, binary-to-slice conversions, and NIF environment wrappers.
-
-`src/coprocessor/nif.zig`:: NIF entry point. Exports the NIF function table to Erlang. All exported functions call into the kernel modules below.
+`src/ffi.zig`:: Legacy C-ABI bridge utilities. It is not loaded into the BEAM;
+new BEAM acceleration must use SNIF's numeric/buffer WASM ABI.
 
 `src/coprocessor/audio.zig`:: Echo cancellation, comfort noise injection, and REMB bitrate adaptation. Echo cancel uses a real playback reference (not silence). Benchmarked at 62× faster than pure Elixir.
 
@@ -22,7 +24,9 @@ SIMD-accelerated audio processing kernels compiled as Erlang NIFs. The shared li
 
 `src/coprocessor/compression.zig`:: LZ4 compression for RTP payload compaction. 26 350× speedup over pure Elixir — this is the most extreme case because LZ4 is embarrassingly parallelisable with SIMD.
 
-`src/coprocessor/ptp.zig`:: Zig NIF stub for reading the PTP hardware clock (`/dev/ptp0`). Code-complete but not yet validated against real Intel I210 hardware (see `READINESS.adoc`).
+`src/coprocessor/ptp.zig`:: Host-I/O experiment for reading `/dev/ptp0`.
+SNIF deliberately excludes host I/O, so this is not a SNIF guest and Burble
+does not call it. A future isolated OS service is required.
 
 `src/coprocessor/neural.zig`:: Spectral gating implementation used by the denoiser. Not a TFLite model — pure signal processing.
 
@@ -33,26 +37,26 @@ SIMD-accelerated audio processing kernels compiled as Erlang NIFs. The shared li
 [source,bash]
 ----
 cd ffi/zig
-zig build -Doptimize=ReleaseFast
-cp zig-out/lib/libburble_coprocessor.so ../../server/priv/
+zig build test -Doptimize=ReleaseSafe
 ----
 
 Or via the top-level Justfile:
 
 [source,bash]
 ----
-just build   # builds everything including the NIF
+just build     # verifies kernels and builds the server
 just test-ffi  # runs the Zig test suite
-just bench     # runs Elixir vs Zig benchmarks
+just bench     # benchmark work remains provisional until SNIF guests exist
 ----
 
 == How it fits into the system
 
 ```
 Burble.Coprocessor.SmartBackend (Elixir)
-  └─► detects libburble_coprocessor.so at startup
-  └─► if present: delegates to Burble.Coprocessor.ZigBackend (NIF calls)
-  └─► if absent: falls back to Burble.Coprocessor.ElixirBackend (pure Elixir)
+  ├─► proved ReleaseSafe WASM guest available: SNIF sandbox
+  └─► otherwise: Burble.Coprocessor.ElixirBackend (BEAM reference)
 ```
 
-No configuration is needed — the `SmartBackend` auto-detects whether the NIF is available. In CI and containers, the NIF is always built; in local dev without Zig, the Elixir backend is used transparently.
+Until the SNIF buffer ABI and Burble guest artifacts are complete,
+`SNIFBackend.available?/0` is false and the reference implementation is used.
+Missing artifacts are never described as accelerated or proved.

@@ -12,7 +12,7 @@
 # Backend hierarchy:
 #   AbstractBackend (behaviour)
 #     ├── ElixirBackend    — pure Elixir reference implementation
-#     ├── ZigBackend       — Zig NIFs for hot-path operations
+#     ├── ZigBackend       — retired-NIF compatibility facade (BEAM reference)
 #     └── SmartBackend     — dispatcher routing per-operation
 #
 # Kernel domains:
@@ -397,9 +397,7 @@ defmodule Burble.Coprocessor.Backend do
 
   Called once per session. Returns the initial opaque model state.
   """
-  @callback neural_init_model(
-              sample_rate :: pos_integer()
-            ) :: term()
+  @callback neural_init_model(sample_rate :: pos_integer()) :: term()
 
   @doc """
   Classify the dominant noise type in a PCM frame.
@@ -424,9 +422,7 @@ defmodule Burble.Coprocessor.Backend do
 
   Returns `{:ok, compressed_binary}` or `{:error, reason}`.
   """
-  @callback compress_lz4(
-              data :: binary()
-            ) :: {:ok, binary()} | {:error, term()}
+  @callback compress_lz4(data :: binary()) :: {:ok, binary()} | {:error, term()}
 
   @doc """
   Decompress an LZ4-compressed binary.
@@ -458,9 +454,8 @@ defmodule Burble.Coprocessor.Backend do
 
   Returns `{:ok, decompressed_binary}` or `{:error, :decompress_failed}`.
   """
-  @callback decompress_zstd(
-              compressed :: binary()
-            ) :: {:ok, binary()} | {:error, :decompress_failed}
+  @callback decompress_zstd(compressed :: binary()) ::
+              {:ok, binary()} | {:error, :decompress_failed}
 
   @doc """
   Compress a list of PCM frames into a lossless recording archive.

@@ -183,7 +183,7 @@ defmodule Burble.Media.E2EE do
   @doc """
   Encrypt an audio frame using the room's current frame key.
 
-  Delegates to the coprocessor backend (Zig NIF or Elixir fallback).
+  Delegates to the coprocessor backend (proved SNIF guest or BEAM fallback).
   Returns `{:ok, {ciphertext, iv, tag}}` or `{:error, reason}`.
 
   The AAD includes the room ID and frame counter for replay protection.
@@ -298,9 +298,7 @@ defmodule Burble.Media.E2EE do
 
         new_rooms = Map.put(state.rooms, room_id, final_room)
 
-        Logger.info(
-          "[E2EE] Peer #{peer_id} registered in #{room_id} (epoch #{new_epoch})"
-        )
+        Logger.info("[E2EE] Peer #{peer_id} registered in #{room_id} (epoch #{new_epoch})")
 
         {:reply, {:ok, server_public}, %{state | rooms: new_rooms}}
     end

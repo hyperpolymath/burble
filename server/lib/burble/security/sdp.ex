@@ -13,8 +13,9 @@
 #   4. Zero Trust — every packet is authenticated and authorised.
 #
 # This module acts as the SDP gateway and policy engine. It integrates
-# with the system firewall (e.g. nftables, pf) via a Zig-based NIF
-# for high-performance packet filtering.
+# with an isolated host firewall service when one is configured. SNIF guests
+# deliberately cannot perform host I/O, and Burble does not load firewall code
+# into the BEAM as a direct NIF.
 
 defmodule Burble.Security.SDP do
   @moduledoc """
@@ -39,7 +40,7 @@ defmodule Burble.Security.SDP do
 
   @type policy :: %{
           user_id: String.t(),
-          allowed_ports: [ :inet.port_number() ],
+          allowed_ports: [:inet.port_number()],
           max_session_duration: integer(),
           mTLS_required: boolean()
         }
@@ -71,14 +72,15 @@ defmodule Burble.Security.SDP do
 
   @impl true
   def init(_opts) do
-    # Initialise the Zig firewall table.
-    Burble.Coprocessor.ZigBackend.sdp_firewall_init()
+    Logger.warning("[SDP] Host firewall adapter unavailable; access grants will fail closed")
 
-    Logger.info("[SDP] Gateway initialised (Zero Trust mode active)")
-    {:ok, %{
-      sessions: %{}, # sender_ip => %{user_id, opened_ports, expires_at}
-      policies: %{}  # user_id => policy
-    }}
+    {:ok,
+     %{
+       # sender_ip => %{user_id, opened_ports, expires_at}
+       sessions: %{},
+       # user_id => policy
+       policies: %{}
+     }}
   end
 
   @impl true
@@ -87,10 +89,21 @@ defmodule Burble.Security.SDP do
       {:ok, %{sender_id: user_id, requested_port: port}} ->
         case check_policy(user_id, port, state) do
           {:ok, _} ->
-            open_firewall_port(sender_ip, port)
-            new_state = record_session(state, sender_ip, user_id, port)
-            Logger.info("[SDP] Access GRANTED for #{user_id} at #{inspect(sender_ip)} on port #{port}")
-            {:reply, :ok, new_state}
+            case open_firewall_port(sender_ip, port) do
+              :ok ->
+                new_state = record_session(state, sender_ip, user_id, port)
+
+                Logger.info(
+                  "[SDP] Access GRANTED for #{user_id} at #{inspect(sender_ip)} on port #{port}"
+                )
+
+                {:reply, :ok, new_state}
+
+              {:error, reason} ->
+                Logger.warning("[SDP] Access REJECTED: firewall adapter unavailable (#{reason})")
+                {:reply, {:error, :firewall_unavailable}, state}
+            end
+
           {:error, reason} ->
             Logger.warning("[SDP] Access REJECTED for #{user_id}: #{reason}")
             {:reply, {:error, :policy_denied}, state}
@@ -127,15 +140,12 @@ defmodule Burble.Security.SDP do
   end
 
   defp open_firewall_port(ip, port) do
-    # Calls Zig NIF to update nftables/pf rules.
-    Burble.Coprocessor.ZigBackend.sdp_firewall_authorize(ip, port)
-    Logger.debug("[SDP] Opening firewall: #{inspect(ip)} -> #{port}")
-    :ok
+    _ = {ip, port}
+    {:error, :no_isolated_firewall_adapter}
   end
 
   defp close_firewall_ports(ip) do
-    # Calls Zig NIF to remove all rules for this IP.
-    # (Future NIF: nif_sdp_firewall_revoke)
+    # No rule can have been opened while the adapter is unavailable.
     _ = ip
     Logger.debug("[SDP] Closing firewall for #{inspect(ip)}")
     :ok
@@ -147,6 +157,7 @@ defmodule Burble.Security.SDP do
       opened_ports: [port],
       expires_at: DateTime.add(DateTime.utc_now(), 3600, :second)
     }
+
     %{state | sessions: Map.put(state.sessions, ip, session)}
   end
 end

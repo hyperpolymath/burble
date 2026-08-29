@@ -54,7 +54,7 @@ See [QUICKSTART-MAINTAINER.adoc](https://github.com/hyperpolymath/burble/blob/ma
 | Path | What it is |
 |---|---|
 | `server/` | Elixir / Phoenix control plane |
-| `ffi/zig/` | Zig SIMD NIFs (audio hot-path) |
+| `ffi/zig/` | Zig kernel sources for future proved SNIF guests |
 | `src/Burble/ABI/` | Idris2 ABI proofs |
 | `client/web/` | Browser client (ReScript → AffineScript) |
 | `signaling/` | Deno signaling relay |

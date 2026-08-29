@@ -4,12 +4,12 @@
 #
 # Every kernel operation has a correct (if not optimal) implementation here.
 # This serves as:
-#   1. Reference for testing — Zig backend must produce identical results
-#   2. Fallback — if Zig NIFs aren't compiled, operations still work
+#   1. Reference for testing — SNIF guests must produce identical results
+#   2. Fallback — if proved SNIF guests aren't available, operations still work
 #   3. Documentation — readable implementations of each algorithm
 #
 # Performance: adequate for small rooms (<10 peers). For larger deployments,
-# the ZigBackend provides SIMD-accelerated hot paths.
+# proved SNIF guests are the permitted SIMD acceleration path.
 
 defmodule Burble.Coprocessor.ElixirBackend do
   @moduledoc """
@@ -165,7 +165,8 @@ defmodule Burble.Coprocessor.ElixirBackend do
     # Desired gain to reach target RMS.
     desired_gain =
       if rms > 1.0e-8 do
-        min(target_rms / rms, 10.0)  # Cap at 20 dB boost
+        # Cap at 20 dB boost
+        min(target_rms / rms, 10.0)
       else
         current_gain
       end
@@ -209,7 +210,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
     # Generate white noise samples.
     white_noise =
       for _ <- 1..frame_length do
-        (:rand.uniform() * 2.0 - 1.0)
+        :rand.uniform() * 2.0 - 1.0
       end
 
     # If we have a noise profile, shape the noise spectrally.
@@ -256,9 +257,13 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
     spectral_flatness =
       if length(magnitudes) > 0 do
-        geo_mean = :math.exp(Enum.reduce(magnitudes, 0.0, fn m, acc ->
-          acc + :math.log(max(m, 1.0e-12))
-        end) / max(length(magnitudes), 1))
+        geo_mean =
+          :math.exp(
+            Enum.reduce(magnitudes, 0.0, fn m, acc ->
+              acc + :math.log(max(m, 1.0e-12))
+            end) / max(length(magnitudes), 1)
+          )
+
         arith_mean = Enum.sum(magnitudes) / max(length(magnitudes), 1)
         if arith_mean > 1.0e-12, do: geo_mean / arith_mean, else: 1.0
       else
@@ -268,6 +273,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
     # Feature 2: Spectral centroid (weighted average frequency).
     total_energy = Enum.sum(magnitudes)
     freq_resolution = sample_rate / (2.0 * max(n_bins, 1))
+
     spectral_centroid =
       if total_energy > 1.0e-12 do
         magnitudes
@@ -292,20 +298,26 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
     # Speech detection: speech is less flat, has centroid in speech band, lower ZCR.
     flatness_score = if spectral_flatness < noise_flatness * 0.7, do: 1.0, else: 0.0
-    centroid_score = if spectral_centroid > 300.0 and spectral_centroid < 4000.0, do: 1.0, else: 0.0
+
+    centroid_score =
+      if spectral_centroid > 300.0 and spectral_centroid < 4000.0, do: 1.0, else: 0.0
+
     zcr_score = if zcr < noise_zcr * 1.5, do: 0.5, else: 0.0
 
-    confidence = (flatness_score * 0.5 + centroid_score * 0.3 + zcr_score * 0.2)
+    confidence = flatness_score * 0.5 + centroid_score * 0.3 + zcr_score * 0.2
     is_speech = confidence > 0.4
 
     # Update noise statistics during non-speech frames.
     new_state =
       if not is_speech and frame_count > 10 do
-        alpha = 0.02  # Slow adaptation
-        %{state |
-          noise_flatness: noise_flatness * (1.0 - alpha) + spectral_flatness * alpha,
-          noise_zcr: noise_zcr * (1.0 - alpha) + zcr * alpha,
-          frame_count: frame_count + 1
+        # Slow adaptation
+        alpha = 0.02
+
+        %{
+          state
+          | noise_flatness: noise_flatness * (1.0 - alpha) + spectral_flatness * alpha,
+            noise_zcr: noise_zcr * (1.0 - alpha) + zcr * alpha,
+            frame_count: frame_count + 1
         }
       else
         Map.put(state, :frame_count, frame_count + 1)
@@ -334,10 +346,11 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
       # A-weighting transfer function (simplified).
       numerator = 12194.0 * 12194.0 * f2 * f2
+
       denominator =
         (f2 + 20.6 * 20.6) *
-        :math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) *
-        (f2 + 12194.0 * 12194.0)
+          :math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) *
+          (f2 + 12194.0 * 12194.0)
 
       a_weight = if denominator > 0, do: numerator / denominator, else: 0.0
 
@@ -652,7 +665,9 @@ defmodule Burble.Coprocessor.ElixirBackend do
       end
 
     # Gate: if frame RMS is close to noise floor, attenuate.
-    gate_ratio = if noise_floor > 0.0, do: max(0.0, 1.0 - noise_floor / max(rms, 1.0e-10)), else: 1.0
+    gate_ratio =
+      if noise_floor > 0.0, do: max(0.0, 1.0 - noise_floor / max(rms, 1.0e-10)), else: 1.0
+
     cleaned = Enum.map(pcm, fn s -> s * gate_ratio end)
 
     new_state = %{model_state | noise_floor: noise_floor, frame_count: frame_count}
@@ -681,7 +696,8 @@ defmodule Burble.Coprocessor.ElixirBackend do
   def compress_lz4(data) do
     # Pure Elixir LZ4 — simplified block format.
     # Uses a sliding window to find matches, encodes as literal/match sequences.
-    # This is a correct but basic implementation; the Zig NIF uses the real LZ4 algorithm.
+    # This is a correct but basic implementation; a future proved Zig/SNIF guest
+    # may provide an interoperable optimized implementation.
     compressed = lz4_compress(data)
     {:ok, compressed}
   end
@@ -751,9 +767,10 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
     # Build offset table for random access.
     header_size = 4 + 1 + 4 + 1 + 4 + frame_count * 4
+
     offset_table =
       compressed_frames
-      |> Enum.map(fn {_frame, off} -> <<(off + header_size)::32-little>> end)
+      |> Enum.map(fn {_frame, off} -> <<off + header_size::32-little>> end)
       |> IO.iodata_to_binary()
 
     frame_data =
@@ -762,11 +779,8 @@ defmodule Burble.Coprocessor.ElixirBackend do
       |> IO.iodata_to_binary()
 
     archive =
-      <<"BARC"::binary, 1::8,
-        sample_rate::32-little, channels::8,
-        frame_count::32-little,
-        offset_table::binary,
-        frame_data::binary>>
+      <<"BARC"::binary, 1::8, sample_rate::32-little, channels::8, frame_count::32-little,
+        offset_table::binary, frame_data::binary>>
 
     {:ok, archive}
   end
@@ -822,6 +836,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
   defp pad_to(list, target_len), do: list ++ List.duplicate(0.0, target_len - length(list))
 
   defp insert_sorted([], entry), do: [entry]
+
   defp insert_sorted([head | tail] = list, entry) do
     if entry.seq <= head.seq, do: [entry | list], else: [head | insert_sorted(tail, entry)]
   end
@@ -855,6 +870,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
   defp zero_crossing_rate([]), do: 0.0
   defp zero_crossing_rate([_]), do: 0.0
+
   defp zero_crossing_rate(pcm) do
     crossings =
       pcm
@@ -885,6 +901,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
   defp lz4_compress_block(data, pos, size, acc) when pos >= size do
     # Emit remaining literals.
     remaining = size - max(pos - byte_size(IO.iodata_to_binary(acc)), 0)
+
     if remaining > 0 do
       # Final literal-only sequence (last 5 bytes must be literals per LZ4 spec).
       lits = binary_part(data, max(size - remaining, 0), remaining)
@@ -907,16 +924,20 @@ defmodule Burble.Coprocessor.ElixirBackend do
         # No match — accumulate literal.
         # Emit a literal-only token for simplicity.
         lit = binary_part(data, pos, 1)
-        token = 1 <<< 4  # 1 literal, 0 match
+        # 1 literal, 0 match
+        token = 1 <<< 4
         lz4_compress_block(data, pos + 1, size, [<<token::8, lit::binary>> | acc])
 
       {offset, match_len} ->
         # Emit token with 0 literals + match.
-        ml = match_len - 4  # min match is 4
+        # min match is 4
+        ml = match_len - 4
         token = min(ml, 15)
         extra = if ml >= 15, do: encode_lz4_length(ml - 15), else: <<>>
-        lz4_compress_block(data, pos + match_len, size,
-          [<<token::8, offset::16-little, extra::binary>> | acc])
+
+        lz4_compress_block(data, pos + match_len, size, [
+          <<token::8, offset::16-little, extra::binary>> | acc
+        ])
     end
   end
 
@@ -924,12 +945,16 @@ defmodule Burble.Coprocessor.ElixirBackend do
     if pos + 4 > size, do: nil, else: find_lz4_match_scan(data, pos, window_start, pos, size, nil)
   end
 
-  defp find_lz4_match_scan(_data, _pos, scan, scan_end, _size, best) when scan >= scan_end, do: best
+  defp find_lz4_match_scan(_data, _pos, scan, scan_end, _size, best) when scan >= scan_end,
+    do: best
+
   defp find_lz4_match_scan(data, pos, scan, scan_end, size, best) do
     match_len = count_matching_bytes(data, scan, pos, size, 0)
+
     new_best =
       if match_len >= 4 do
         offset = pos - scan
+
         case best do
           nil -> {offset, match_len}
           {_bo, bl} -> if match_len > bl, do: {offset, match_len}, else: best
@@ -937,13 +962,15 @@ defmodule Burble.Coprocessor.ElixirBackend do
       else
         best
       end
+
     find_lz4_match_scan(data, pos, scan + 1, scan_end, size, new_best)
   end
 
   defp count_matching_bytes(_data, _a, _b, _size, count) when count >= 255, do: count
+
   defp count_matching_bytes(data, a, b, size, count) do
     if a + count < size and b + count < size and
-       :binary.at(data, a + count) == :binary.at(data, b + count) do
+         :binary.at(data, a + count) == :binary.at(data, b + count) do
       count_matching_bytes(data, a, b, size, count + 1)
     else
       count
@@ -963,6 +990,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
   end
 
   defp lz4_decompress_block(<<>>, output, _max), do: output
+
   defp lz4_decompress_block(<<token::8, rest::binary>>, output, max_size) do
     lit_len = token >>> 4
     match_len_base = token &&& 0x0F
@@ -1000,6 +1028,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
     {extra, rest} = read_lz4_extra_length(15, rest)
     {extra + 255, rest}
   end
+
   defp read_lz4_extra_length(15, <<byte::8, rest::binary>>), do: {15 + byte, rest}
   defp read_lz4_extra_length(len, rest), do: {len, rest}
 
@@ -1009,6 +1038,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
   end
 
   defp copy_bytes(output, _src, 0), do: output
+
   defp copy_bytes(output, src, remaining) do
     byte = :binary.at(output, src)
     copy_bytes(output <> <<byte::8>>, src + 1, remaining - 1)
@@ -1017,6 +1047,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
   # Delta encoding: store differences between consecutive samples.
   # First sample stored as-is, rest as deltas.
   defp delta_encode([]), do: []
+
   defp delta_encode([first | rest]) do
     {deltas, _prev} =
       Enum.map_reduce(rest, first, fn sample, prev ->
@@ -1028,6 +1059,7 @@ defmodule Burble.Coprocessor.ElixirBackend do
 
   # Delta decoding: reconstruct samples from deltas.
   defp delta_decode([]), do: []
+
   defp delta_decode([first | deltas]) do
     {samples, _prev} =
       Enum.map_reduce(deltas, first, fn delta, prev ->

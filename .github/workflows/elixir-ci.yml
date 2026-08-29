@@ -69,31 +69,12 @@ jobs:
             ${{ runner.os }}-mix-
       - name: Install dependencies
         run: mix deps.get
-      - name: Build Zig FFI
+      - name: Test Zig kernels (SNIF guest sources)
         working-directory: ${{ github.workspace }}
-        # Re-armed as part of #39 follow-up: the Zig 0.15 / setup-beam
-        # build path has been stable since #62 landed; the prior
-        # GATE DEACTIVATED 2026-05-15 marker is removed. Every failure
-        # still appears in this step's log and as a step annotation,
-        # but a real FFI break now turns CI red — which is what users
-        # of the coprocessor NIF depend on.
-        run: |
-          # erlef/setup-beam installs OTP under the tool cache, not at
-          # build.zig's hardcoded /usr/lib/erlang default. Derive the real
-          # NIF header dir from the running Erlang so erl_nif.h is found.
-          # build.zig also resolves this dynamically (-Derl-include is
-          # mode 1 of its 4-mode probe); passing it explicitly keeps CI
-          # deterministic and independent of the fallback chain.
-          ERL_INCLUDE="$(erl -noshell -eval 'io:format("~ts/usr/include", [code:root_dir()])' -s init stop)"
-          echo "erl_nif.h include dir: $ERL_INCLUDE"
-          test -f "$ERL_INCLUDE/erl_nif.h" || { echo "::error::erl_nif.h not found at $ERL_INCLUDE"; exit 1; }
-          ( cd ffi/zig && zig build -Doptimize=ReleaseFast -Derl-include="$ERL_INCLUDE" )
-          # Run the Zig unit tests too, so kernel/verifier regressions (e.g. the
-          # BLE-SPA ble_spa_verify agreement with the committed vectors) turn CI
-          # red rather than only surfacing at NIF load. Tests don't link the NIF
-          # headers, so no -Derl-include is needed.
-          ( cd ffi/zig && zig build test )
-          cp ffi/zig/zig-out/lib/libburble_coprocessor.so server/priv/ 2>/dev/null || true
+        # Application-owned in-VM NIFs are forbidden. These sources remain Zig,
+        # and production acceleration is permitted only as ReleaseSafe WASM via
+        # SNIF once the buffer ABI proof and guest artifacts exist.
+        run: cd ffi/zig && zig build test -Doptimize=ReleaseSafe
       - name: Run server tests
         working-directory: ${{ github.workspace }}
         # GATE RE-ARMED 2026-07-07: every pre-existing failure cluster is
