@@ -143,7 +143,7 @@ jobs:
         id: plt-cache
         with:
           path: server/priv/plts
-          key: ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-${{ hashFiles('server/mix.lock') }}
+          key: ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-${{ hashFiles('server/mix.lock', 'server/mix.exs') }}
           restore-keys: |
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-
