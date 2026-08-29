@@ -16,7 +16,8 @@ version = 0.1.0
 authors = "Jonathan D.A. Jewell"
 sourcedir = "../.."  -- repo src/ root: Burble.ABI.Types -> src/Burble/ABI/Types.idr
 
-modules = Burble.ABI.Types
+modules = Burble.ABI
+        , Burble.ABI.Types
         , Burble.ABI.Avow
         , Burble.ABI.Permissions
         , Burble.ABI.Vext
