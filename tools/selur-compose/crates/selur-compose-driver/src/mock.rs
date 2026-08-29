@@ -16,7 +16,7 @@
 //! ```
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -70,25 +70,25 @@ pub enum MockCall {
 pub struct MockDriver {
     calls: Mutex<Vec<MockCall>>,
     // Canned responses — Option::None means "return a default success".
-    run_response:     Mutex<Option<Result<ContainerId>>>,
-    build_response:   Mutex<Option<Result<ImageId>>>,
-    pull_response:    Mutex<Option<Result<ImageId>>>,
-    inspect_map:      Mutex<HashMap<String, Result<ContainerState>>>,
-    healthcheck_map:  Mutex<HashMap<String, Result<HealthState>>>,
-    ps_response:      Mutex<Option<Result<Vec<ContainerSummary>>>>,
+    run_response: Mutex<Option<Result<ContainerId>>>,
+    build_response: Mutex<Option<Result<ImageId>>>,
+    pull_response: Mutex<Option<Result<ImageId>>>,
+    inspect_map: Mutex<HashMap<String, Result<ContainerState>>>,
+    healthcheck_map: Mutex<HashMap<String, Result<HealthState>>>,
+    ps_response: Mutex<Option<Result<Vec<ContainerSummary>>>>,
 }
 
 impl MockDriver {
     /// Create a new `MockDriver` with all-success defaults.
     pub fn new() -> Self {
         Self {
-            calls:            Mutex::new(Vec::new()),
-            run_response:     Mutex::new(None),
-            build_response:   Mutex::new(None),
-            pull_response:    Mutex::new(None),
-            inspect_map:      Mutex::new(HashMap::new()),
-            healthcheck_map:  Mutex::new(HashMap::new()),
-            ps_response:      Mutex::new(None),
+            calls: Mutex::new(Vec::new()),
+            run_response: Mutex::new(None),
+            build_response: Mutex::new(None),
+            pull_response: Mutex::new(None),
+            inspect_map: Mutex::new(HashMap::new()),
+            healthcheck_map: Mutex::new(HashMap::new()),
+            ps_response: Mutex::new(None),
         }
     }
 
@@ -96,43 +96,43 @@ impl MockDriver {
 
     /// Return a snapshot of all recorded calls, in order.
     pub fn calls(&self) -> Vec<MockCall> {
-        self.calls.lock().unwrap().clone()
+        lock(&self.calls).clone()
     }
 
     fn record(&self, call: MockCall) {
-        self.calls.lock().unwrap().push(call);
+        lock(&self.calls).push(call);
     }
 
     // ---- canned-response setters ----
 
     /// Configure the canned response for `Driver::run`.
     pub fn set_run_response(&self, r: Result<ContainerId>) {
-        *self.run_response.lock().unwrap() = Some(r);
+        *lock(&self.run_response) = Some(r);
     }
 
     /// Configure the canned response for `Driver::build`.
     pub fn set_build_response(&self, r: Result<ImageId>) {
-        *self.build_response.lock().unwrap() = Some(r);
+        *lock(&self.build_response) = Some(r);
     }
 
     /// Configure the canned response for `Driver::pull`.
     pub fn set_pull_response(&self, r: Result<ImageId>) {
-        *self.pull_response.lock().unwrap() = Some(r);
+        *lock(&self.pull_response) = Some(r);
     }
 
     /// Configure the canned `inspect` response for a specific container.
     pub fn set_inspect_response(&self, id: ContainerId, r: Result<ContainerState>) {
-        self.inspect_map.lock().unwrap().insert(id.0, r);
+        lock(&self.inspect_map).insert(id.0, r);
     }
 
     /// Configure the canned `healthcheck_run` response for a specific container.
     pub fn set_healthcheck_response(&self, id: ContainerId, r: Result<HealthState>) {
-        self.healthcheck_map.lock().unwrap().insert(id.0, r);
+        lock(&self.healthcheck_map).insert(id.0, r);
     }
 
     /// Configure the canned response for `Driver::ps`.
     pub fn set_ps_response(&self, r: Result<Vec<ContainerSummary>>) {
-        *self.ps_response.lock().unwrap() = Some(r);
+        *lock(&self.ps_response) = Some(r);
     }
 
     // ---- helpers ----
@@ -161,7 +161,7 @@ impl Default for MockDriver {
 impl Driver for MockDriver {
     async fn build(&self, spec: &BuildSpec) -> Result<ImageId> {
         self.record(MockCall::Build(spec.clone()));
-        let guard = self.build_response.lock().unwrap();
+        let guard = lock(&self.build_response);
         match guard.as_ref() {
             Some(Ok(id)) => Ok(id.clone()),
             Some(Err(e)) => Err(mock_error(e)),
@@ -171,7 +171,7 @@ impl Driver for MockDriver {
 
     async fn pull(&self, image: &str) -> Result<ImageId> {
         self.record(MockCall::Pull(image.to_string()));
-        let guard = self.pull_response.lock().unwrap();
+        let guard = lock(&self.pull_response);
         match guard.as_ref() {
             Some(Ok(id)) => Ok(id.clone()),
             Some(Err(e)) => Err(mock_error(e)),
@@ -191,7 +191,7 @@ impl Driver for MockDriver {
 
     async fn run(&self, spec: &RunSpec) -> Result<ContainerId> {
         self.record(MockCall::Run(spec.clone()));
-        let guard = self.run_response.lock().unwrap();
+        let guard = lock(&self.run_response);
         match guard.as_ref() {
             Some(Ok(id)) => Ok(id.clone()),
             Some(Err(e)) => Err(mock_error(e)),
@@ -201,7 +201,7 @@ impl Driver for MockDriver {
 
     async fn inspect(&self, id: &ContainerId) -> Result<ContainerState> {
         self.record(MockCall::Inspect(id.clone()));
-        let map = self.inspect_map.lock().unwrap();
+        let map = lock(&self.inspect_map);
         match map.get(&id.0) {
             Some(Ok(state)) => Ok(state.clone()),
             Some(Err(e)) => Err(mock_error(e)),
@@ -211,7 +211,7 @@ impl Driver for MockDriver {
 
     async fn healthcheck_run(&self, id: &ContainerId) -> Result<HealthState> {
         self.record(MockCall::HealthcheckRun(id.clone()));
-        let map = self.healthcheck_map.lock().unwrap();
+        let map = lock(&self.healthcheck_map);
         match map.get(&id.0) {
             Some(Ok(hs)) => Ok(hs.clone()),
             Some(Err(e)) => Err(mock_error(e)),
@@ -223,30 +223,46 @@ impl Driver for MockDriver {
     }
 
     async fn stop(&self, id: &ContainerId, grace: Duration) -> Result<()> {
-        self.record(MockCall::Stop { id: id.clone(), grace });
+        self.record(MockCall::Stop {
+            id: id.clone(),
+            grace,
+        });
         Ok(())
     }
 
     async fn rm(&self, id: &ContainerId, force: bool) -> Result<()> {
-        self.record(MockCall::Rm { id: id.clone(), force });
+        self.record(MockCall::Rm {
+            id: id.clone(),
+            force,
+        });
         Ok(())
     }
 
     async fn logs(&self, id: &ContainerId, follow: bool) -> Result<LogStream> {
-        self.record(MockCall::Logs { id: id.clone(), follow });
+        self.record(MockCall::Logs {
+            id: id.clone(),
+            follow,
+        });
         // Return an empty cursor.
         Ok(Box::new(tokio::io::empty()))
     }
 
     async fn ps(&self, project: &str) -> Result<Vec<ContainerSummary>> {
         self.record(MockCall::Ps(project.to_string()));
-        let guard = self.ps_response.lock().unwrap();
+        let guard = lock(&self.ps_response);
         match guard.as_ref() {
             Some(Ok(list)) => Ok(list.clone()),
             Some(Err(e)) => Err(mock_error(e)),
             None => Ok(vec![]),
         }
     }
+}
+
+/// Acquire a mock-state lock even if an earlier test thread panicked while
+/// holding it. Poisoning is advisory here: the contained test fixture remains
+/// the most useful state for diagnostics and replay.
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// Clone a `DriverError` for canned-response replay.
