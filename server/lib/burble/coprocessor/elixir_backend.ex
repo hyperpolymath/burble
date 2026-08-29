@@ -388,9 +388,14 @@ defmodule Burble.Coprocessor.ElixirBackend do
   def crypto_encrypt_frame(plaintext, key, aad) do
     iv = :crypto.strong_rand_bytes(12)
 
-    case :crypto.crypto_one_time_aead(:aes_256_gcm, key, iv, plaintext, aad, true) do
-      {ciphertext, tag} -> {:ok, {ciphertext, iv, tag}}
-      _ -> {:error, :encrypt_failed}
+    try do
+      {ciphertext, tag} =
+        :crypto.crypto_one_time_aead(:aes_256_gcm, key, iv, plaintext, aad, true)
+
+      {:ok, {ciphertext, iv, tag}}
+    rescue
+      ArgumentError -> {:error, :encrypt_failed}
+      ErlangError -> {:error, :encrypt_failed}
     end
   end
 

@@ -59,6 +59,8 @@ defmodule Burble.Media.LMDBPlayout do
 
   use GenServer
 
+  alias Burble.Media.LMDBFrameCodec
+
   require Logger
 
   # Module atoms for optional LMDB dependencies — referenced via apply/3
@@ -69,7 +71,8 @@ defmodule Burble.Media.LMDBPlayout do
   # ── Types ──
 
   @typedoc "Audio frame as stored in the ring buffer."
-  @type frame :: {seq :: non_neg_integer(), timestamp_us :: non_neg_integer(), payload :: binary()}
+  @type frame ::
+          {seq :: non_neg_integer(), timestamp_us :: non_neg_integer(), payload :: binary()}
 
   @typedoc "Backend implementation: :lmdb (preferred) or :ets (fallback)."
   @type backend :: :lmdb | :ets
@@ -414,20 +417,22 @@ defmodule Burble.Media.LMDBPlayout do
       cond do
         Code.ensure_loaded?(@exlmdb) ->
           {:ok, env} =
-            apply(@exlmdb, :open, [String.to_charlist(room_dir),
-              [mapsize: map_size,
-              maxdbs: 1,
-              flags: [:nosubdir]]
+            apply(@exlmdb, :open, [
+              String.to_charlist(room_dir),
+              [mapsize: map_size, maxdbs: 1, flags: [:nosubdir]]
             ])
 
           env
 
         Code.ensure_loaded?(@lmdb) ->
           {:ok, env} =
-            apply(@lmdb, :env_open, [String.to_charlist(room_dir), [
-              {:mapsize, map_size},
-              {:maxdbs, 1}
-            ]])
+            apply(@lmdb, :env_open, [
+              String.to_charlist(room_dir),
+              [
+                {:mapsize, map_size},
+                {:maxdbs, 1}
+              ]
+            ])
 
           env
 
@@ -504,8 +509,7 @@ defmodule Burble.Media.LMDBPlayout do
 
     case result do
       {:ok, value_bin} ->
-        frame_data = :erlang.binary_to_term(value_bin)
-        {:ok, frame_data}
+        LMDBFrameCodec.decode(value_bin)
 
       :not_found ->
         :not_found
@@ -588,7 +592,7 @@ defmodule Burble.Media.LMDBPlayout do
   # ── Private: Naming helpers ──
 
   # Generate a Registry-based via tuple for process naming.
-  @spec via_name(String.t()) :: {:via, Registry, {atom(), String.t()}}
+  @spec via_name(String.t()) :: GenServer.name()
   defp via_name(room_id) do
     {:via, Registry, {Burble.RoomRegistry, {:lmdb_playout, room_id}}}
   end

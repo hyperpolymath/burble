@@ -27,7 +27,6 @@ defmodule Burble.Topology.Transition do
 
   require Logger
   alias Burble.Rooms.Room
-  alias Burble.Verification.Vext
 
   @doc """
   Transition a room to a new topology mode.
@@ -63,7 +62,7 @@ defmodule Burble.Topology.Transition do
   """
   def merge_rooms(room_a_id, room_b_id, target_mode) do
     Logger.info("[Topology] Merging room #{room_a_id} and #{room_b_id} into #{target_mode}")
-    
+
     # 1. Verify AVOW consent from both groups for the merger
     # 2. Create a 'Merge Link' in the Vext chain pointing to both tips
     # 3. Consolidate participants into a single room process
@@ -90,9 +89,10 @@ defmodule Burble.Topology.Transition do
   defp send_transition_signal(room_id, new_mode) do
     # Signal the room process to update its topology_mode attribute
     case Registry.lookup(Burble.RoomRegistry, room_id) do
-      [{pid, _}] -> 
+      [{pid, _}] ->
         GenServer.cast(pid, {:update_topology, new_mode})
-      [] -> 
+
+      [] ->
         :ok
     end
   end

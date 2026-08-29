@@ -148,7 +148,7 @@ defmodule Burble.TestSupport.SingletonWatcher do
   end
 
   @impl true
-  def handle_info({:rewatch, name}, %{frozen?: true} = state), do: {:noreply, state}
+  def handle_info({:rewatch, _name}, %{frozen?: true} = state), do: {:noreply, state}
 
   def handle_info({:rewatch, name}, state) do
     new_refs =

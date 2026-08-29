@@ -78,6 +78,8 @@ defmodule Burble.Bridges.Mumble do
   """
 
   use GenServer
+
+  alias Burble.Bridges.MumbleVarint
   require Logger
   import Bitwise
 
@@ -108,7 +110,8 @@ defmodule Burble.Bridges.Mumble do
           mumble_channel: String.t(),
           bot_name: String.t(),
           password: String.t() | nil,
-          positional_audio: boolean()
+          positional_audio: boolean(),
+          tls_ca_certfile: String.t() | nil
         }
 
   @type bridge_state :: %{
@@ -158,7 +161,8 @@ defmodule Burble.Bridges.Mumble do
   end
 
   @doc "Get the last known positional audio coordinates for a Mumble user."
-  @spec user_position(GenServer.name(), non_neg_integer()) :: {:ok, {float(), float(), float()}} | :unknown
+  @spec user_position(GenServer.name(), non_neg_integer()) ::
+          {:ok, {float(), float(), float()}} | :unknown
   def user_position(bridge, session_id) do
     GenServer.call(bridge, {:user_position, session_id})
   end
@@ -187,7 +191,8 @@ defmodule Burble.Bridges.Mumble do
       mumble_channel: Keyword.get(opts, :mumble_channel, "Root"),
       bot_name: Keyword.get(opts, :bot_name, "Burble Bridge"),
       password: Keyword.get(opts, :password),
-      positional_audio: Keyword.get(opts, :positional_audio, false)
+      positional_audio: Keyword.get(opts, :positional_audio, false),
+      tls_ca_certfile: Keyword.get(opts, :tls_ca_certfile)
     }
 
     state = %{
@@ -205,7 +210,9 @@ defmodule Burble.Bridges.Mumble do
     # Connect asynchronously to avoid blocking the supervisor.
     send(self(), :connect)
 
-    Logger.info("[MumbleBridge] Starting bridge: #{config.room_id} ↔ #{config.mumble_host}:#{config.mumble_port}/#{config.mumble_channel}")
+    Logger.info(
+      "[MumbleBridge] Starting bridge: #{config.room_id} ↔ #{config.mumble_host}:#{config.mumble_port}/#{config.mumble_channel}"
+    )
 
     {:ok, state}
   end
@@ -299,7 +306,8 @@ defmodule Burble.Bridges.Mumble do
   end
 
   @impl true
-  def handle_cast({:send_text, sender_name, message}, %{tcp_socket: socket} = state) when not is_nil(socket) do
+  def handle_cast({:send_text, sender_name, message}, %{tcp_socket: socket} = state)
+      when not is_nil(socket) do
     # Encode as Mumble TextMessage protobuf.
     text = "[#{sender_name}] #{message}"
     send_text_message(socket, text, state.channel_id)
@@ -312,7 +320,8 @@ defmodule Burble.Bridges.Mumble do
   end
 
   @impl true
-  def handle_cast({:relay_to_mumble, opus_frame, position}, %{tcp_socket: socket} = state) when not is_nil(socket) do
+  def handle_cast({:relay_to_mumble, opus_frame, position}, %{tcp_socket: socket} = state)
+      when not is_nil(socket) do
     # Voice is tunneled over the TCP control channel via UDPTunnel (msg type 1).
     # This avoids OCB-AES128 UDP encryption complexity and works through firewalls.
     # Mumble servers support UDPTunnel for exactly this case.
@@ -349,19 +358,43 @@ defmodule Burble.Bridges.Mumble do
     host = String.to_charlist(config.mumble_host)
     port = config.mumble_port
 
-    tcp_opts = [:binary, active: true, packet: :raw]
+    # Keep the TCP socket passive until TLS has consumed the handshake bytes;
+    # otherwise they can race into this process's mailbox as {:tcp, ...}.
+    tcp_opts = [:binary, active: false, packet: :raw]
 
     case :gen_tcp.connect(host, port, tcp_opts, 10_000) do
       {:ok, tcp_socket} ->
         # Upgrade to TLS.
-        tls_opts = [
-          verify: :verify_none,
-          versions: [:"tlsv1.2", :"tlsv1.3"]
-        ]
+        trust_store =
+          case config.tls_ca_certfile do
+            nil -> [cacerts: :public_key.cacerts_get()]
+            path -> [cacertfile: String.to_charlist(path)]
+          end
+
+        tls_opts =
+          [
+            verify: :verify_peer,
+            versions: [:"tlsv1.2", :"tlsv1.3"],
+            server_name_indication: host,
+            customize_hostname_check: [
+              match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+            ]
+          ] ++ trust_store
 
         case :ssl.connect(tcp_socket, tls_opts, 10_000) do
-          {:ok, ssl_socket} -> {:ok, ssl_socket}
-          {:error, reason} -> {:error, {:tls_upgrade_failed, reason}}
+          {:ok, ssl_socket} ->
+            case :ssl.setopts(ssl_socket, active: true) do
+              :ok ->
+                {:ok, ssl_socket}
+
+              {:error, reason} ->
+                :ssl.close(ssl_socket)
+                {:error, {:tls_activation_failed, reason}}
+            end
+
+          {:error, reason} ->
+            :gen_tcp.close(tcp_socket)
+            {:error, {:tls_upgrade_failed, reason}}
         end
 
       {:error, reason} ->
@@ -390,8 +423,8 @@ defmodule Burble.Bridges.Mumble do
     # Field 5 (opus): tag 0x28, varint 1 (true).
     payload =
       encode_string_field(1, username) <>
-      encode_string_field(2, password) <>
-      encode_varint_field(5, 1)
+        encode_string_field(2, password) <>
+        encode_varint_field(5, 1)
 
     send_mumble_packet(socket, @msg_authenticate, payload)
   end
@@ -409,7 +442,7 @@ defmodule Burble.Bridges.Mumble do
     # TextMessage: channel_id (repeated uint32), message (string).
     payload =
       encode_varint_field(3, channel_id || 0) <>
-      encode_string_field(5, text)
+        encode_string_field(5, text)
 
     send_mumble_packet(socket, @msg_text_message, payload)
   end
@@ -417,19 +450,22 @@ defmodule Burble.Bridges.Mumble do
   # Build a Mumble voice UDP packet for tunneling over TCP.
   # Optionally appends positional audio (x, y, z) as three little-endian float32s.
   defp build_voice_packet(session_id, opus_frame, position) do
-    type_target = @opus_type <<< 5  # Opus codec, target = 0 (normal talking).
+    # Opus codec, target = 0 (normal talking).
+    type_target = @opus_type <<< 5
     opus_len = byte_size(opus_frame)
 
+    # sequence number — simplified; production should increment
     base =
       <<type_target::8>> <>
-      encode_varint(session_id || 0) <>
-      encode_varint(0) <>            # sequence number — simplified; production should increment
-      encode_varint(opus_len) <>
-      opus_frame
+        MumbleVarint.encode(session_id || 0) <>
+        MumbleVarint.encode(0) <>
+        MumbleVarint.encode(opus_len) <>
+        opus_frame
 
     case position do
       {x, y, z} ->
         base <> <<x::little-float-32, y::little-float-32, z::little-float-32>>
+
       _ ->
         base
     end
@@ -442,7 +478,10 @@ defmodule Burble.Bridges.Mumble do
   end
 
   # Handle an incoming Mumble protobuf message.
-  defp handle_mumble_message(<<msg_type::16-big, length::32-big, payload::binary-size(length), rest::binary>>, state) do
+  defp handle_mumble_message(
+         <<msg_type::16-big, length::32-big, payload::binary-size(length), rest::binary>>,
+         state
+       ) do
     state =
       case msg_type do
         @msg_user_state ->
@@ -506,20 +545,25 @@ defmodule Burble.Bridges.Mumble do
 
       user = %{
         session_id: session_id,
-        name:       decode_string_field(payload, 2) || existing[:name],
+        name: decode_string_field(payload, 2) || existing[:name],
         channel_id: decode_varint_field(payload, 3) || existing[:channel_id],
-        muted:      decode_bool_field(payload, 7, existing[:muted] || false),
-        deaf:       decode_bool_field(payload, 8, existing[:deaf] || false),
-        suppress:   decode_bool_field(payload, 9, existing[:suppress] || false)
+        muted: decode_bool_field(payload, 7, existing[:muted] || false),
+        deaf: decode_bool_field(payload, 8, existing[:deaf] || false),
+        suppress: decode_bool_field(payload, 9, existing[:suppress] || false)
       }
 
-      Logger.debug("[MumbleBridge] UserState: #{user.name} mute=#{user.muted} suppress=#{user.suppress}")
+      Logger.debug(
+        "[MumbleBridge] UserState: #{user.name} mute=#{user.muted} suppress=#{user.suppress}"
+      )
 
       # Mirror server-mute/suppress into the Burble room so the user can't
       # be heard in Burble either when Mumble has silenced them.
       if user.muted or user.suppress do
-        Phoenix.PubSub.broadcast(Burble.PubSub, "room:#{state.config.room_id}",
-          {:mumble_user_muted, %{session_id: session_id, name: user.name, muted: true}})
+        Phoenix.PubSub.broadcast(
+          Burble.PubSub,
+          "room:#{state.config.room_id}",
+          {:mumble_user_muted, %{session_id: session_id, name: user.name, muted: true}}
+        )
       end
 
       mumble_users = Map.put(state.mumble_users, session_id, user)
@@ -530,17 +574,23 @@ defmodule Burble.Bridges.Mumble do
   # Handle UserRemove — a Mumble user left or was kicked/banned.
   defp handle_user_remove(payload, state) do
     session_id = decode_varint_field(payload, 1)
-    actor      = decode_varint_field(payload, 2)
+    actor = decode_varint_field(payload, 2)
     reason_str = decode_string_field(payload, 3)
-    banned     = decode_bool_field(payload, 4, false)
+    banned = decode_bool_field(payload, 4, false)
 
     if session_id do
       user = Map.get(state.mumble_users, session_id, %{name: "unknown"})
       action = if banned, do: "banned", else: if(actor, do: "kicked", else: "left")
-      Logger.info("[MumbleBridge] #{user.name} #{action}#{if reason_str, do: ": #{reason_str}", else: ""}")
 
-      Phoenix.PubSub.broadcast(Burble.PubSub, "room:#{state.config.room_id}",
-        {:mumble_user_left, %{session_id: session_id, name: user.name, reason: action}})
+      Logger.info(
+        "[MumbleBridge] #{user.name} #{action}#{if reason_str, do: ": #{reason_str}", else: ""}"
+      )
+
+      Phoenix.PubSub.broadcast(
+        Burble.PubSub,
+        "room:#{state.config.room_id}",
+        {:mumble_user_left, %{session_id: session_id, name: user.name, reason: action}}
+      )
 
       %{state | mumble_users: Map.delete(state.mumble_users, session_id)}
     else
@@ -561,19 +611,26 @@ defmodule Burble.Bridges.Mumble do
     codec_type = type_target >>> 5
 
     if codec_type == @opus_type do
-      {session_id, rest} = decode_varint_value(rest)
-      {_seq, rest} = decode_varint_value(rest)
-      {len_flags, rest} = decode_varint_value(rest)
-      opus_len = len_flags &&& 0x1FFF  # mask off the last-frame flag bit
+      {session_id, rest} = MumbleVarint.decode(rest)
+      {_seq, rest} = MumbleVarint.decode(rest)
+      {len_flags, rest} = MumbleVarint.decode(rest)
+      # mask off the last-frame flag bit
+      opus_len = len_flags &&& 0x1FFF
 
       case rest do
         <<_opus::binary-size(opus_len), pos_rest::binary>> when byte_size(pos_rest) >= 12 ->
           # Positional audio present — extract and store per-user coordinates.
           <<x::little-float-32, y::little-float-32, z::little-float-32, _::binary>> = pos_rest
-          Logger.debug("[MumbleBridge] Positional audio: session=#{session_id} pos={#{x}, #{y}, #{z}}")
 
-          Phoenix.PubSub.broadcast(Burble.PubSub, "room:#{state.config.room_id}",
-            {:mumble_user_position, %{session_id: session_id, x: x, y: y, z: z}})
+          Logger.debug(
+            "[MumbleBridge] Positional audio: session=#{session_id} pos={#{x}, #{y}, #{z}}"
+          )
+
+          Phoenix.PubSub.broadcast(
+            Burble.PubSub,
+            "room:#{state.config.room_id}",
+            {:mumble_user_position, %{session_id: session_id, x: x, y: y, z: z}}
+          )
 
           %{state | user_positions: Map.put(state.user_positions, session_id, {x, y, z})}
 
@@ -609,11 +666,12 @@ defmodule Burble.Bridges.Mumble do
       Phoenix.PubSub.broadcast(
         Burble.PubSub,
         "room:#{state.config.room_id}",
-        {:mumble_text, %{
-          from: "Mumble",
-          body: message,
-          bridge: true
-        }}
+        {:mumble_text,
+         %{
+           from: "Mumble",
+           body: message,
+           bridge: true
+         }}
       )
     end
 
@@ -626,19 +684,22 @@ defmodule Burble.Bridges.Mumble do
 
   # Encode a varint field: <<(field_number << 3 | 0)::varint, value::varint>>.
   defp encode_varint_field(field_number, value) do
-    tag = field_number * 8 + 0  # Wire type 0 = varint.
+    # Wire type 0 = varint.
+    tag = field_number * 8 + 0
     encode_varint(tag) <> encode_varint(value)
   end
 
   # Encode a length-delimited string field.
   defp encode_string_field(field_number, string) do
-    tag = field_number * 8 + 2  # Wire type 2 = length-delimited.
+    # Wire type 2 = length-delimited.
+    tag = field_number * 8 + 2
     data = :erlang.iolist_to_binary(string)
     encode_varint(tag) <> encode_varint(byte_size(data)) <> data
   end
 
   # Encode a protobuf varint.
   defp encode_varint(value) when value < 128, do: <<value::8>>
+
   defp encode_varint(value) do
     <<1::1, value &&& 0x7F::7>> <> encode_varint(value >>> 7)
   end
@@ -648,13 +709,14 @@ defmodule Burble.Bridges.Mumble do
   defp decode_bool_field(payload, target_field, default) do
     case decode_varint_field(payload, target_field) do
       nil -> default
-      0   -> false
-      _   -> true
+      0 -> false
+      _ -> true
     end
   end
 
   # Decode a varint field from protobuf payload (simplified, finds first match).
   defp decode_varint_field(<<>>, _target_field), do: nil
+
   defp decode_varint_field(payload, target_field) do
     case decode_tag(payload) do
       {^target_field, 0, rest} ->
@@ -662,11 +724,9 @@ defmodule Burble.Bridges.Mumble do
         value
 
       {_field, wire_type, rest} ->
-        skip_field(rest, wire_type)
-        |> case do
-          rest when is_binary(rest) -> decode_varint_field(rest, target_field)
-          _ -> nil
-        end
+        rest
+        |> skip_field(wire_type)
+        |> decode_varint_field(target_field)
     end
   rescue
     _ -> nil
@@ -674,6 +734,7 @@ defmodule Burble.Bridges.Mumble do
 
   # Decode a string field from protobuf payload.
   defp decode_string_field(<<>>, _target_field), do: nil
+
   defp decode_string_field(payload, target_field) do
     case decode_tag(payload) do
       {^target_field, 2, rest} ->
@@ -682,10 +743,9 @@ defmodule Burble.Bridges.Mumble do
         string
 
       {_field, wire_type, rest} ->
-        case skip_field(rest, wire_type) do
-          rest when is_binary(rest) -> decode_string_field(rest, target_field)
-          _ -> nil
-        end
+        rest
+        |> skip_field(wire_type)
+        |> decode_string_field(target_field)
     end
   rescue
     _ -> nil
@@ -701,22 +761,29 @@ defmodule Burble.Bridges.Mumble do
 
   # Decode a varint value.
   defp decode_varint_value(<<0::1, byte::7, rest::binary>>), do: {byte, rest}
+
   defp decode_varint_value(<<1::1, byte::7, rest::binary>>) do
     {next, rest2} = decode_varint_value(rest)
     {byte + (next <<< 7), rest2}
   end
 
   # Skip a field based on wire type.
-  defp skip_field(data, 0) do  # Varint
+  # Varint
+  defp skip_field(data, 0) do
     {_value, rest} = decode_varint_value(data)
     rest
   end
-  defp skip_field(<<_::64, rest::binary>>, 1), do: rest  # 64-bit
-  defp skip_field(data, 2) do  # Length-delimited
+
+  # 64-bit
+  defp skip_field(<<_::64, rest::binary>>, 1), do: rest
+  # Length-delimited
+  defp skip_field(data, 2) do
     {length, rest} = decode_varint_value(data)
     <<_::binary-size(length), rest2::binary>> = rest
     rest2
   end
-  defp skip_field(<<_::32, rest::binary>>, 5), do: rest  # 32-bit
+
+  # 32-bit
+  defp skip_field(<<_::32, rest::binary>>, 5), do: rest
   defp skip_field(_, _), do: <<>>
 end

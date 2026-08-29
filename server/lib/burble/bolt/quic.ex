@@ -70,7 +70,7 @@ defmodule Burble.Bolt.Quic do
       end
 
     certfile = Keyword.get(cfg, :certfile, Path.join(default_dir, "bolt.pem"))
-    keyfile  = Keyword.get(cfg, :keyfile,  Path.join(default_dir, "bolt_key.pem"))
+    keyfile = Keyword.get(cfg, :keyfile, Path.join(default_dir, "bolt_key.pem"))
 
     if File.exists?(certfile) and File.exists?(keyfile) do
       {:ok, certfile, keyfile}
@@ -212,13 +212,7 @@ defmodule Burble.Bolt.Quic do
       port = Keyword.get(opts, :port, Packet.port())
       timeout = Keyword.get(opts, :handshake_timeout_ms, @handshake_timeout_ms)
 
-      conn_opts = [
-        alpn: Keyword.get(opts, :alpn, @alpn),
-        verify: Keyword.get(opts, :verify, :verify_none),
-        datagram_receive_enabled: true,
-        datagram_send_enabled: true,
-        idle_timeout_ms: 5_000
-      ]
+      conn_opts = client_connection_options(opts)
 
       host =
         case ip do
@@ -239,6 +233,25 @@ defmodule Burble.Bolt.Quic do
       rescue
         e -> {:error, {:send_failed, e}}
       end
+    end
+  end
+
+  @doc false
+  @spec client_connection_options(keyword()) :: keyword()
+  def client_connection_options(opts \\ []) do
+    base = [
+      alpn: Keyword.get(opts, :alpn, @alpn),
+      # Bolt packets can trigger remote actions. Never make an authenticated
+      # transport optional merely because QUIC support itself is optional.
+      verify: :verify_peer,
+      datagram_receive_enabled: true,
+      datagram_send_enabled: true,
+      idle_timeout_ms: 5_000
+    ]
+
+    case Keyword.fetch(opts, :cacertfile) do
+      {:ok, path} -> Keyword.put(base, :cacertfile, path)
+      :error -> base
     end
   end
 end

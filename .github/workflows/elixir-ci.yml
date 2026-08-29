@@ -143,7 +143,7 @@ jobs:
         id: plt-cache
         with:
           path: server/priv/plts
-          key: ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-${{ hashFiles('server/mix.lock') }}
+          key: ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-${{ hashFiles('server/mix.lock', 'server/mix.exs') }}
           restore-keys: |
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-msquic-v2.3.8-
             ${{ runner.os }}-dialyzer-plt-otp27-elixir1.17-
@@ -163,15 +163,13 @@ jobs:
         run: mix compile
       - name: Create PLT directory
         run: mkdir -p priv/plts
-      - name: Run Dialyzer
-        # GATE NARROWED 2026-05-25: Dialyzer ran clean before the
-        # 2026-05-15 deactivation; the deactivation only landed because
-        # the test job (which it `needs`) was itself suppressed.
-        # However Dialyzer findings are typically Warning-level
-        # type-correctness issues that need triage before re-gating
-        # cleanly. Keep suppressed in this PR; re-arm in a follow-up
-        # once any pre-existing findings have been addressed
-        # (per-warning suppression in dialyzer mix config, *not*
-        # blanket continue-on-error).
+      - name: Run Dialyzer (report-only legacy baseline)
+        # The PLT directory is configured through Dialyxir's supported
+        # `plt_local_path` project option. `--plt-file` is not a Dialyxir CLI
+        # option: it was forwarded as an invalid Dialyzer warning flag, and
+        # `continue-on-error` then hid that the analyser never ran.
+        # The analyser now genuinely executes. Keep the repository's existing
+        # findings visible but non-blocking until they have been triaged into
+        # fixes or narrow, documented suppressions.
         continue-on-error: true
-        run: mix dialyzer --plt-file priv/plts/dialyzer.plt
+        run: mix dialyzer --format github

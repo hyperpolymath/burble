@@ -129,6 +129,26 @@ defmodule BurbleWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  # PubSub participant events from the room process.
+  @impl true
+  def handle_info({:participant_joined, user_id, meta}, socket) do
+    push(socket, "participant_joined", %{user_id: user_id, meta: meta})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:participant_left, user_id}, socket) do
+    push(socket, "participant_left", %{user_id: user_id})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(msg, socket) do
+    require Logger
+    Logger.debug("[RoomChannel] Unhandled info: #{inspect(msg)}")
+    {:noreply, socket}
+  end
+
   # ── Voice state ──
 
   @impl true
@@ -206,7 +226,11 @@ defmodule BurbleWeb.RoomChannel do
     if Permissions.has_permission?(role_perms, :text) do
       # Store in NNTPSBackend for persistence and threading.
       Burble.Text.NNTPSBackend.post_message(
-        room_id, user_id, display_name, body, %{}
+        room_id,
+        user_id,
+        display_name,
+        body,
+        %{}
       )
 
       broadcast!(socket, "text", %{
@@ -349,29 +373,6 @@ defmodule BurbleWeb.RoomChannel do
     require Logger
     Logger.warning("[RoomChannel] Unhandled event: #{inspect(event)}")
     {:reply, {:error, %{reason: "unknown_event", event: event}}, socket}
-  end
-
-  # ── PubSub events from other processes ──
-  # Handle participant join/leave notifications broadcast via PubSub
-  # so the channel does not crash on unexpected info messages.
-
-  @impl true
-  def handle_info({:participant_joined, user_id, meta}, socket) do
-    push(socket, "participant_joined", %{user_id: user_id, meta: meta})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:participant_left, user_id}, socket) do
-    push(socket, "participant_left", %{user_id: user_id})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info(msg, socket) do
-    require Logger
-    Logger.debug("[RoomChannel] Unhandled info: #{inspect(msg)}")
-    {:noreply, socket}
   end
 
   # ── Cleanup ──
