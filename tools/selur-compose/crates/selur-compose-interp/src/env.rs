@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: MPL-2.0
-# Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+// SPDX-License-Identifier: MPL-2.0
+// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! `EnvMap` — ordered environment variable store and `.env` file loader.
 //!
 //! ## Lookup order
@@ -20,10 +20,7 @@
 //! built in order of *decreasing* priority, so the first match in a linear
 //! scan is always the highest-priority value.
 
-use std::{
-    collections::HashMap,
-    path::Path,
-};
+use std::{collections::HashMap, path::Path};
 
 use crate::error::InterpError;
 
@@ -96,7 +93,10 @@ impl EnvMap {
             }
         }
 
-        EnvMap { entries: new_entries, index: new_index }
+        EnvMap {
+            entries: new_entries,
+            index: new_index,
+        }
     }
 
     /// Load one or more `.env`-format files and merge them **below** the
@@ -138,7 +138,10 @@ impl EnvMap {
             }
         }
 
-        Ok(EnvMap { entries: new_entries, index: new_index })
+        Ok(EnvMap {
+            entries: new_entries,
+            index: new_index,
+        })
     }
 
     /// Number of entries in the map.
@@ -172,15 +175,17 @@ impl EnvMap {
 pub fn load_env_file(path: &Path) -> Result<Vec<(String, String)>, InterpError> {
     let content = {
         use std::io::Read;
-        let mut file = std::fs::File::open(path).map_err(|e| InterpError::EnvFile {
+        let file = std::fs::File::open(path).map_err(|e| InterpError::EnvFile {
             path: path.display().to_string(),
             reason: e.to_string(),
         })?;
         let mut buf = String::new();
-        file.take(1024 * 1024).read_to_string(&mut buf).map_err(|e| InterpError::EnvFile {
-            path: path.display().to_string(),
-            reason: e.to_string(),
-        })?;
+        file.take(1024 * 1024)
+            .read_to_string(&mut buf)
+            .map_err(|e| InterpError::EnvFile {
+                path: path.display().to_string(),
+                reason: e.to_string(),
+            })?;
         buf
     };
     parse_env_str(&content, path)
@@ -230,9 +235,7 @@ pub fn parse_env_str(content: &str, path: &Path) -> Result<Vec<(String, String)>
 fn strip_quotes(s: &str) -> &str {
     let s = s.trim_end();
     if s.len() >= 2 {
-        if (s.starts_with('"') && s.ends_with('"'))
-            || (s.starts_with('\'') && s.ends_with('\''))
-        {
+        if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
             return &s[1..s.len() - 1];
         }
     }
@@ -255,7 +258,10 @@ mod tests {
     #[test]
     fn basic_key_value() {
         let pairs = parse_env_str("FOO=bar\nBAZ=qux\n", &dummy_path()).unwrap();
-        assert_eq!(pairs, vec![("FOO".into(), "bar".into()), ("BAZ".into(), "qux".into())]);
+        assert_eq!(
+            pairs,
+            vec![("FOO".into(), "bar".into()), ("BAZ".into(), "qux".into())]
+        );
     }
 
     #[test]

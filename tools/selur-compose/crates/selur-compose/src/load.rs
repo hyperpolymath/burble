@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: MPL-2.0
-# Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+// SPDX-License-Identifier: MPL-2.0
+// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Shared compose-file loader.
 //!
 //! Every subcommand uses [`load`] to locate the compose file, discover `.env`
@@ -31,7 +31,7 @@ use selur_compose_schema::{parse_str, Compose};
 #[allow(dead_code)] // compose_path will be used by driver-dependent subcommands in Phase 4
 pub struct Loaded {
     pub compose: Compose,
-    pub plan:    Plan,
+    pub plan: Plan,
     /// Absolute path to the compose file that was loaded.
     pub compose_path: PathBuf,
 }
@@ -46,11 +46,11 @@ pub struct Loaded {
 /// * `project_name` — optional override from `-p/--project-name`.
 /// * `services`     — restrict to these services (empty = all).
 pub fn load(
-    file:         Option<&Path>,
-    env_files:    &[PathBuf],
-    profiles:     &[String],
+    file: Option<&Path>,
+    env_files: &[PathBuf],
+    profiles: &[String],
     project_name: Option<&str>,
-    services:     &[String],
+    services: &[String],
 ) -> Result<Loaded> {
     // -----------------------------------------------------------------------
     // 1. Locate the compose file
@@ -63,7 +63,8 @@ pub fn load(
         let mut file = std::fs::File::open(&compose_path)
             .with_context(|| format!("failed to open {}", compose_path.display()))?;
         let mut buf = String::new();
-        file.take(5 * 1024 * 1024).read_to_string(&mut buf)
+        file.take(5 * 1024 * 1024)
+            .read_to_string(&mut buf)
             .with_context(|| format!("failed to read {}", compose_path.display()))?;
         buf
     };
@@ -79,27 +80,34 @@ pub fn load(
     // -----------------------------------------------------------------------
     // Start from process environment, then layer the compose-dir .env, then
     // any --env-file overrides.
-    let env = build_env(&compose_path, env_files)
-        .context("failed to load environment files")?;
+    let env = build_env(&compose_path, env_files).context("failed to load environment files")?;
 
     // -----------------------------------------------------------------------
     // 4. Interpolate
     // -----------------------------------------------------------------------
-    let compose = interpolate(compose, &env)
-        .with_context(|| format!("variable interpolation failed for {}", compose_path.display()))?;
+    let compose = interpolate(compose, &env).with_context(|| {
+        format!(
+            "variable interpolation failed for {}",
+            compose_path.display()
+        )
+    })?;
 
     // -----------------------------------------------------------------------
     // 5. Plan
     // -----------------------------------------------------------------------
     let opts = PlanOptions {
-        profiles:     profiles.to_vec(),
+        profiles: profiles.to_vec(),
         project_name: project_name.map(str::to_string),
-        services:     services.to_vec(),
+        services: services.to_vec(),
     };
     let plan = plan(&compose, &opts)
         .with_context(|| format!("planning failed for {}", compose_path.display()))?;
 
-    Ok(Loaded { compose, plan, compose_path })
+    Ok(Loaded {
+        compose,
+        plan,
+        compose_path,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -128,9 +136,7 @@ fn build_env(compose_path: &Path, extra_env_files: &[PathBuf]) -> Result<EnvMap>
     let mut env = EnvMap::from_process();
 
     // Look for a .env in the compose file's directory.
-    let compose_dir = compose_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."));
+    let compose_dir = compose_path.parent().unwrap_or_else(|| Path::new("."));
     let dot_env = compose_dir.join(".env");
     if dot_env.exists() {
         env = env
