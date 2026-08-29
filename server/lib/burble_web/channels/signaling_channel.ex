@@ -95,16 +95,12 @@ defmodule BurbleWeb.SignalingChannel do
         |> assign(:user_id, user_id)
         |> assign(:room_id, room_id)
 
-      Logger.debug(
-        "[SignalingChannel] #{user_id} joined signaling:#{room_id}"
-      )
+      Logger.debug("[SignalingChannel] #{user_id} joined signaling:#{room_id}")
 
       {:ok, socket}
     else
       {:error, reason} ->
-        Logger.warning(
-          "[SignalingChannel] Join rejected for room #{room_id}: #{inspect(reason)}"
-        )
+        Logger.warning("[SignalingChannel] Join rejected for room #{room_id}: #{inspect(reason)}")
 
         {:error, %{reason: "unauthorized"}}
     end
@@ -120,13 +116,11 @@ defmodule BurbleWeb.SignalingChannel do
     route_sdp("sdp:offer", peer_id, sdp, params, socket)
   end
 
-  @doc "Route an SDP answer to the target peer."
   @impl true
   def handle_in("sdp:answer", %{"to" => peer_id, "sdp" => sdp} = params, socket) do
     route_sdp("sdp:answer", peer_id, sdp, params, socket)
   end
 
-  @doc "Route an ICE candidate to the target peer."
   @impl true
   def handle_in("ice:candidate", %{"to" => peer_id, "candidate" => candidate}, socket) do
     route_to_peer(peer_id, %{
@@ -138,7 +132,6 @@ defmodule BurbleWeb.SignalingChannel do
     {:noreply, socket}
   end
 
-  @doc "Broadcast a presence:join event to all subscribers of this signaling topic."
   @impl true
   def handle_in("presence:join", _params, socket) do
     broadcast!(socket, "presence:join", %{
@@ -148,7 +141,6 @@ defmodule BurbleWeb.SignalingChannel do
     {:noreply, socket}
   end
 
-  @doc "Broadcast a presence:leave event to all subscribers of this signaling topic."
   @impl true
   def handle_in("presence:leave", _params, socket) do
     broadcast!(socket, "presence:leave", %{
@@ -158,7 +150,6 @@ defmodule BurbleWeb.SignalingChannel do
     {:noreply, socket}
   end
 
-  @doc "Health check — reply immediately with pong."
   @impl true
   def handle_in("ping", _params, socket) do
     {:reply, {:ok, %{pong: true}}, socket}
@@ -219,9 +210,7 @@ defmodule BurbleWeb.SignalingChannel do
   # Verify a Phoenix.Token from the join params map.
   @spec verify_token(map()) :: {:ok, String.t()} | {:error, term()}
   defp verify_token(%{"token" => token}) when is_binary(token) do
-    case Phoenix.Token.verify(BurbleWeb.Endpoint, @token_salt, token,
-           max_age: @token_max_age
-         ) do
+    case Phoenix.Token.verify(BurbleWeb.Endpoint, @token_salt, token, max_age: @token_max_age) do
       {:ok, user_id} -> {:ok, user_id}
       {:error, reason} -> {:error, reason}
     end
@@ -273,7 +262,8 @@ defmodule BurbleWeb.SignalingChannel do
     case wire_format() do
       :bebop ->
         try do
-          bin = Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: sdp, media_type: media_type})
+          bin =
+            Burble.Protocol.VoiceSignal.encode_sdp_payload(%{sdp: sdp, media_type: media_type})
 
           :telemetry.execute(
             [:burble, :signaling, :encode],
@@ -344,6 +334,8 @@ defmodule BurbleWeb.SignalingChannel do
       payload
   end
 
+  def decode_sdp_body(payload), do: payload
+
   # Round-trip integrity check — defense in depth.
   #
   # Since 2026-08-04 the generated decoders are STRICT (they raise
@@ -363,8 +355,6 @@ defmodule BurbleWeb.SignalingChannel do
   rescue
     _ -> false
   end
-
-  def decode_sdp_body(payload), do: payload
 
   # Build the PubSub topic for a specific peer.
   @spec peer_topic(String.t()) :: String.t()

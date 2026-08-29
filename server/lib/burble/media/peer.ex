@@ -31,7 +31,13 @@ defmodule Burble.Media.Peer do
   use GenServer, restart: :temporary
   require Logger
 
-  alias ExWebRTC.{PeerConnection, MediaStreamTrack, RTPCodecParameters, SessionDescription, ICECandidate}
+  alias ExWebRTC.{
+    PeerConnection,
+    MediaStreamTrack,
+    RTPCodecParameters,
+    SessionDescription,
+    ICECandidate
+  }
 
   @audio_codecs [
     %RTPCodecParameters{
@@ -98,14 +104,16 @@ defmodule Burble.Media.Peer do
     channel_pid = Keyword.fetch!(opts, :channel_pid)
     existing_peers = Keyword.get(opts, :existing_peers, [])
 
-    ice_servers = Keyword.get(opts, :ice_servers, Burble.Network.TurnCredentials.ice_servers(peer_id))
+    ice_servers =
+      Keyword.get(opts, :ice_servers, Burble.Network.TurnCredentials.ice_servers(peer_id))
 
     # Create PeerConnection.
-    {:ok, pc} = PeerConnection.start_link(
-      ice_servers: ice_servers,
-      audio_codecs: @audio_codecs,
-      video_codecs: []
-    )
+    {:ok, pc} =
+      PeerConnection.start_link(
+        ice_servers: ice_servers,
+        audio_codecs: @audio_codecs,
+        video_codecs: []
+      )
 
     # Recvonly transceiver — receives this peer's microphone audio.
     {:ok, recv_tr} = PeerConnection.add_transceiver(pc, :audio, direction: :recvonly)
@@ -135,7 +143,10 @@ defmodule Burble.Media.Peer do
     # Generate initial offer.
     send(self(), :send_offer)
 
-    Logger.info("[Peer] Started for #{peer_id} in room #{room_id} (#{length(existing_peers)} existing peers)")
+    Logger.info(
+      "[Peer] Started for #{peer_id} in room #{room_id} (#{length(existing_peers)} existing peers)"
+    )
+
     {:ok, state}
   end
 
@@ -152,9 +163,11 @@ defmodule Burble.Media.Peer do
     # Forward ICE candidate to client via channel. channel_pid may be nil in
     # tests; skip in that case (see send_offer/1 comment).
     json = candidate |> ICECandidate.to_json() |> Jason.encode!()
+
     if is_pid(state.channel_pid) do
       send(state.channel_pid, {:peer_ice_candidate, json})
     end
+
     {:noreply, state}
   end
 
@@ -162,7 +175,11 @@ defmodule Burble.Media.Peer do
   def handle_info({:ex_webrtc, pc, {:connection_state_change, :connected}}, %{pc: pc} = state) do
     Logger.info("[Peer] #{state.peer_id} WebRTC connected")
     # Report connection success to health mesh
-    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :up, %{type: :webrtc, room: state.room_id})
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :up, %{
+      type: :webrtc,
+      room: state.room_id
+    })
+
     {:noreply, state}
   end
 
@@ -170,7 +187,11 @@ defmodule Burble.Media.Peer do
   def handle_info({:ex_webrtc, pc, {:connection_state_change, :failed}}, %{pc: pc} = state) do
     Logger.warning("[Peer] #{state.peer_id} WebRTC connection failed")
     # Report connection failure to health mesh
-    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :down, %{type: :webrtc, room: state.room_id})
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, :down, %{
+      type: :webrtc,
+      room: state.room_id
+    })
+
     {:noreply, state}
   end
 
@@ -178,12 +199,18 @@ defmodule Burble.Media.Peer do
   def handle_info({:ex_webrtc, pc, {:connection_state_change, new_state}}, %{pc: pc} = state) do
     Logger.debug("[Peer] #{state.peer_id} connection state: #{new_state}")
     # Report intermediate states
-    status = case new_state do
-      :connecting -> :degraded
-      :disconnected -> :down
-      _ -> :degraded
-    end
-    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, status, %{type: :webrtc, room: state.room_id})
+    status =
+      case new_state do
+        :connecting -> :degraded
+        :disconnected -> :down
+        _ -> :degraded
+      end
+
+    Burble.Groove.HealthMesh.report_peer_status(state.peer_id, status, %{
+      type: :webrtc,
+      room: state.room_id
+    })
+
     {:noreply, state}
   end
 
@@ -317,13 +344,17 @@ defmodule Burble.Media.Peer do
   @impl true
   def handle_cast({:forward_rtp, from_peer_id, packet}, %{pc: pc} = state) do
     case Map.get(state.outbound_tracks, from_peer_id) do
-      %{track_id: track_id, transceiver_id: transceiver_id} ->
+      %{track_id: _track_id, transceiver_id: transceiver_id} ->
         # Forward RTP packet through the transceiver's sender
         # In ex_webrtc, we send RTP packets via the transceiver
         case PeerConnection.send_rtp(pc, transceiver_id, packet) do
-          :ok -> :ok
+          :ok ->
+            :ok
+
           {:error, reason} ->
-            Logger.warning("[Peer] #{state.peer_id} failed to forward RTP to #{from_peer_id}: #{reason}")
+            Logger.warning(
+              "[Peer] #{state.peer_id} failed to forward RTP to #{from_peer_id}: #{reason}"
+            )
         end
 
       nil ->
@@ -369,23 +400,31 @@ defmodule Burble.Media.Peer do
       outbound_count >= @max_outbound_peers ->
         Logger.error(
           "[Peer] #{state.peer_id} in room #{state.room_id}: outbound peer " <>
-          "limit reached (#{outbound_count}/#{@max_outbound_peers}), " <>
-          "rejecting new peer #{new_peer_id}"
+            "limit reached (#{outbound_count}/#{@max_outbound_peers}), " <>
+            "rejecting new peer #{new_peer_id}"
         )
+
         state
 
       outbound_count >= @outbound_warn_threshold ->
         Logger.warning(
           "[Peer] #{state.peer_id} in room #{state.room_id}: approaching " <>
-          "outbound peer limit (#{outbound_count}/#{@max_outbound_peers})"
+            "outbound peer limit (#{outbound_count}/#{@max_outbound_peers})"
         )
+
         {track, tr_id} = add_sendonly_track(state.pc)
-        outbound = Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+
+        outbound =
+          Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+
         %{state | outbound_tracks: outbound}
 
       true ->
         {track, tr_id} = add_sendonly_track(state.pc)
-        outbound = Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+
+        outbound =
+          Map.put(state.outbound_tracks, new_peer_id, %{track_id: track.id, transceiver_id: tr_id})
+
         %{state | outbound_tracks: outbound}
     end
   end
@@ -416,6 +455,7 @@ defmodule Burble.Media.Peer do
   end
 
   defp process_pending_peers(%{pending_peers: []} = state), do: state
+
   defp process_pending_peers(%{pending_peers: [next | rest]} = state) do
     state = %{state | pending_peers: rest}
     state = add_outbound_peer(state, next)

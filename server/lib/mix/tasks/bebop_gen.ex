@@ -417,7 +417,13 @@ defmodule Mix.Tasks.Bebop.Generate do
 
     footer = "\nend\n"
 
-    header <> enum_code <> "\n" <> struct_code <> "\n" <> message_code <> "\n" <>
+    header <>
+      enum_code <>
+      "\n" <>
+      struct_code <>
+      "\n" <>
+      message_code <>
+      "\n" <>
       union_code <> "\n" <> primitives <> footer
   end
 
@@ -503,7 +509,9 @@ defmodule Mix.Tasks.Bebop.Generate do
         _ -> ""
       end
 
-    "\n  # " <> String.duplicate("-", 75) <> "\n" <>
+    "\n  # " <>
+      String.duplicate("-", 75) <>
+      "\n" <>
       "  # #{title}\n" <>
       doc_line <>
       "  # " <> String.duplicate("-", 75) <> "\n\n"
@@ -515,27 +523,35 @@ defmodule Mix.Tasks.Bebop.Generate do
     dec_name = "decode_#{snake_case(name)}"
 
     # Build the map pattern for encode.
-    map_keys = Enum.map(fields, fn {_type, fname} -> "#{snake_case(fname)}: #{snake_case(fname)}" end) |> Enum.join(", ")
+    map_keys =
+      Enum.map(fields, fn {_type, fname} -> "#{snake_case(fname)}: #{snake_case(fname)}" end)
+      |> Enum.join(", ")
 
     # Build encode body — concatenation of field encoders.
-    enc_parts = Enum.map(fields, fn {type, fname} ->
-      encode_field_expr(type, snake_case(fname), type_map)
-    end) |> Enum.join(" <>\n      ")
+    enc_parts =
+      Enum.map(fields, fn {type, fname} ->
+        encode_field_expr(type, snake_case(fname), type_map)
+      end)
+      |> Enum.join(" <>\n      ")
 
     # Build decode body — sequential decoding.
-    {dec_bindings, _counter} = Enum.reduce(fields, {[], 0}, fn {type, fname}, {acc, i} ->
-      var = snake_case(fname)
-      rest_var = if i == 0, do: "data", else: "rest#{i}"
-      next_rest = "rest#{i + 1}"
-      binding = decode_field_expr(type, var, rest_var, next_rest, type_map)
-      {acc ++ [binding], i + 1}
-    end)
+    {dec_bindings, _counter} =
+      Enum.reduce(fields, {[], 0}, fn {type, fname}, {acc, i} ->
+        var = snake_case(fname)
+        rest_var = if i == 0, do: "data", else: "rest#{i}"
+        next_rest = "rest#{i + 1}"
+        binding = decode_field_expr(type, var, rest_var, next_rest, type_map)
+        {acc ++ [binding], i + 1}
+      end)
 
     last_rest = "rest#{length(fields)}"
-    result_map = Enum.map(fields, fn {_type, fname} ->
-      sn = snake_case(fname)
-      "#{sn}: #{sn}"
-    end) |> Enum.join(", ")
+
+    result_map =
+      Enum.map(fields, fn {_type, fname} ->
+        sn = snake_case(fname)
+        "#{sn}: #{sn}"
+      end)
+      |> Enum.join(", ")
 
     banner("Struct: #{name}", docs, name) <>
       """
@@ -561,27 +577,35 @@ defmodule Mix.Tasks.Bebop.Generate do
 
     sorted_fields = Enum.sort_by(fields, fn {idx, _, _} -> idx end)
 
-    map_keys = Enum.map(sorted_fields, fn {_idx, _type, fname} ->
-      "#{snake_case(fname)}: #{snake_case(fname)}"
-    end) |> Enum.join(", ")
+    map_keys =
+      Enum.map(sorted_fields, fn {_idx, _type, fname} ->
+        "#{snake_case(fname)}: #{snake_case(fname)}"
+      end)
+      |> Enum.join(", ")
 
-    enc_parts = Enum.map(sorted_fields, fn {_idx, type, fname} ->
-      encode_field_expr(type, snake_case(fname), type_map)
-    end) |> Enum.join(" <>\n      ")
+    enc_parts =
+      Enum.map(sorted_fields, fn {_idx, type, fname} ->
+        encode_field_expr(type, snake_case(fname), type_map)
+      end)
+      |> Enum.join(" <>\n      ")
 
-    {dec_bindings, _counter} = Enum.reduce(sorted_fields, {[], 0}, fn {_idx, type, fname}, {acc, i} ->
-      var = snake_case(fname)
-      rest_var = if i == 0, do: "data", else: "rest#{i}"
-      next_rest = "rest#{i + 1}"
-      binding = decode_field_expr(type, var, rest_var, next_rest, type_map)
-      {acc ++ [binding], i + 1}
-    end)
+    {dec_bindings, _counter} =
+      Enum.reduce(sorted_fields, {[], 0}, fn {_idx, type, fname}, {acc, i} ->
+        var = snake_case(fname)
+        rest_var = if i == 0, do: "data", else: "rest#{i}"
+        next_rest = "rest#{i + 1}"
+        binding = decode_field_expr(type, var, rest_var, next_rest, type_map)
+        {acc ++ [binding], i + 1}
+      end)
 
     last_rest = "rest#{length(sorted_fields)}"
-    result_map = Enum.map(sorted_fields, fn {_idx, _type, fname} ->
-      sn = snake_case(fname)
-      "#{sn}: #{sn}"
-    end) |> Enum.join(", ")
+
+    result_map =
+      Enum.map(sorted_fields, fn {_idx, _type, fname} ->
+        sn = snake_case(fname)
+        "#{sn}: #{sn}"
+      end)
+      |> Enum.join(", ")
 
     banner("Message: #{name}", docs, name) <>
       """
@@ -599,28 +623,34 @@ defmodule Mix.Tasks.Bebop.Generate do
   end
 
   # Generate union encode/decode — this is the top-level entry point.
-  defp gen_union_codec({:union, name, variants}, type_map, docs) do
-    enc_clauses = Enum.map(variants, fn {tag, type_name, var_name} ->
-      atom_name = snake_case(var_name)
-      enc_fn = "encode_#{snake_case(type_name)}"
-      """
-        def encode({:#{atom_name}, msg}) do
-          payload = #{enc_fn}(msg)
-          <<#{tag}::8, payload::binary>>
-        end
-      """
-    end) |> Enum.join("\n")
+  defp gen_union_codec({:union, name, variants}, _type_map, docs) do
+    enc_clauses =
+      Enum.map(variants, fn {tag, type_name, var_name} ->
+        atom_name = snake_case(var_name)
+        enc_fn = "encode_#{snake_case(type_name)}"
 
-    dec_clauses = Enum.map(variants, fn {tag, type_name, var_name} ->
-      atom_name = snake_case(var_name)
-      dec_fn = "decode_#{snake_case(type_name)}"
-      """
-        def decode(<<#{tag}::8, payload::binary>>) do
-          {msg, rest} = #{dec_fn}(payload)
-          {:#{atom_name}, msg, rest}
-        end
-      """
-    end) |> Enum.join("\n")
+        """
+          def encode({:#{atom_name}, msg}) do
+            payload = #{enc_fn}(msg)
+            <<#{tag}::8, payload::binary>>
+          end
+        """
+      end)
+      |> Enum.join("\n")
+
+    dec_clauses =
+      Enum.map(variants, fn {tag, type_name, var_name} ->
+        atom_name = snake_case(var_name)
+        dec_fn = "decode_#{snake_case(type_name)}"
+
+        """
+          def decode(<<#{tag}::8, payload::binary>>) do
+            {msg, rest} = #{dec_fn}(payload)
+            {:#{atom_name}, msg, rest}
+          end
+        """
+      end)
+      |> Enum.join("\n")
 
     banner("Union: #{name} — top-level encode/decode on the discriminator tag", docs, name) <>
       """
@@ -647,12 +677,24 @@ defmodule Mix.Tasks.Bebop.Generate do
   # Generate an Elixir expression that encodes a single field value to binary.
   defp encode_field_expr(type, var, type_map) do
     case type do
-      "string" -> "encode_string(#{var})"
-      "float32" -> "<<#{var}::float-little-32>>"
-      "uint8" -> "<<#{var}::8>>"
-      "uint16" -> "<<#{var}::16-little>>"
-      "uint32" -> "<<#{var}::32-little>>"
-      "bool" -> "encode_bool(#{var})"
+      "string" ->
+        "encode_string(#{var})"
+
+      "float32" ->
+        "<<#{var}::float-little-32>>"
+
+      "uint8" ->
+        "<<#{var}::8>>"
+
+      "uint16" ->
+        "<<#{var}::16-little>>"
+
+      "uint32" ->
+        "<<#{var}::32-little>>"
+
+      "bool" ->
+        "encode_bool(#{var})"
+
       other ->
         # Check if this is a known struct/message/enum type.
         cond do

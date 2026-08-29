@@ -122,7 +122,8 @@ defmodule Burble.Coprocessor.Pipeline do
     config = Keyword.get(opts, :config, default_config())
 
     # Initialise per-kernel state.
-    neural_state = if config.neural_denoise, do: Backend.neural_init_model(config.sample_rate), else: nil
+    neural_state =
+      if config.neural_denoise, do: Backend.neural_init_model(config.sample_rate), else: nil
 
     state = %{
       peer_id: peer_id,
@@ -186,6 +187,7 @@ defmodule Burble.Coprocessor.Pipeline do
         frame =
           if state.e2ee_key do
             aad = state.peer_id
+
             case Backend.crypto_encrypt_frame(encoded, state.e2ee_key, aad) do
               {:ok, {ct, iv, tag}} -> iv <> tag <> ct
               {:error, _} -> encoded
@@ -194,9 +196,10 @@ defmodule Burble.Coprocessor.Pipeline do
             encoded
           end
 
-        new_state = %{state |
-          neural_state: neural_state,
-          frames_processed: state.frames_processed + 1
+        new_state = %{
+          state
+          | neural_state: neural_state,
+            frames_processed: state.frames_processed + 1
         }
 
         {:reply, {:ok, frame}, new_state}
@@ -239,6 +242,7 @@ defmodule Burble.Coprocessor.Pipeline do
             case ready_frame do
               <<iv::binary-12, tag::binary-16, ct::binary>> ->
                 aad = state.peer_id
+
                 case Backend.crypto_decrypt_frame(ct, state.e2ee_key, iv, tag, aad) do
                   {:ok, plaintext} -> plaintext
                   {:error, _} -> ready_frame
@@ -254,11 +258,12 @@ defmodule Burble.Coprocessor.Pipeline do
         # Step 4: Decode.
         case Backend.audio_decode(decrypted, config.sample_rate, config.channels) do
           {:ok, pcm} ->
-            new_state = %{state |
-              frames_processed: state.frames_processed + 1,
-              prev_frames: [ready_frame | Enum.take(state.prev_frames, 2)],
-              playback_ref: pcm,
-              silence_frames: 0
+            new_state = %{
+              state
+              | frames_processed: state.frames_processed + 1,
+                prev_frames: [ready_frame | Enum.take(state.prev_frames, 2)],
+                playback_ref: pcm,
+                silence_frames: 0
             }
 
             {:reply, {:ok, pcm}, new_state}
@@ -267,9 +272,10 @@ defmodule Burble.Coprocessor.Pipeline do
             # Decode failed — attempt packet loss concealment.
             concealed = Backend.io_conceal_loss(state.prev_frames, 960)
 
-            new_state = %{state |
-              frames_dropped: state.frames_dropped + 1,
-              prev_frames: [concealed | Enum.take(state.prev_frames, 2)]
+            new_state = %{
+              state
+              | frames_dropped: state.frames_dropped + 1,
+                prev_frames: [concealed | Enum.take(state.prev_frames, 2)]
             }
 
             {:reply, {:ok, concealed}, new_state}
@@ -317,11 +323,6 @@ defmodule Burble.Coprocessor.Pipeline do
     GenServer.cast(pipeline, {:rtp_timestamp, rtp_ts})
   end
 
-  @impl true
-  def handle_cast({:rtp_timestamp, rtp_ts}, state) do
-    {:noreply, %{state | last_rtp_ts: rtp_ts}}
-  end
-
   # ---------------------------------------------------------------------------
   # Bitrate adaptation (REMB feedback)
   # ---------------------------------------------------------------------------
@@ -341,12 +342,19 @@ defmodule Burble.Coprocessor.Pipeline do
   end
 
   @impl true
+  def handle_cast({:rtp_timestamp, rtp_ts}, state) do
+    {:noreply, %{state | last_rtp_ts: rtp_ts}}
+  end
+
+  @impl true
   def handle_cast({:update_bitrate, loss_ratio, rtt_ms}, state) do
     new_bitrate = Backend.io_adaptive_bitrate(loss_ratio, rtt_ms, state.current_bitrate)
 
     if new_bitrate != state.current_bitrate do
-      Logger.info("[Pipeline] Bitrate #{state.current_bitrate} → #{new_bitrate} " <>
-                  "(loss=#{Float.round(loss_ratio * 100, 1)}%, rtt=#{rtt_ms}ms)")
+      Logger.info(
+        "[Pipeline] Bitrate #{state.current_bitrate} → #{new_bitrate} " <>
+          "(loss=#{Float.round(loss_ratio * 100, 1)}%, rtt=#{rtt_ms}ms)"
+      )
     end
 
     {:noreply, %{state | current_bitrate: new_bitrate}}

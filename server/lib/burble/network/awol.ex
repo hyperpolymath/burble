@@ -45,7 +45,7 @@ defmodule Burble.Network.AWOL do
           loss_rate: float(),
           healthy: boolean(),
           # Layline trend buffer: [ {timestamp, rtt, loss} ]
-          trends: [ {integer(), integer(), float()} ]
+          trends: [{integer(), integer(), float()}]
         }
 
   # --- Layline Routing ---
@@ -98,7 +98,8 @@ defmodule Burble.Network.AWOL do
 
   @impl true
   def handle_call({:add_interface, session_id, path_id, local_ip, remote_ip}, _from, state) do
-    session = Map.get(state.sessions, session_id, %{paths: %{}, active_path_id: nil, redundancy: 1.0})
+    session =
+      Map.get(state.sessions, session_id, %{paths: %{}, active_path_id: nil, redundancy: 1.0})
 
     new_path = %{
       id: path_id,
@@ -121,7 +122,9 @@ defmodule Burble.Network.AWOL do
   @impl true
   def handle_call({:predict_best_path, session_id}, _from, state) do
     case Map.get(state.sessions, session_id) do
-      nil -> {:reply, {:error, :not_found}, state}
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
       session ->
         best_path_id = run_layline_algorithm(session.paths)
         {:reply, {:ok, best_path_id}, state}
@@ -129,7 +132,7 @@ defmodule Burble.Network.AWOL do
   end
 
   @impl true
-  def handle_call({:send, session_id, traffic_class, payload}, _from, state) do
+  def handle_call({:send, session_id, traffic_class, _payload}, _from, state) do
     case Map.get(state.sessions, session_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
@@ -138,10 +141,11 @@ defmodule Burble.Network.AWOL do
         # Implement Redundancy: send on active path + others if redundancy > 1.0.
         paths_to_use = select_paths(session, traffic_class)
 
-        send_results = Enum.map(paths_to_use, fn _path ->
-          Logger.debug("[AWOL] send: multipath transport not wired, dropping packet")
-          {:error, :multipath_not_wired}
-        end)
+        send_results =
+          Enum.map(paths_to_use, fn _path ->
+            Logger.debug("[AWOL] send: multipath transport not wired, dropping packet")
+            {:error, :multipath_not_wired}
+          end)
 
         case send_results do
           [] -> {:reply, {:error, :no_paths}, state}
@@ -171,9 +175,11 @@ defmodule Burble.Network.AWOL do
   @impl true
   def handle_info(:analyze_trends, state) do
     # Update trend buffers for all paths in all sessions.
-    new_sessions = Map.new(state.sessions, fn {sid, session} ->
-      {sid, %{session | paths: update_path_trends(session.paths)}}
-    end)
+    new_sessions =
+      Map.new(state.sessions, fn {sid, session} ->
+        {sid, %{session | paths: update_path_trends(session.paths)}}
+      end)
+
     {:noreply, %{state | sessions: new_sessions}}
   end
 
@@ -181,6 +187,7 @@ defmodule Burble.Network.AWOL do
 
   defp update_path_trends(paths) do
     now = System.system_time(:millisecond)
+
     Map.new(paths, fn {id, path} ->
       new_trend = [{now, path.rtt_us, path.loss_rate} | Enum.take(path.trends, 9)]
       {id, %{path | trends: new_trend}}
@@ -202,6 +209,7 @@ defmodule Burble.Network.AWOL do
   end
 
   defp calculate_layline_score(%{trends: []} = path), do: path.rtt_us
+
   defp calculate_layline_score(path) do
     {_, rtt0, l0} = Enum.at(path.trends, 0, {0, path.rtt_us, path.loss_rate})
     {_, rtt1, l1} = Enum.at(path.trends, 1, {0, rtt0, l0})
@@ -211,24 +219,28 @@ defmodule Burble.Network.AWOL do
     # A single large jump where the previous values were stable and much lower.
     is_spike = rtt0 > rtt1 * 1.5 and abs(rtt1 - rtt2) <= 10
 
-    baseline = if is_spike do
-      rtt1 # Ignore the spike for baseline
-    else
-      (rtt0 + rtt1 + rtt2) / 3
-    end
+    baseline =
+      if is_spike do
+        # Ignore the spike for baseline
+        rtt1
+      else
+        (rtt0 + rtt1 + rtt2) / 3
+      end
 
-    velocity = if is_spike do
-      0.0 # Ignore velocity for a spike
-    else
-      (rtt0 - rtt2) / 2.0
-    end
+    velocity =
+      if is_spike do
+        # Ignore velocity for a spike
+        0.0
+      else
+        (rtt0 - rtt2) / 2.0
+      end
 
     # Predicted RTT in 500ms
-    predicted_rtt = baseline + (velocity * 2.0)
+    predicted_rtt = baseline + velocity * 2.0
 
     # Apply heavy penalty for packet loss (Loss-adjusted RTT)
     avg_loss = (l0 + l1 + l2) / 3.0
-    loss_penalty = 1.0 + (avg_loss * 10.0)
+    loss_penalty = 1.0 + avg_loss * 10.0
 
     predicted_rtt * loss_penalty
   end
