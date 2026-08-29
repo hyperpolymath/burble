@@ -1,4 +1,3 @@
-# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # This workflow is managed by gh actions-lock.
 name: Governance
@@ -16,5 +15,5 @@ permissions:
 
 jobs:
   governance:
-    timeout-minutes: 10
-    uses: hyperpolymath/standards/.github/workflows/governance-reusable.yml@7fdc2705df74b4e352d2a1cde3e87a5923fdf329
+    uses: hyperpolymath/standards/.github/workflows/governance-reusable.yml@4d104d325b96c348d685956c6678139640c15c4b
+    secrets: inherit

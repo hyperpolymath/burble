@@ -1,4 +1,3 @@
-# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # This workflow is managed by gh actions-lock.
 name: BoJ Server Build Trigger
@@ -14,9 +13,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
       - name: Trigger BoJ Server (Casket/ssg-mcp)
+        env:
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          # Send a secure trigger to boj-server to build this repository
-          curl -X POST "http://boj-server.local:7700/cartridges/ssg-mcp/invoke"             -H "Content-Type: application/json"             -d "{\"repo\": \"${{ github.repository }}\", \"branch\": \"${{ github.ref_name }}\", \"engine\": \"casket\\"}"}
+          # Advisory trigger: the internal endpoint may be unavailable to a
+          # GitHub-hosted runner, but the shell and JSON must still be valid.
+          payload=$(jq -n \
+            --arg repo "$REPOSITORY" \
+            --arg branch "$BRANCH" \
+            '{repo: $repo, branch: $branch, engine: "casket"}')
+          curl --fail-with-body --request POST \
+            "http://boj-server.local:7700/cartridges/ssg-mcp/invoke" \
+            --header "Content-Type: application/json" \
+            --data "$payload"
         continue-on-error: true
 permissions:
   actions: read
