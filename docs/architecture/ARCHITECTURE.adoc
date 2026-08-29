@@ -25,7 +25,7 @@
 | Protobuf-defined wire protocol shared between server and all clients
 
 | **Coprocessor**
-| Zig SIMD NIFs — audio DSP, compression, neural denoising, echo cancellation
+| Zig kernel sources; eligible pure kernels require proved ReleaseSafe SNIF/WASM guests. BEAM reference is active today
 
 | **Timing**
 | IEEE 1588 PTP — sub-microsecond clock synchronisation across nodes
@@ -59,7 +59,7 @@
 | Protobuf wire protocol definitions
 
 | `ffi/zig/`
-| SIMD coprocessor NIFs (audio, DSP, neural, compression)
+| Zig coprocessor kernels and future proved SNIF guests (audio, DSP, neural, compression)
 
 | `src/abi/`
 | Idris2 ABI definitions (dependent type proofs for coprocessor interfaces)

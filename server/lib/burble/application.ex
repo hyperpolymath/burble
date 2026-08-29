@@ -37,7 +37,8 @@ defmodule Burble.Application do
       :ets.new(:burble_rate_limiter, [:named_table, :public, :set, read_concurrency: true])
       Logger.info("[Burble] RateLimiter ETS table created at app startup")
     rescue
-      ArgumentError -> :ok  # Hot-reload case: table already exists.
+      # Hot-reload case: table already exists.
+      ArgumentError -> :ok
     end
 
     children = [
@@ -54,7 +55,8 @@ defmodule Burble.Application do
       Burble.Presence,
 
       # Room supervisor — DynamicSupervisor for room processes
-      {DynamicSupervisor, name: Burble.RoomSupervisor, strategy: :one_for_one, max_restarts: 100, max_seconds: 5},
+      {DynamicSupervisor,
+       name: Burble.RoomSupervisor, strategy: :one_for_one, max_restarts: 100, max_seconds: 5},
 
       # Room registry — maps room IDs to PIDs
       {Registry, keys: :unique, name: Burble.RoomRegistry},
@@ -63,13 +65,18 @@ defmodule Burble.Application do
       {Registry, keys: :unique, name: Burble.PeerRegistry},
 
       # WebRTC peer supervisor — one Peer GenServer per active participant
-      {DynamicSupervisor, name: Burble.PeerSupervisor, strategy: :one_for_one, max_restarts: 100, max_seconds: 5},
+      {DynamicSupervisor,
+       name: Burble.PeerSupervisor, strategy: :one_for_one, max_restarts: 100, max_seconds: 5},
 
       # Coprocessor pipeline registry — maps peer IDs to pipeline PIDs
       {Registry, keys: :unique, name: Burble.CoprocessorRegistry},
 
       # Coprocessor pipeline supervisor — one pipeline per active peer
-      {DynamicSupervisor, name: Burble.CoprocessorSupervisor, strategy: :one_for_one, max_restarts: 100, max_seconds: 5},
+      {DynamicSupervisor,
+       name: Burble.CoprocessorSupervisor,
+       strategy: :one_for_one,
+       max_restarts: 100,
+       max_seconds: 5},
 
       # In-memory chat message store (ETS-backed, per-room, ephemeral)
       Burble.Chat.MessageStore,
@@ -152,12 +159,12 @@ defmodule Burble.Application do
   defp log_hardware_capabilities do
     alias Burble.Coprocessor.{ZigBackend, SNIFBackend}
 
-    zig = if ZigBackend.available?(), do: "ACTIVE (SIMD)", else: "UNAVAILABLE → Elixir fallback"
+    zig = if ZigBackend.available?(), do: "POLICY ERROR", else: "DISABLED"
 
     snif =
       if SNIFBackend.available?(),
         do: "ACTIVE (WASM/SNIF)",
-        else: "UNAVAILABLE → Zig/Elixir fallback"
+        else: "UNAVAILABLE → Elixir fallback"
 
     # PTP module exposes source/0 (not status/0). Wrapped in try/rescue so a
     # rename of either function does not crash app boot — this is diagnostic
@@ -183,7 +190,7 @@ defmodule Burble.Application do
 
     Logger.info("""
     ┌─ Burble capability report ────────────────────────────────
-    │  Zig NIF (SIMD audio/DSP)  : #{zig}
+    │  Direct Zig NIF (retired)   : #{zig}
     │  SNIF (WASM crash-isolated) : #{snif}
     │  PTP clock source          : #{ptp_source}
     │  LLM service               : #{llm}

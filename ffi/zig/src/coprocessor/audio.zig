@@ -16,7 +16,7 @@
 //   - Echo cancellation (NLMS adaptive filter, SIMD dot product)
 //
 // All functions operate on f32 sample buffers. The BEAM passes PCM data
-// as Erlang binaries; the NIF layer handles marshalling.
+// as byte buffers; the future SNIF guest adapter handles marshalling.
 
 const std = @import("std");
 const math = std.math;

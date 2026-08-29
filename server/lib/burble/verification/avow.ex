@@ -18,7 +18,8 @@
 #   - Consent lifecycle: requested → confirmed → active → revoked
 #   - Each transition produces a formally verified attestation token
 #   - Dependent types ensure invalid states are uncompilable
-#   - Zig FFI bridge calls the Idris2-verified ABI from Elixir via NIF
+#   - Idris2 ABI and Zig/SNIF conformance remain explicit proof obligations;
+#     no application-owned direct NIF bridge is permitted
 #
 # Dogfooding note:
 #   This is Avow's first real-world deployment beyond email consent.
@@ -127,18 +128,19 @@ defmodule Burble.Verification.Avow do
     entity_id = "room:#{room_id}|user:#{user_id}"
     prev = chain_head(:membership, entity_id)
 
-    attestation = build_attestation(
-      subject_id: user_id,
-      action: :room_join,
-      consent_state: :active,
-      granted_by: granted_by,
-      previous_attestation: prev,
-      metadata: %{
-        room_id: room_id,
-        mechanism: mechanism,
-        invite_token: invite_token
-      }
-    )
+    attestation =
+      build_attestation(
+        subject_id: user_id,
+        action: :room_join,
+        consent_state: :active,
+        granted_by: granted_by,
+        previous_attestation: prev,
+        metadata: %{
+          room_id: room_id,
+          mechanism: mechanism,
+          invite_token: invite_token
+        }
+      )
 
     append_to_chain(:membership, entity_id, attestation)
     {:ok, attestation}
@@ -156,17 +158,18 @@ defmodule Burble.Verification.Avow do
     entity_id = "room:#{room_id}|user:#{user_id}"
     prev = chain_head(:membership, entity_id)
 
-    attestation = build_attestation(
-      subject_id: user_id,
-      action: :room_leave,
-      consent_state: :revoked,
-      granted_by: granted_by,
-      previous_attestation: prev,
-      metadata: %{
-        room_id: room_id,
-        reason: reason
-      }
-    )
+    attestation =
+      build_attestation(
+        subject_id: user_id,
+        action: :room_leave,
+        consent_state: :revoked,
+        granted_by: granted_by,
+        previous_attestation: prev,
+        metadata: %{
+          room_id: room_id,
+          reason: reason
+        }
+      )
 
     append_to_chain(:membership, entity_id, attestation)
     {:ok, attestation}
@@ -179,16 +182,17 @@ defmodule Burble.Verification.Avow do
   at this time, within the permission hierarchy.
   """
   def attest_permission_grant(user_id, permission, granted_by, scope) do
-    attestation = build_attestation(
-      subject_id: user_id,
-      action: :permission_grant,
-      consent_state: :active,
-      granted_by: granted_by,
-      metadata: %{
-        permission: permission,
-        scope: scope
-      }
-    )
+    attestation =
+      build_attestation(
+        subject_id: user_id,
+        action: :permission_grant,
+        consent_state: :active,
+        granted_by: granted_by,
+        metadata: %{
+          permission: permission,
+          scope: scope
+        }
+      )
 
     {:ok, attestation}
   end
@@ -199,17 +203,19 @@ defmodule Burble.Verification.Avow do
   Proves: this moderation action was taken by an authorised moderator,
   at this time, under this authority (role-based).
   """
-  def attest_moderation(target_id, action, moderator_id, reason) when action in [:kick, :ban, :mute, :timeout] do
-    attestation = build_attestation(
-      subject_id: target_id,
-      action: :"mod_#{action}",
-      consent_state: :revoked,
-      granted_by: moderator_id,
-      metadata: %{
-        reason: reason,
-        action_type: action
-      }
-    )
+  def attest_moderation(target_id, action, moderator_id, reason)
+      when action in [:kick, :ban, :mute, :timeout] do
+    attestation =
+      build_attestation(
+        subject_id: target_id,
+        action: :"mod_#{action}",
+        consent_state: :revoked,
+        granted_by: moderator_id,
+        metadata: %{
+          reason: reason,
+          action_type: action
+        }
+      )
 
     {:ok, attestation}
   end
@@ -221,16 +227,17 @@ defmodule Burble.Verification.Avow do
   at this time, and the invite was valid (not expired, not overused).
   """
   def attest_invite_acceptance(user_id, invite_token, server_id) do
-    attestation = build_attestation(
-      subject_id: user_id,
-      action: :invite_accept,
-      consent_state: :confirmed,
-      granted_by: user_id,
-      metadata: %{
-        invite_token: invite_token,
-        server_id: server_id
-      }
-    )
+    attestation =
+      build_attestation(
+        subject_id: user_id,
+        action: :invite_accept,
+        consent_state: :confirmed,
+        granted_by: user_id,
+        metadata: %{
+          invite_token: invite_token,
+          server_id: server_id
+        }
+      )
 
     {:ok, attestation}
   end

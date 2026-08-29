@@ -6,32 +6,29 @@
 # whichever backend is fastest for that specific operation. The dispatch table
 # is based on benchmarks (same approach as Axiom.jl's matmul→Julia, gelu→Zig).
 #
-# Current dispatch table (to be updated with real benchmarks):
+# Current safe dispatch table. Historical direct-NIF microbenchmarks are not a
+# production routing claim and must be re-established for proved SNIF guests:
 #
-# Benchmark results (2026-03-16, Zig 0.15, Erlang/OTP 28, 960-sample frames):
-#
-#   Audio encode           → Zig  (5.7x faster:  14µs vs 81µs)
-#   Audio decode           → Zig  (4.7x faster:  21µs vs 99µs)
-#   Audio noise gate       → SNIF (crash-isolated) → Zig  (1.2x faster:  27µs vs 32µs — marginal)
-#   Audio echo cancel      → SNIF (crash-isolated) → Zig  (62.6x faster: 310µs vs 19.4ms — CRITICAL)
+#   Audio encode/decode    → BEAM reference
+#   Audio noise gate       → SNIF when proved/available, otherwise BEAM reference
+#   Audio echo cancel      → SNIF when proved/available, otherwise BEAM reference
 #   Crypto encrypt/decrypt → Elixir (Erlang :crypto is native OpenSSL — 2µs)
 #   Crypto hash chain      → Elixir (same — 2µs)
 #   Crypto derive key      → Elixir (same — 5µs)
 #   I/O jitter buffer      → Elixir (data structure ops — <1µs)
 #   I/O conceal loss       → Elixir (simple ops)
 #   I/O adaptive bitrate   → Elixir (trivial arithmetic — <1µs)
-#   DSP FFT (256)          → SNIF (crash-isolated) → Zig  (37x faster:   22µs vs 826µs)
-#   DSP convolve (64x32)   → Zig  (28x faster:   11µs vs 311µs)
-#   DSP mix                → Elixir (Zig NIF not wired for complex marshalling)
-#   Neural denoise         → Zig  (6.7x faster:  8µs vs 54µs)
+#   DSP FFT/IFFT           → SNIF when proved/available, otherwise BEAM reference
+#   DSP convolve/mix       → BEAM reference
+#   Neural denoise         → BEAM reference
 #   Neural classify        → Elixir (simple heuristic — 190µs)
 
 defmodule Burble.Coprocessor.SmartBackend do
   @moduledoc """
-  Smart dispatcher that routes each kernel operation to the fastest backend.
+  Smart dispatcher that routes eligible kernels to SNIF when it is available.
 
-  If the Zig backend is not available, all operations fall back to Elixir.
-  When Zig is available, operations are dispatched per the benchmark table.
+  All other operations use the BEAM reference. `ZigBackend` remains only as a
+  compatibility facade and never loads application-owned native code.
   """
 
   @behaviour Burble.Coprocessor.Backend
@@ -52,7 +49,7 @@ defmodule Burble.Coprocessor.SmartBackend do
   # Dispatch helpers
   # ---------------------------------------------------------------------------
 
-  # Route to Zig if available, otherwise Elixir.
+  # Compatibility dispatch; ZigBackend.available?/0 is deliberately false.
   defp zig_or_elixir do
     if ZigBackend.available?(), do: ZigBackend, else: ElixirBackend
   end
@@ -88,8 +85,7 @@ defmodule Burble.Coprocessor.SmartBackend do
   @impl true
   def audio_noise_gate(pcm, threshold_db) do
     # Route through SNIF (crash-isolated WASM) when the backend is available,
-    # otherwise fall back to Zig → Elixir as before.
-    # 1.2x Zig advantage — marginal but consistent; SNIF adds ~10-15% on top.
+    # otherwise fall back to the BEAM reference.
     if SNIFBackend.available?() do
       SNIFBackend.snif_noise_gate(pcm, threshold_db)
     else
@@ -100,7 +96,7 @@ defmodule Burble.Coprocessor.SmartBackend do
   @impl true
   def audio_echo_cancel(capture, reference, filter_length) do
     # Route through SNIF (crash-isolated WASM) when the backend is available.
-    # Normalise return type: Zig NIF wraps in {:ok, list}, Elixir returns plain list.
+    # Normalise the guest/reference return forms.
     raw =
       if SNIFBackend.available?() do
         SNIFBackend.snif_echo_cancel(capture, reference, filter_length)
@@ -186,12 +182,12 @@ defmodule Burble.Coprocessor.SmartBackend do
   end
 
   # ---------------------------------------------------------------------------
-  # DSP kernel — dispatch (SIMD-friendly workloads → Zig)
+  # DSP kernel — dispatch (eligible workloads → SNIF)
   # ---------------------------------------------------------------------------
 
   @impl true
   def dsp_fft(signal, size) do
-    # Try SNIF first (crash-isolated), fallback to Zig, then Elixir
+    # Try SNIF first, then the BEAM reference.
     if SNIFBackend.available?() do
       SNIFBackend.dsp_fft(signal, size)
     else
@@ -201,7 +197,7 @@ defmodule Burble.Coprocessor.SmartBackend do
 
   @impl true
   def dsp_ifft(spectrum, size) do
-    # Try SNIF first (crash-isolated), fallback to Zig, then Elixir
+    # Try SNIF first, then the BEAM reference.
     if SNIFBackend.available?() do
       SNIFBackend.dsp_ifft(spectrum, size)
     else

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 defmodule Burble.Coprocessor.SNIFBackendTest do
   use ExUnit.Case, async: true
-  alias Burble.Coprocessor.{SNIFBackend, ZigBackend}
+  alias Burble.Coprocessor.{ElixirBackend, SNIFBackend}
 
   test "backend_type returns :snif" do
     assert SNIFBackend.backend_type() == :snif
@@ -16,12 +16,12 @@ defmodule Burble.Coprocessor.SNIFBackendTest do
   end
 
   describe "FFT operations" do
-    test "dsp_fft falls back to ZigBackend when SNIF unavailable" do
+    test "dsp_fft falls back to the BEAM reference when SNIF unavailable" do
       # Simple 4-point signal
       signal = [1.0, 0.0, -1.0, 0.0]
       size = 4
 
-      # Since SNIF is unavailable, should fallback to ZigBackend
+      # Missing/unproved SNIF artifacts must not reactivate an in-VM NIF.
       result = SNIFBackend.dsp_fft(signal, size)
 
       # Should get valid FFT result (format: [{real, imag}, ...])
@@ -30,7 +30,7 @@ defmodule Burble.Coprocessor.SNIFBackendTest do
       assert hd(result) |> tuple_size() == 2
     end
 
-    test "dsp_ifft falls back to ZigBackend when SNIF unavailable" do
+    test "dsp_ifft falls back to the BEAM reference when SNIF unavailable" do
       # Create simple spectrum: DC component only
       spectrum = [{1.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}]
       size = 4
@@ -44,10 +44,9 @@ defmodule Burble.Coprocessor.SNIFBackendTest do
   end
 
   describe "other operations" do
-    test "audio operations fallback to ZigBackend" do
+    test "audio operations fall back to the BEAM reference" do
       pcm = [0.1, -0.1, 0.2, -0.2]
 
-      # These should all fallback to ZigBackend
       assert SNIFBackend.audio_noise_gate(pcm, -40.0) |> is_list()
       assert SNIFBackend.audio_encode(pcm, 48000, 1, 32000) |> tuple_size() == 2
     end
@@ -63,15 +62,15 @@ defmodule Burble.Coprocessor.SNIFBackendTest do
       assert missing == []
     end
 
-    test "non-WASM kernels follow the documented Zig fallback chain" do
+    test "non-WASM kernels follow the documented BEAM fallback chain" do
       pcm = [0.1, -0.2, 0.3, -0.4]
       state = %{gain: 1.0}
 
       assert SNIFBackend.audio_agc(pcm, -20.0, 10.0, 100.0, state) ==
-               ZigBackend.audio_agc(pcm, -20.0, 10.0, 100.0, state)
+               ElixirBackend.audio_agc(pcm, -20.0, 10.0, 100.0, state)
 
       assert SNIFBackend.crypto_hash_chain(<<0::256>>, "frame") ==
-               ZigBackend.crypto_hash_chain(<<0::256>>, "frame")
+               ElixirBackend.crypto_hash_chain(<<0::256>>, "frame")
     end
   end
 

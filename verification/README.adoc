@@ -10,7 +10,7 @@ Phase 0 truth-reconciliation pass.
 
 Where the real verification artifacts actually live:
 
-* *Formal proofs* — `src/Burble/ABI/*.idr` (Idris2; 7/7 modules compile —
+* *Formal proofs* — `src/Burble/ABI/*.idr` (Idris2; all 9 package modules compile —
   design assurance only, no runtime enforcement; see ADR-0008 and
   link:../BURBLE-PROOF-STATUS.md[BURBLE-PROOF-STATUS.md]).
 * *Server tests* — `server/test/` (ExUnit; status and known failures in

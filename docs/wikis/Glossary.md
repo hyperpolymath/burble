@@ -11,7 +11,7 @@ Burble-specific terminology and the names of the cross-project tools it depends 
 
 **AffineScript** — Burble's web-client language, a ReScript superset that adds affine types (used once, dropped) for resource-safety guarantees. Migration in progress (Phase 5 ≈ 95%); `.affine` and `.res` siblings coexist during the migration.
 
-**Avow** — One of the seven Idris2 ABI proof modules ([`src/Burble/ABI/Avow.idr`](https://github.com/hyperpolymath/burble/blob/main/src/Burble/ABI/Avow.idr)). Proves attestation-chain non-circularity.
+**Avow** — One of the nine Idris2 ABI package modules ([`src/Burble/ABI/Avow.idr`](https://github.com/hyperpolymath/burble/blob/main/src/Burble/ABI/Avow.idr)). Proves attestation-chain non-circularity.
 
 ## B
 

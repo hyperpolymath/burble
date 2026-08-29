@@ -1,13 +1,22 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Burble Proof Status
 
-**Short version (verified 2026-05-20, Idris2 0.8.0).** **All 7 of 7 ABI modules now compile and type-check** — `Types`, `Foreign`, `WebRTCSignaling`, `Permissions`, `Avow`, `Vext`, `MediaPipeline`. The `MediaPipeline.idr` `postulate resampleFrame` (Idris1 syntax, parse error on Idris2) was replaced with a pure-Idris2 linear-interpolation implementation; the companion Zig `burble_resample` in `ffi/zig/src/ffi.zig` implements the same algorithm for the production runtime path (issue #60 resolved). `just build-proofs` now succeeds end-to-end across all 7 modules. Per ADR-0007 the "formally verified" claim is type-check-level for all seven.
+**Short version (verified 2026-08-29, Idris2 0.7.0).** **All 9 package
+modules compile and type-check**: `Types`, `Foreign`, `NearbyPresence`,
+`BleSpa`, `WebRTCSignaling`, `MediaPipeline`, `Vext`, `Permissions`, and
+`Avow`. The `BleSpa` constant references were qualified so Idris2 does not
+implicitly rebind their lowercase names. `just build-proofs` succeeds. Per
+ADR-0007 this is type-check-level design assurance; runtime conformance of the
+Zig/SNIF implementation remains an open proof obligation.
 
 ## Current ABI proofs (all compile)
 
 | Module | File |
 |---|---|
 | Types | `src/Burble/ABI/Types.idr` |
+| Foreign | `src/Burble/ABI/Foreign.idr` |
+| NearbyPresence | `src/Burble/ABI/NearbyPresence.idr` |
+| BleSpa (wire layout + rendezvous state machine) | `src/Burble/ABI/BleSpa.idr` |
 | Permissions | `src/Burble/ABI/Permissions.idr` |
 | Avow (attestation chain non-circularity) | `src/Burble/ABI/Avow.idr` |
 | Vext (hash chain + capability subsumption) | `src/Burble/ABI/Vext.idr` |
@@ -25,6 +34,8 @@ These modules **compile** but their *runtime enforcement* is incomplete — see 
 - **Avow** — `server/lib/burble/verification/avow.ex` is data-type-only. No dependent-type verification at runtime. Phase 1 replaces with hash-chain audit log + property test.
 - **LLM** — no `LLM.idr` proof of frame protocol well-formedness. Phase 2 target.
 - **Timing** — no `Timing.idr` proof of best-source monotonicity. Phase 4 target.
+- **SNIF buffer ABI** — guest artifacts and model↔Zig↔WASM conformance are not
+  established. Idris type-checking does not prove the runtime boundary.
 
 ## History
 
@@ -50,11 +61,13 @@ The `src/interface/abi/` tree is marked **deferred to Phase 1 module-path cleanu
 | `Burble.ABI.Avow` | Compiles (imports: `Data.Nat`; non-circularity theorem proven) |
 | `Burble.ABI.Permissions` | Compiles (imports: `Data.Nat`; role-hierarchy proofs) |
 | `Burble.ABI.Vext` | Compiles (imports: `Data.Nat`, `Data.Vect`; chain monotonicity proofs) |
-| `Burble.ABI.MediaPipeline` | Compiles (imports: `Burble.ABI.Types`, `Data.Vect`; 1 postulate — see below) |
+| `Burble.ABI.MediaPipeline` | Compiles (imports: `Burble.ABI.Types`, `Data.Vect`; no postulate) |
 | `Burble.ABI.WebRTCSignaling` | Compiles (imports: none extra; JSEP state machine proofs) |
+| `Burble.ABI.NearbyPresence` | Compiles (presence-zone invariants) |
+| `Burble.ABI.BleSpa` | Compiles (24-byte layout and transition exclusions) |
 
-**Postulate debt:**
-- `postulate resampleFrame` in `MediaPipeline.idr` — the resampling computation (interpolation/decimation) is performed by the Zig FFI layer. Deferred to Phase 3 when `burble_resample` NIF ships. Postulates compile cleanly; they only affect proof totality.
+**Postulate debt:** none in the package modules. Runtime implementation
+conformance is separate and remains open; no direct NIF may be used to close it.
 
 **Unsafe FFI debt:**
 - `prim__registerCallback` in `Burble.ABI.Foreign` is intentionally unexposed. C→Idris callbacks require `believe_me` casts (tracked upstream in idris2#3182). Phase 0 replaces callback usage with `pollEvents` (lock-free ring buffer polling). No `believe_me` or `assert_total` in any module.

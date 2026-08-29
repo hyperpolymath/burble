@@ -48,12 +48,15 @@ payloadBytes = 24
 
 ||| The knock fields exactly tile the frozen 24-byte payload.
 public export
-knockLayoutTotal : envelopeBytes + nonceBytes + macBytes = payloadBytes
+knockLayoutTotal :
+  Burble.ABI.BleSpa.envelopeBytes +
+  Burble.ABI.BleSpa.nonceBytes +
+  Burble.ABI.BleSpa.macBytes = Burble.ABI.BleSpa.payloadBytes
 knockLayoutTotal = Refl
 
 ||| The MAC truncation is 96 bits (ADR-0015 D3).
 public export
-macIs96Bits : macBytes * 8 = 96
+macIs96Bits : Burble.ABI.BleSpa.macBytes * 8 = 96
 macIs96Bits = Refl
 
 -- ---------------------------------------------------------------------------

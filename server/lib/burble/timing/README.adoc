@@ -32,4 +32,8 @@ The Phc2sys supervisor sits below the OTP supervision tree: if it exits, only th
 
 == Current status
 
-PTP hardware path (`ptp_hardware`) is code-complete including the Zig NIF stub (`ffi/zig/src/coprocessor/ptp.zig`) but has not been validated against real hardware — the Intel I210 NIC has not yet arrived. All other paths (phc2sys, NTP, system) are operational. See `READINESS.adoc` for details.
+PTP hardware access is not provided by SNIF because device I/O is outside its
+numeric/buffer ABI. The Zig source is a kernel prototype, not an active adapter;
+production hardware access requires an isolated OS service and real-hardware
+validation. The phc2sys, NTP, and system paths remain available. See
+`READINESS.adoc` for details.

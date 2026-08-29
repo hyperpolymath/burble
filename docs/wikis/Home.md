@@ -25,7 +25,8 @@ This wiki is the *signpost* — the canonical docs live in the repo. Edit `docs/
 ## What Burble is
 
 - **Self-hostable**: one container, one command. No SaaS dependency.
-- **Voice-first**: WebRTC media plane with Membrane SFU, Zig SIMD NIFs for the hot path.
+- **Voice-first**: WebRTC media plane with an SFU and Zig kernel sources for
+  future proved ReleaseSafe SNIF guests.
 - **Low latency**: target <10ms end-to-end (status: kernel benchmarks done; full mic-to-speaker bench pending — see [#52](https://github.com/hyperpolymath/burble/issues/52)).
 - **Browser-native**: no downloads. Open the page, allow mic, paste a code.
 - **P2P optional**: full peer-to-peer mode via the `p2p-voice.html` client + WebRTC data channel. No server required for two-party calls.
