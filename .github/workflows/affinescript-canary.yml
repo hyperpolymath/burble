@@ -32,7 +32,8 @@ permissions:
   contents: read
 env:
   AFFINESCRIPT_REPO: hyperpolymath/affinescript
-  AFFINESCRIPT_REF: fc37bb5896de24cefe65dbfc5cd657a2d0087df7 # main as of 2026-05-02; bump as needed
+  # Immutable main commit that includes the tracked bin/dune executable rule.
+  AFFINESCRIPT_REF: 383772eb7fb5193a4bc3ecab4795f8af81958b77
   OCAML_COMPILER: '5.1'
 jobs:
   # ---------------------------------------------------------------------------
