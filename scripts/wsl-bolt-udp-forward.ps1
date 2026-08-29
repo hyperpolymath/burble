@@ -352,9 +352,15 @@ function Install-Service {
     # %ProgramData% which is admin-only by default, but the service runs
     # as a normal user and needs to append to relay.log.
     try {
+        $aclIdentity = $cred.UserName
+        if ($aclIdentity -match '^\.\\(.+)$') {
+            # FileSystemAccessRule cannot translate PowerShell's local-account
+            # shorthand. Use the canonical machine-qualified NT account name.
+            $aclIdentity = "$env:COMPUTERNAME\$($Matches[1])"
+        }
         $acl  = Get-Acl $script:InstallDir
         $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $cred.UserName, 'Modify',
+            $aclIdentity, 'Modify',
             'ContainerInherit,ObjectInherit', 'None', 'Allow')
         $acl.SetAccessRule($rule)
         Set-Acl -Path $script:InstallDir -AclObject $acl
