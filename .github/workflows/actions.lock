@@ -33,6 +33,8 @@ workflows:
         - 'hyperpolymath/standards@d7c22711e830e1f383846472f6e9b99debdb201e'
     '.github/workflows/hypatia-scan.yml':
         - 'hyperpolymath/standards@d7c22711e830e1f383846472f6e9b99debdb201e'
+    '.github/workflows/idris-abi.yml':
+        - 'actions/checkout@v7.0.1'
     '.github/workflows/install-roundtrip.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/install-tests.yml':

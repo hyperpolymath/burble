@@ -1,4 +1,3 @@
-# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # This workflow is managed by gh actions-lock.
 # Estate SPARK Theatre Gate — thin caller of the reusable workflow in
@@ -15,8 +14,7 @@ permissions:
   contents: read
 jobs:
   spark-theatre-gate:
-    timeout-minutes: 10
-    uses: hyperpolymath/standards/.github/workflows/spark-theatre-gate.yml@fc7abf589b93f9a33b8af74dbfe98ba22707156f
+    uses: hyperpolymath/standards/.github/workflows/spark-theatre-gate.yml@4d104d325b96c348d685956c6678139640c15c4b
     with:
       paths: "."
       enforce_zero_contract: false

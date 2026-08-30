@@ -81,7 +81,7 @@ clampFin (S k) (S m)   = FS (clampFin k m)
 ||| Mirrors the Zig `burble_resample` in `ffi/zig/src/ffi.zig`; both sides
 ||| implement the same linear-interpolation algorithm, so the formal
 ||| model and the production runtime agree by construction.
-||| Replaces the pre-Idris2-0.8.0 `postulate resampleFrame` placeholder
+||| Replaces the pre-Idris2-0.8.0 unproved resampler placeholder
 ||| (epic #53 / issue #60).
 public export
 resampleFrame : {from, to : SampleRate} -> {ch : Channels}

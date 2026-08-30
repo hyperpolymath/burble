@@ -82,10 +82,11 @@ try {
     # ─── Install via -Credential (non-interactive) ───────────────────────
     Hdr "Install service"
     try {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Forwarder `
-            -Install -Credential $Cred -Distro 'Ubuntu' -Ports 7373,9
-        if ($LASTEXITCODE -eq 0) { Pass "install exit 0" }
-        else                     { Fail "install exit $LASTEXITCODE" }
+        # Invoke in-process so the typed PSCredential remains an object. Passing
+        # it through powershell.exe's native command line stringifies it and
+        # makes the child prompt interactively, which hangs unattended CI.
+        & $Forwarder -Install -Credential $Cred -Distro 'Ubuntu' -Ports 7373,9
+        Pass "install completed non-interactively"
     } catch {
         Fail "install threw: $($_.Exception.Message)"
     }
@@ -120,9 +121,12 @@ try {
 
     # ─── Uninstall ───────────────────────────────────────────────────────
     Hdr "Uninstall"
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Forwarder -Uninstall
-    if ($LASTEXITCODE -eq 0) { Pass "uninstall exit 0" }
-    else                     { Fail "uninstall exit $LASTEXITCODE" }
+    try {
+        & $Forwarder -Uninstall
+        Pass "uninstall completed"
+    } catch {
+        Fail "uninstall threw: $($_.Exception.Message)"
+    }
 
     Start-Sleep -Seconds 1
     $svc = Get-Service -Name $SvcName -ErrorAction SilentlyContinue

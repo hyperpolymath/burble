@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Burble Proof Status
 
-**Short version (verified 2026-08-29, Idris2 0.7.0).** **All 9 package
-modules compile and type-check**: `Types`, `Foreign`, `NearbyPresence`,
+**Short version (verified 2026-08-29, Idris2 0.7.0).** **All 10 package
+modules compile and type-check**: the `Burble.ABI` aggregate plus `Types`,
+`Foreign`, `NearbyPresence`,
 `BleSpa`, `WebRTCSignaling`, `MediaPipeline`, `Vext`, `Permissions`, and
 `Avow`. The `BleSpa` constant references were qualified so Idris2 does not
 implicitly rebind their lowercase names. `just build-proofs` succeeds. Per
@@ -13,6 +14,7 @@ Zig/SNIF implementation remains an open proof obligation.
 
 | Module | File |
 |---|---|
+| Aggregate | `src/Burble/ABI.idr` |
 | Types | `src/Burble/ABI/Types.idr` |
 | Foreign | `src/Burble/ABI/Foreign.idr` |
 | NearbyPresence | `src/Burble/ABI/NearbyPresence.idr` |
@@ -36,10 +38,15 @@ These modules **compile** but their *runtime enforcement* is incomplete — see 
 - **Timing** — no `Timing.idr` proof of best-source monotonicity. Phase 4 target.
 - **SNIF buffer ABI** — guest artifacts and model↔Zig↔WASM conformance are not
   established. Idris type-checking does not prove the runtime boundary.
+- **Rust/Creusot** — the 57 tracked Rust files have no Creusot contracts or
+  verifier execution. Ordinary Rust tests are not a proof (issue #207).
 
 ## History
 
-The older, longer version of this file described compilation issues (module name mismatches, master ABI module not building). All of those are resolved — `src/ABI.idr` compiles and re-exports the six modules above. The stale doc was collapsed 2026-04-16 as part of Phase 0 scrub-baseline.
+The former aggregate `src/Burble/ABI.idr` was not in the package and failed
+when checked directly because it imported a nonexistent `UniversalABI`.
+Its certificate/report scaffold was therefore not proof evidence. The
+aggregate is now a package-built public import of the nine component modules.
 
 ## Phase 0 build-proofs status
 
@@ -56,6 +63,7 @@ The `src/interface/abi/` tree is marked **deferred to Phase 1 module-path cleanu
 
 | Module | Status |
 |---|---|
+| `Burble.ABI` | Compiles as the package aggregate; contains no certificate or runtime-conformance claim |
 | `Burble.ABI.Types` | Compiles (imports: `Data.Fin`, `Data.Vect`) |
 | `Burble.ABI.Foreign` | Compiles (imports: `Burble.ABI.Types`; live `%foreign` declarations) |
 | `Burble.ABI.Avow` | Compiles (imports: `Data.Nat`; non-circularity theorem proven) |
@@ -72,7 +80,9 @@ conformance is separate and remains open; no direct NIF may be used to close it.
 **Unsafe FFI debt:**
 - `prim__registerCallback` in `Burble.ABI.Foreign` is intentionally unexposed. C→Idris callbacks require `believe_me` casts (tracked upstream in idris2#3182). Phase 0 replaces callback usage with `pollEvents` (lock-free ring buffer polling). No `believe_me` or `assert_total` in any module.
 
-**Local smoke-test result (2026-05-19):** idris2 0.8.0 IS installed (`dev/tools/provers/idris2/0.8.0`); the prior "not installed" note was wrong. The recipe and package file were NOT correct: ipkg `sourcedir` resolved modules to a non-existent path and idris2's baked-in prefix pointed at a missing `~/.asdf` path. Both fixed. Verified per-module result above.
+**Local verifier result (2026-08-29):** `just build-proofs` type-checked the
+aggregate and all nine components. This is Idris2 model evidence only, not
+Zig/SNIF/runtime conformance.
 
 ## Phase 0 deploy-smoke status (Workstream 0.4)
 

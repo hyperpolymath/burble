@@ -286,10 +286,14 @@ section "setup.sh OS dispatch"
 
 # Run setup.sh with non-interactive opt-out and capture stdout. Verify
 # it reports the expected platform string for our actual OS.
-EXPECT="$(case "$(uname -s)" in
-    Linux*)  if grep -qi microsoft /proc/version 2>/dev/null; then echo wsl; else echo linux; fi ;;
-    Darwin*) echo macos ;;
-esac)"
+HOST_OS="$(uname -s)"
+case "$HOST_OS" in
+    Linux*)
+        if grep -qi microsoft /proc/version 2>/dev/null; then EXPECT=wsl; else EXPECT=linux; fi
+        ;;
+    Darwin*) EXPECT=macos ;;
+    *)       EXPECT= ;;
+esac
 
 if [ -n "$EXPECT" ]; then
     out=$(BURBLE_SKIP_PREFLIGHT=1 BURBLE_INSTALL_SERVICE=no \

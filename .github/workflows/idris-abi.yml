@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
+name: Idris2 ABI
+
+on:
+  pull_request:
+    paths:
+      - 'src/Burble/ABI.idr'
+      - 'src/Burble/ABI/**'
+      - 'Justfile'
+      - 'PROOF-NEEDS.md'
+      - 'BURBLE-PROOF-STATUS.md'
+      - '.github/workflows/idris-abi.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/Burble/ABI.idr'
+      - 'src/Burble/ABI/**'
+      - 'Justfile'
+      - 'PROOF-NEEDS.md'
+      - 'BURBLE-PROOF-STATUS.md'
+      - '.github/workflows/idris-abi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Type-check Idris2 ABI model
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/stefan-hoeck/idris2-pack@sha256:f0758996a931fb35d9ecb1de273c4d59dabe2a09b433afc7e357f65a08b7e1ff
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Reject unreviewed escape hatches
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.idr' --include='*.lidr' \
+              'believe_me|assert_total|assert_smaller|unsafePerformIO|(^|[^[:alnum:]_])postulate([^[:alnum:]_]|$)' \
+              src/Burble/ABI.idr src/Burble/ABI; then
+            echo '::error::Idris2 ABI source contains an unreviewed proof escape hatch'
+            exit 1
+          fi
+      - name: Type-check aggregate and component modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd src/Burble/ABI
+          idris2 --build burble-abi.ipkg
