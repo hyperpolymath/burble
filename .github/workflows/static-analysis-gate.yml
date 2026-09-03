@@ -81,13 +81,19 @@ jobs:
         if: steps.install.outputs.installed == 'true'
         run: |
           # Convert JSON findings into GitHub Actions annotations
-          jq -r '.[] | select(.file != null) |
+          # Findings carry no `.message` (keys: action,file,line,reason,rule_module,
+          # severity,type), so every annotation read "null". `.file` is an absolute
+          # runner path, which GitHub cannot anchor to the diff, so it is made
+          # workspace-relative here.
+          jq -r --arg ws "$GITHUB_WORKSPACE" '.[] | select(.file != null) |
+            (.file | ltrimstr($ws + "/")) as $f |
+            (.reason // .message // .type // "finding") as $m |
             if .severity == "critical" then
-              "::error file=\(.file),line=\(.line // 1)::[panic-attack] \(.message)"
+              "::error file=\($f),line=\(.line // 1)::[panic-attack] \($m)"
             elif .severity == "high" then
-              "::error file=\(.file),line=\(.line // 1)::[panic-attack] \(.message)"
+              "::error file=\($f),line=\(.line // 1)::[panic-attack] \($m)"
             else
-              "::warning file=\(.file),line=\(.line // 1)::[panic-attack] \(.message)"
+              "::warning file=\($f),line=\(.line // 1)::[panic-attack] \($m)"
             end
           ' panic-attack-findings.json || true
       - name: Write step summary
@@ -200,13 +206,19 @@ jobs:
       - name: Emit check annotations
         if: steps.build.outputs.ready == 'true'
         run: |
-          jq -r '.[] | select(.file != null) |
+          # Findings carry no `.message` (keys: action,file,line,reason,rule_module,
+          # severity,type), so every annotation read "null". `.file` is an absolute
+          # runner path, which GitHub cannot anchor to the diff, so it is made
+          # workspace-relative here.
+          jq -r --arg ws "$GITHUB_WORKSPACE" '.[] | select(.file != null) |
+            (.file | ltrimstr($ws + "/")) as $f |
+            (.reason // .message // .type // "finding") as $m |
             if .severity == "critical" then
-              "::error file=\(.file),line=\(.line // 1)::[hypatia] \(.message)"
+              "::error file=\($f),line=\(.line // 1)::[hypatia] \($m)"
             elif .severity == "high" then
-              "::error file=\(.file),line=\(.line // 1)::[hypatia] \(.message)"
+              "::error file=\($f),line=\(.line // 1)::[hypatia] \($m)"
             else
-              "::warning file=\(.file),line=\(.line // 1)::[hypatia] \(.message)"
+              "::warning file=\($f),line=\(.line // 1)::[hypatia] \($m)"
             end
           ' hypatia-findings.json || true
       - name: Write step summary
