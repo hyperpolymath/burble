@@ -40,7 +40,9 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           repository: metadatastician/gossamer
-          ref: 8a99e6422439f0313b642a0ca1ba2708fdfe6344
+          # Includes the full-width, 32-bit-safe lease/counter implementation;
+          # native acceptance passed on this exact Gossamer revision.
+          ref: d9ac9890e7d7b2a7ea0379206936df23d2c9fe45
           path: gossamer
           persist-credentials: false
       - uses: erlef/setup-beam@v1.24.1
