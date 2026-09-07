@@ -82,10 +82,7 @@ workflows:
     '.github/workflows/rhodibot.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/scorecard.yml':
-        - 'actions/checkout@v7.0.1'
-        - 'github/codeql-action@v4.37.9'
         - 'hyperpolymath/standards@fcb566cfb8a86cea2d3666bf65a4f177a49b1313'
-        - 'ossf/scorecard-action@v2.4.4'
     '.github/workflows/secret-scanner.yml':
         - 'hyperpolymath/standards@fcb566cfb8a86cea2d3666bf65a4f177a49b1313'
     '.github/workflows/spark-theatre-gate.yml':
