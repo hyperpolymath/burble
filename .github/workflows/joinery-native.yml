@@ -1,5 +1,5 @@
-# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # This workflow is managed by gh actions-lock.
 # Test this PR/merge-group revision against the reviewed counterpart commit.
 # Linux native signaling and GTK lifecycle only: NOT microphone/camera media.
