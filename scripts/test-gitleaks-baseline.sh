@@ -14,7 +14,7 @@ cp "$root/.machine_readable/test-vectors/ble-spa-v1.json" "$fixture/source/.mach
 cp "$root/server/test/burble_web/plugs/input_sanitizer_test.exs" "$fixture/source/server/test/burble_web/plugs/"
 cd "$fixture"
 "$scanner" detect --no-git --source source --config .gitleaks.toml --redact --verbose --exit-code 1
-# A generated, non-live credential-shaped canary is NOT one of the two
+# A generated, non-live credential-shaped canary is NOT one of the five
 # published conformance values. Appending it to that exact file detects any
 # accidental path-wide or general-hex allowlist. Never print its value.
 canary="$(openssl rand -hex 32)"
