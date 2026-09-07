@@ -18,7 +18,7 @@ permissions:
 jobs:
   scorecard:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@092dedada188f56c5915f74a5fd40aac093742c3
+    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@fcb566cfb8a86cea2d3666bf65a4f177a49b1313
     permissions:
       contents: read
       security-events: write
