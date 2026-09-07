@@ -1,8 +1,11 @@
+# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # This workflow is managed by gh actions-lock.
 name: Governance
 
 on:
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main, master]
   pull_request:

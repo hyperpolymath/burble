@@ -1,0 +1,45 @@
+# This workflow is managed by gh actions-lock.
+# SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
+name: Workflow safety
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+permissions:
+  contents: read
+jobs:
+  workflows:
+    name: Workflow syntax and action locks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install checksum-verified workflow validator
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/actionlint.tar.gz" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+      - name: Validate workflow schema and expressions
+        # ShellCheck has a separate legacy backlog in the consumer repositories;
+        # this check claims workflow-schema/expression coverage, not shell lint.
+        # Keep the explicitly disabled, unqualified Android device job disabled.
+        run: |
+          "$RUNNER_TEMP/actionlint" -shellcheck= -ignore 'constant expression "false" in condition'
+      - name: Prove malformed workflow rejection
+        run: |
+          printf 'jobs: [\n' > "$RUNNER_TEMP/rejected-workflow.yml"
+          if "$RUNNER_TEMP/actionlint" -shellcheck= "$RUNNER_TEMP/rejected-workflow.yml"; then
+            echo "::error::Malformed workflow was accepted"
+            exit 1
+          fi
+      - name: Verify authoritative action-lock coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh extension install github/gh-actions-lock --pin v0.1.6
+          gh actions-lock --verify-local
